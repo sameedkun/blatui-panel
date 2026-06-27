@@ -8,8 +8,13 @@
     "guidelines": true,
     "mcp": true,
     "nightwatch": false,
+    "packages": [
+        "anousss007/blatui"
+    ],
     "sail": false,
     "skills": [
-        "laravel-best-practices"
+        "laravel-best-practices",
+        "tailwindcss-development",
+        "blatui-development"
     ]
 }

@@ -1,1 +1,1 @@
-//
+import "./blatui.js";
