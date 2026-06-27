@@ -1,20 +1,25 @@
 {
     "agents": [
         "claude_code",
-        "codex",
-        "antigravity"
+        "antigravity",
+        "codex"
     ],
     "cloud": false,
     "guidelines": true,
     "mcp": true,
     "nightwatch": false,
     "packages": [
-        "anousss007/blatui"
+        "anousss007/blatui",
+        "spatie/laravel-permission",
+        "spatie/laravel-sluggable"
     ],
     "sail": false,
     "skills": [
         "laravel-best-practices",
+        "livewire-development",
         "tailwindcss-development",
-        "blatui-development"
+        "blatui-development",
+        "laravel-permission-development",
+        "sluggable-development"
     ]
 }

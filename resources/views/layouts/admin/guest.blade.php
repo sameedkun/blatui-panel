@@ -2,8 +2,8 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" x-bind:class="$store.theme.isDark ? 'dark' : ''">
 <head>
     @include('partials.admin.head', [
-        'title' => trim(View::yieldContent('title')),
-        'description' => trim(View::yieldContent('description')),
+        'title' => $title ?? '',
+        'description' => $description ?? null,
     ])
 </head>
 <body class="min-h-svh bg-background font-sans antialiased">

@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" x-bind:class="$store.theme.isDark ? 'dark' : ''">
+
 <head>
     @include('partials.admin.head', [
-        'title' => trim(View::yieldContent('title')),
-        'description' => trim(View::yieldContent('description')),
+        'title' => $title ?? '',
+        'description' => $description ?? null,
     ])
 </head>
+
 <body class="min-h-svh bg-background font-sans antialiased">
 
     <x-ui.sidebar-provider :defaultOpen="true">
@@ -32,7 +34,8 @@
 
                 <div class="ml-auto flex items-center gap-1">
                     {{-- Dark mode toggle --}}
-                    <x-ui.button variant="ghost" size="icon" @click="$store.theme.toggle()" aria-label="Toggle dark mode">
+                    <x-ui.button variant="ghost" size="icon" @click="$store.theme.toggle()"
+                        aria-label="Toggle dark mode">
                         <x-lucide-sun class="size-4 block dark:hidden" aria-hidden="true" />
                         <x-lucide-moon class="size-4 hidden dark:block" aria-hidden="true" />
                     </x-ui.button>
@@ -44,10 +47,13 @@
 
                     {{-- User avatar (desktop shortcut) --}}
                     <x-ui.avatar class="size-8 cursor-pointer rounded-full">
-                        <x-ui.avatar-image src="{{ auth()->user()->avatar ?? '' }}" alt="{{ auth()->user()->name ?? 'User' }}" />
-                        <x-ui.avatar-fallback class="text-xs">
-                            {{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 2)) }}
-                        </x-ui.avatar-fallback>
+                        @if (auth()->user()->avatar)
+                            <x-ui.avatar-image src="{{ auth()->user()->avatar }}" alt="{{ auth()->user()->name }}" />
+                        @else
+                            <x-ui.avatar-fallback class="text-xs">
+                                {{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 2)) }}
+                            </x-ui.avatar-fallback>
+                        @endif
                     </x-ui.avatar>
                 </div>
             </header>
@@ -60,7 +66,21 @@
 
     </x-ui.sidebar-provider>
 
+    <x-ui.sonner position="bottom-right" />
+
     @include('partials.admin.scripts')
 
+    {{-- Flash toast (fires after Livewire redirect) --}}
+    @if (session('toast'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                window.dispatchEvent(new CustomEvent('toast', {
+                    detail: @json(session('toast'))
+                }));
+            });
+        </script>
+    @endif
+
 </body>
+
 </html>
