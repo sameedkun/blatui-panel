@@ -27,9 +27,9 @@ return new class extends Migration
             $table->string('google_id')->nullable()->unique();
             $table->string('apple_id')->nullable()->unique();
             $table->string('avatar')->nullable();
-
+            
+            $table->string('type')->default('app')->index();
             $table->ulid('external_id')->nullable()->unique();
-            $table->boolean('is_temporary')->default(false)->index();
 
             $table->rememberToken();
             $table->timestamps();

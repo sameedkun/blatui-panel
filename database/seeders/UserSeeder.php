@@ -22,6 +22,7 @@ class UserSeeder extends Seeder
             'email' => config('panel.admin.email'),
             'password' => Hash::make(config('panel.admin.password')),
             'email_verified_at' => now(),
+            'type' => 'staff',
         ]);
         $admin->assignRole(config('panel.super_admin_role'));
 

@@ -36,16 +36,8 @@ class UserFactory extends Factory
             'last_login' => fake()->optional()->dateTimeBetween('-1 year', 'now'),
             'apple_id' => fake()->optional()->uuid(),
             'google_id' => fake()->optional()->uuid(),
+            'type' => fake()->randomElement(['app', 'guest']),
         ];
-    }
-
-    public function configure(): static
-    {
-        return $this->afterCreating(function (User $user) {
-            if (config('panel.app_user_role')) {
-                $user->assignRole(config('panel.app_user_role'));
-            }
-        });
     }
 
     /**

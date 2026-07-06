@@ -2,8 +2,8 @@
 
 namespace App\Livewire\Auth;
 
-use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -34,21 +34,35 @@ class Login extends Component
     {
         $this->validate();
 
-        $user = User::where('email', $this->email)->first();
+        $this->ensureIsNotRateLimited();
 
-        if (! $user) {
+        if (! Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
+            RateLimiter::hit($this->throttleKey());
+
             throw ValidationException::withMessages([
                 'email' => __('auth.failed'),
             ]);
         }
 
-        $this->ensureIsNotRateLimited();
+        $user = Auth::user();
 
-        if (! auth()->attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
+        // Must be staff AND able to access the panel.
+        // super-admin passes the permission check via Gate::before / seeded perms.
+        if (! $user->isStaff() || ! $user->can(config('panel.access')['admin'])) {
+            Auth::logout();
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
                 'email' => __('auth.failed'),
+            ]);
+        }
+
+        // Banned staff shouldn't get in either.
+        if ($user->isBanned()) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'email' => __('auth.banned'),
             ]);
         }
 
@@ -82,6 +96,6 @@ class Login extends Component
 
     protected function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->email).'|'.request()->ip());
+        return Str::transliterate(Str::lower($this->email) . '|' . request()->ip());
     }
 }

@@ -17,24 +17,8 @@ return [
     |--------------------------------------------------------------------------
     | Super Admin Role
     |--------------------------------------------------------------------------
-    |
-    | This role bypasses all permission checks via Gate::before().
-    | It cannot be deleted, renamed, or edited from the UI.
-    |
     */
     'super_admin_role' => 'super-admin',
-
-    /*
-    |--------------------------------------------------------------------------
-    | App User Role
-    |--------------------------------------------------------------------------
-    |
-    | Assigned to every user that registers via the mobile/web app.
-    | Has no panel access. Used as a marker to distinguish app users
-    | from staff/admin accounts in the same users table.
-    |
-    */
-    'app_user_role' => 'user',
 
     /*
     |--------------------------------------------------------------------------
@@ -42,14 +26,13 @@ return [
     |--------------------------------------------------------------------------
     |
     | These roles cannot be deleted or renamed from the panel UI.
-    | Always include super_admin_role and app_user_role here.
+    | Only real RBAC (staff) roles belong here. App users and guests are
+    | distinguished by the users.type column, not by a role.
     |
     */
     'protected_roles' => [
         'super-admin',
         'admin',
-        'user',
-        'guest',
     ],
 
     /*
@@ -155,6 +138,12 @@ return [
             'group' => 'users',
             'actions' => ['view', 'create', 'edit', 'delete', 'restore', 'force-delete', 'ban', 'unban', 'export', 'manage'],
             'icon' => 'users',
+        ],
+        'guests' => [
+            'label' => 'Guests',
+            'group' => 'users',
+            'actions' => ['view', 'delete', 'restore', 'force-delete', 'ban', 'unban', 'export', 'manage'],
+            'icon' => 'user-friends',
         ],
 
     ],

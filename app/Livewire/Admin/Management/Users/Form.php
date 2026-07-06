@@ -45,13 +45,10 @@ class Form extends BaseForm
     public function mount(?User $user = null): void
     {
         if ($user) {
-            abort_unless(auth()->user()->can('users.edit'), 403);
             $this->isEditing = true;
             $this->userId = $user->id;
             $this->name = $user->name;
             $this->email = $user->email;
-        } else {
-            abort_unless(auth()->user()->can('users.create'), 403);
         }
     }
 

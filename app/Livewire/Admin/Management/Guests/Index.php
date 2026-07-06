@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Admin\Management\Users;
+namespace App\Livewire\Admin\Management\Guests;
 
 use App\Livewire\Admin\BaseIndex;
 use App\Models\User;
@@ -10,7 +10,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 
 #[Layout('layouts.admin.app')]
-#[Title('Users')]
+#[Title('Guests')]
 class Index extends BaseIndex
 {
     // ── Single-row confirmation state ─────────────────────────────────────────
@@ -29,8 +29,6 @@ class Index extends BaseIndex
 
     public array $filters = [
         'status' => [],
-        'email_verified' => '',
-        'social' => [],
         'registered_from' => '',
         'registered_to' => '',
         'view' => '',
@@ -39,7 +37,7 @@ class Index extends BaseIndex
     // ── Base query ────────────────────────────────────────────────────────────
     protected function baseQuery(): Builder
     {
-        $query = User::query()->appUsers();
+        $query = User::query()->guests();
 
         if (($this->filters['view'] ?? '') === 'trashed') {
             $query->onlyTrashed();
@@ -72,32 +70,6 @@ class Index extends BaseIndex
                     });
                 },
             ],
-            'email_verified' => [
-                'label' => 'Email Verified',
-                'type' => 'select',
-                'options' => ['verified' => 'Verified', 'unverified' => 'Not verified'],
-                'apply' => fn (Builder $q, string $v): Builder => match ($v) {
-                    'verified' => $q->whereNotNull('email_verified_at'),
-                    'unverified' => $q->whereNull('email_verified_at'),
-                    default => $q,
-                },
-            ],
-            'social' => [
-                'label' => 'Social',
-                'type' => 'multi-select',
-                'options' => ['google' => 'Google', 'apple' => 'Apple'],
-                'apply' => function (Builder $q, array $values): Builder {
-                    return $q->where(function (Builder $sub) use ($values): void {
-                        foreach ($values as $v) {
-                            match ($v) {
-                                'google' => $sub->orWhereNotNull('google_id'),
-                                'apple' => $sub->orWhereNotNull('apple_id'),
-                                default => null,
-                            };
-                        }
-                    });
-                },
-            ],
             'registered_from' => [
                 'label' => 'Registered from',
                 'type' => 'date',
@@ -123,26 +95,27 @@ class Index extends BaseIndex
     {
         return [
             [
-                'label' => 'Total Users',
-                'value' => fn () => User::appUsers()->count(),
-                'icon' => 'users',
-                'description' => 'All registered accounts',
+                'label' => 'Total Guests',
+                'value' => fn () => User::guests()->count(),
+                'icon' => 'user',
+                'description' => 'All registered guest accounts',
             ],
             [
                 'label' => 'Active',
-                'value' => fn () => User::appUsers()->whereNull('banned_at')->count(),
+                'value' => fn () => User::guests()->whereNull('banned_at')->count(),
                 'icon' => 'user-check',
                 'description' => 'Not banned',
             ],
             [
                 'label' => 'Banned',
-                'value' => fn () => User::appUsers()->whereNotNull('banned_at')->count(),
+                'value' => fn () => User::guests()->whereNotNull('banned_at')->count(),
                 'icon' => 'user-x',
                 'description' => 'Banned accounts',
             ],
             [
                 'label' => 'New This Month',
-                'value' => fn () => User::appUsers()->whereMonth('registration_date', now()->month)
+                'value' => fn () => User::guests()
+                    ->whereMonth('registration_date', now()->month)
                     ->whereYear('registration_date', now()->year)
                     ->count(),
                 'icon' => 'user-plus',
@@ -160,16 +133,6 @@ class Index extends BaseIndex
                 'label' => 'Status',
                 'type' => 'multi-select',
                 'options' => ['active' => 'Active', 'banned' => 'Banned'],
-            ],
-            'email_verified' => [
-                'label' => 'Email',
-                'type' => 'select',
-                'options' => ['verified' => 'Verified', 'unverified' => 'Not verified'],
-            ],
-            'social' => [
-                'label' => 'Social',
-                'type' => 'multi-select',
-                'options' => ['google' => 'Google', 'apple' => 'Apple'],
             ],
             'registered' => [
                 'label' => 'Registered',
@@ -200,7 +163,7 @@ class Index extends BaseIndex
                     'label' => 'Restore',
                     'icon' => 'rotate-ccw',
                     'confirm' => true,
-                    'permission' => 'users.restore',
+                    'permission' => 'guests.restore',
                 ],
                 [
                     'key' => 'force-delete',
@@ -208,7 +171,7 @@ class Index extends BaseIndex
                     'icon' => 'trash-2',
                     'confirm' => true,
                     'variant' => 'destructive',
-                    'permission' => 'users.force-delete',
+                    'permission' => 'guests.force-delete',
                 ],
             ];
         }
@@ -220,14 +183,14 @@ class Index extends BaseIndex
                 'icon' => 'ban',
                 'confirm' => true,
                 'dialog_event' => 'open-dialog-bulk-ban',
-                'permission' => 'users.ban',
+                'permission' => 'guests.ban',
             ],
             [
                 'key' => 'unban',
                 'label' => 'Unban',
                 'icon' => 'shield-check',
                 'confirm' => true,
-                'permission' => 'users.unban',
+                'permission' => 'guests.unban',
             ],
             [
                 'key' => 'delete',
@@ -235,7 +198,7 @@ class Index extends BaseIndex
                 'icon' => 'trash',
                 'confirm' => true,
                 'variant' => 'destructive',
-                'permission' => 'users.delete',
+                'permission' => 'guests.delete',
             ],
         ];
     }
@@ -244,7 +207,7 @@ class Index extends BaseIndex
 
     public function openBanDialog(int $userId): void
     {
-        $this->authorize('users.ban');
+        $this->authorize('guests.ban');
         $this->banningUserId = $userId;
         $this->banReason = '';
         $this->dispatch('open-dialog-ban-user');
@@ -252,7 +215,7 @@ class Index extends BaseIndex
 
     public function confirmBan(): void
     {
-        $this->authorize('users.ban');
+        $this->authorize('guests.ban');
 
         $user = User::findOrFail($this->banningUserId);
         $user->update([
@@ -262,12 +225,12 @@ class Index extends BaseIndex
 
         $this->banningUserId = null;
         $this->banReason = '';
-        $this->toastSuccess("User {$user->name} has been banned.");
+        $this->toastSuccess("Guest {$user->name} has been banned.");
     }
 
     public function unban(int $userId): void
     {
-        $this->authorize('users.unban');
+        $this->authorize('guests.unban');
 
         $user = User::findOrFail($userId);
         $user->update(['banned_at' => null, 'ban_reason' => null]);
@@ -277,14 +240,14 @@ class Index extends BaseIndex
 
     public function confirmDelete(int $userId): void
     {
-        $this->authorize('users.delete');
+        $this->authorize('guests.delete');
         $this->deletingId = $userId;
         $this->dispatch('open-alert-dialog-delete-user');
     }
 
     public function delete(): void
     {
-        $this->authorize('users.delete');
+        $this->authorize('guests.delete');
 
         $user = User::findOrFail($this->deletingId);
         $name = $user->name;
@@ -296,14 +259,14 @@ class Index extends BaseIndex
 
     public function confirmRestore(int $userId): void
     {
-        $this->authorize('users.restore');
+        $this->authorize('guests.restore');
         $this->restoringId = $userId;
         $this->dispatch('open-alert-dialog-restore-user');
     }
 
     public function restore(): void
     {
-        $this->authorize('users.restore');
+        $this->authorize('guests.restore');
 
         $user = User::withTrashed()->findOrFail($this->restoringId);
         $user->restore();
@@ -314,14 +277,14 @@ class Index extends BaseIndex
 
     public function confirmForceDelete(int $userId): void
     {
-        $this->authorize('users.force-delete');
+        $this->authorize('guests.force-delete');
         $this->forceDeleteId = $userId;
         $this->dispatch('open-alert-dialog-force-delete-user');
     }
 
     public function forceDelete(): void
     {
-        $this->authorize('users.force-delete');
+        $this->authorize('guests.force-delete');
 
         $user = User::withTrashed()->findOrFail($this->forceDeleteId);
         $name = $user->name;
@@ -335,7 +298,7 @@ class Index extends BaseIndex
 
     public function executeBulkBan(): void
     {
-        $this->authorize('users.ban');
+        $this->authorize('guests.ban');
 
         $count = User::whereIn('id', $this->selectedIds)->update([
             'banned_at' => now(),
@@ -343,51 +306,51 @@ class Index extends BaseIndex
         ]);
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} users banned.");
+        $this->toastSuccess("{$count} guests banned.");
     }
 
     public function executeBulkUnban(): void
     {
-        $this->authorize('users.unban');
+        $this->authorize('guests.unban');
 
         $count = User::whereIn('id', $this->selectedIds)
             ->update(['banned_at' => null, 'ban_reason' => null]);
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} users unbanned.");
+        $this->toastSuccess("{$count} guests unbanned.");
     }
 
     public function executeBulkDelete(): void
     {
-        $this->authorize('users.delete');
+        $this->authorize('guests.delete');
 
         $count = count($this->selectedIds);
         User::whereIn('id', $this->selectedIds)->delete();
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} users deleted.");
+        $this->toastSuccess("{$count} guests deleted.");
     }
 
     public function executeBulkRestore(): void
     {
-        $this->authorize('users.restore');
+        $this->authorize('guests.restore');
 
         $count = count($this->selectedIds);
         User::withTrashed()->whereIn('id', $this->selectedIds)->restore();
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} users restored.");
+        $this->toastSuccess("{$count} guests restored.");
     }
 
     public function executeBulkForceDelete(): void
     {
-        $this->authorize('users.force-delete');
+        $this->authorize('guests.force-delete');
 
         $count = count($this->selectedIds);
         User::withTrashed()->whereIn('id', $this->selectedIds)->forceDelete();
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} users permanently deleted.");
+        $this->toastSuccess("{$count} guests permanently deleted.");
     }
 
     // ── Render ────────────────────────────────────────────────────────────────
@@ -396,7 +359,7 @@ class Index extends BaseIndex
     {
         $users = $this->getRecords();
 
-        return view('livewire.admin.management.users.index', [
+        return view('livewire.admin.management.guests.index', [
             'users' => $users,
             'pageIds' => $users->pluck('id')->map(fn ($id) => (string) $id)->toArray(),
             'stats' => $this->resolveStats(),
