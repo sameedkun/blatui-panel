@@ -35,7 +35,7 @@
                             :checked="@js($pageIds).length > 0 && @js($pageIds).every(id => $wire
                                 .selectedIds.includes(id))"
                             @change="$wire.toggleSelectPage(@js($pageIds))"
-                            class="size-4 cursor-pointer accent-primary" />
+                            class="blat-checkbox cursor-pointer dark:bg-input/30" />
                     </th>
                     <th class="px-4 py-3 text-left">
                         <button wire:click="sort('name')" class="flex items-center gap-1 font-medium text-foreground">
@@ -72,7 +72,7 @@
                         <td class="px-4 py-3">
                             <input type="checkbox" x-data :checked="$wire.selectedIds.includes('{{ $user->id }}')"
                                 @change="$wire.toggleSelection('{{ $user->id }}')"
-                                class="size-4 cursor-pointer accent-primary" />
+                                class="blat-checkbox cursor-pointer dark:bg-input/30" />
                         </td>
 
                         {{-- User cell: avatar + name + email + ext id --}}

@@ -54,7 +54,7 @@
             class="absolute top-full z-20 mt-1 min-w-[10rem] rounded-md border border-border bg-popover p-1 shadow-md">
             @foreach($options as $val => $optLabel)
             <label class="flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
-                <input type="checkbox" value="{{ $val }}" wire:model.live="filters.{{ $key }}" class="rounded border-input accent-primary" />
+                <input type="checkbox" value="{{ $val }}" wire:model.live="filters.{{ $key }}" class="blat-checkbox cursor-pointer dark:bg-input/30" />
                 {{ $optLabel }}
             </label>
             @endforeach
@@ -87,7 +87,7 @@
             class="absolute top-full z-20 mt-1 min-w-[10rem] rounded-md border border-border bg-popover p-1 shadow-md">
             @foreach($options as $val => $optLabel)
             <label class="flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
-                <input type="radio" name="{{ $key }}_filter" value="{{ $val }}" wire:model.live="filters.{{ $key }}" class="accent-primary" />
+                <input type="radio" name="{{ $key }}_filter" value="{{ $val }}" wire:model.live="filters.{{ $key }}" class="blat-radio cursor-pointer dark:bg-input/30" />
                 {{ $optLabel }}
             </label>
             @endforeach
