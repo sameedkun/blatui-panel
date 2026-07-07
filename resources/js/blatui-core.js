@@ -35,6 +35,10 @@ const themeStore = {
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
             if (this.mode === 'system') this.apply();
         });
+        // wire:navigate persists this Alpine store across soft-navigations, but the morph can
+        // reset <html>'s class/data-* attributes to match the freshly-fetched (server-rendered,
+        // theme-less) markup. Re-apply after every soft nav so the class doesn't silently drop.
+        document.addEventListener('livewire:navigated', () => this.apply());
         // Keep every same-origin document in sync (e.g. block-preview iframes):
         // localStorage writes in one document fire a `storage` event in the others.
         const defaults = { mode: this.darkMode === 'system' ? 'system' : 'light', base: 'neutral', preset: 'default', radius: '0.625', font: 'sans', shadow: 'default', spacing: 'default', tracking: 'normal', inputStyle: 'outline', fontHeading: 'sans' };
