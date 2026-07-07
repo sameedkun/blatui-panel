@@ -19,16 +19,27 @@
         search-placeholder="Search name, email, ID..." />
 
     {{-- Table --}}
+    @php
+        $isTrashedView = ($filters['view'] ?? '') === 'trashed';
+        $canBulkAct = $isTrashedView
+            ? auth()->user()->canAny(['guests.restore', 'guests.force-delete'])
+            : auth()->user()->canAny(['guests.ban', 'guests.unban', 'guests.delete']);
+        $canRowAct = $isTrashedView
+            ? auth()->user()->canAny(['guests.restore', 'guests.force-delete'])
+            : auth()->user()->canAny(['guests.ban', 'guests.delete']);
+    @endphp
     <div class="overflow-hidden rounded-md border border-border">
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b border-border bg-muted/40">
                     <th class="w-10 px-4 py-3 text-left">
-                        <input type="checkbox" x-data
-                            :checked="@js($pageIds).length > 0 && @js($pageIds).every(id => $wire
-                                .selectedIds.includes(id))"
-                            @change="$wire.toggleSelectPage(@js($pageIds))"
-                            class="blat-checkbox cursor-pointer dark:bg-input/30" />
+                        @if ($canBulkAct)
+                            <input type="checkbox" x-data
+                                :checked="@js($pageIds).length > 0 && @js($pageIds).every(id => $wire
+                                    .selectedIds.includes(id))"
+                                @change="$wire.toggleSelectPage(@js($pageIds))"
+                                class="blat-checkbox cursor-pointer dark:bg-input/30" />
+                        @endif
                     </th>
                     <th class="px-4 py-3 text-left">
                         <button wire:click="sort('name')" class="flex items-center gap-1 font-medium text-foreground">
@@ -63,9 +74,11 @@
 
                         {{-- Checkbox --}}
                         <td class="px-4 py-3">
-                            <input type="checkbox" x-data :checked="$wire.selectedIds.includes('{{ $user->id }}')"
-                                @change="$wire.toggleSelection('{{ $user->id }}')"
-                                class="blat-checkbox cursor-pointer dark:bg-input/30" />
+                            @if ($canBulkAct)
+                                <input type="checkbox" x-data :checked="$wire.selectedIds.includes('{{ $user->id }}')"
+                                    @change="$wire.toggleSelection('{{ $user->id }}')"
+                                    class="blat-checkbox cursor-pointer dark:bg-input/30" />
+                            @endif
                         </td>
 
                         {{-- User cell: avatar + name + email + ext id --}}
@@ -127,6 +140,7 @@
 
                         {{-- Row actions --}}
                         <td class="px-4 py-3 text-right">
+                            @if ($canRowAct)
                             <x-admin.dropdown align="end" width="w-44">
                                 <x-slot:trigger>
                                     <x-ui.button variant="ghost" size="icon" class="size-8">
@@ -176,6 +190,7 @@
                                     @endcan
                                 @endif
                             </x-admin.dropdown>
+                            @endif
                         </td>
 
                     </tr>

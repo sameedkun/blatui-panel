@@ -43,8 +43,8 @@
         </x-ui.field>
 
         <x-ui.dialog-footer>
-            <x-ui.button variant="outline" @click="open = false; {{ $cancel }}">Cancel</x-ui.button>
-            <x-ui.button variant="{{ $variant }}" @click="open = false" wire:click="{{ $confirm }}">
+            <x-ui.button variant="outline" @click="open = false; {!! $cancel !!}">Cancel</x-ui.button>
+            <x-ui.button variant="{{ $variant }}" @click="open = false" wire:click="{!! $confirm !!}">
                 {{ $confirmLabel }}
             </x-ui.button>
         </x-ui.dialog-footer>

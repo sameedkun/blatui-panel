@@ -32,6 +32,7 @@ use Spatie\Sluggable\Attributes\Sluggable;
     'ban_reason',
     'avatar',
     'type',
+    'email_verified_at',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
@@ -53,6 +54,7 @@ class User extends Authenticatable
             'registration_date' => 'datetime',
             'last_login' => 'datetime',
             'banned_at' => 'datetime',
+            'type' => UserType::class,
         ];
     }
 
@@ -142,6 +144,11 @@ class User extends Authenticatable
     public function isGuest(): bool
     {
         return $this->type === UserType::Guest;
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->isStaff() && $this->hasRole(config('panel.super_admin_role'));
     }
 
     // -------------------------------------------------------------------------

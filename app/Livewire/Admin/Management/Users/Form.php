@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Management\Users;
 
+use App\Enum\UserType;
 use App\Livewire\Admin\BaseForm;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
@@ -84,7 +85,7 @@ class Form extends BaseForm
         $this->validate();
 
         $data = [
-            'name'  => $this->name,
+            'name' => $this->name,
             'email' => $this->email,
         ];
 
@@ -114,9 +115,8 @@ class Form extends BaseForm
             'password' => Hash::make($this->password),
             'email_verified_at' => $this->autoVerifyEmail ? now() : null,
             'registration_date' => now(),
+            'type' => UserType::App,
         ]);
-
-        $user->assignRole(config('panel.app_user_role'));
 
         return $this->redirectWithSuccess("{$user->name} created successfully.");
     }

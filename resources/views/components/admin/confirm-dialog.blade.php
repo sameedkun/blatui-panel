@@ -30,9 +30,9 @@
             <x-ui.alert-dialog-description>{{ $slot }}</x-ui.alert-dialog-description>
         </x-ui.alert-dialog-header>
         <x-ui.alert-dialog-footer>
-            <x-ui.alert-dialog-cancel @click="{{ $cancel }}">Cancel</x-ui.alert-dialog-cancel>
+            <x-ui.alert-dialog-cancel @click="{!! $cancel !!}">Cancel</x-ui.alert-dialog-cancel>
             <x-ui.alert-dialog-action
-                @click="{{ $confirm }}"
+                @click="{!! $confirm !!}"
                 @class(['bg-destructive text-destructive-foreground hover:bg-destructive/90' => $variant === 'destructive'])
             >{{ $confirmLabel }}</x-ui.alert-dialog-action>
         </x-ui.alert-dialog-footer>

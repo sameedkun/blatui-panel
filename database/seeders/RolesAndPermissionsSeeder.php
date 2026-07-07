@@ -86,6 +86,11 @@ class RolesAndPermissionsSeeder extends Seeder
     {
         $permissions = [];
 
+        // Panel access permissions (e.g. 'panel.access-admin' from panel.access['admin'])
+        foreach (Config::get('panel.access', []) as $permission) {
+            $permissions[] = $permission;
+        }
+
         foreach (Config::get('panel.modules', []) as $module => $config) {
             $actions = $config['actions'] ?? $config;
 

@@ -48,7 +48,7 @@ class Login extends Component
 
         // Must be staff AND able to access the panel.
         // super-admin passes the permission check via Gate::before / seeded perms.
-        if (! $user->isStaff() || ! $user->can(config('panel.access')['admin'])) {
+        if (! $user->isStaff() || ! $user->can(config('panel.access.admin'))) {
             Auth::logout();
             RateLimiter::hit($this->throttleKey());
 
@@ -96,6 +96,6 @@ class Login extends Component
 
     protected function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->email) . '|' . request()->ip());
+        return Str::transliterate(Str::lower($this->email).'|'.request()->ip());
     }
 }

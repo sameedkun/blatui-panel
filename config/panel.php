@@ -146,6 +146,20 @@ return [
             'icon' => 'user-friends',
         ],
 
+        // --- System ---
+        'staff' => [
+            'label' => 'Staff',
+            'group' => 'system',
+            'actions' => ['view', 'create', 'edit', 'delete', 'restore', 'force-delete', 'ban', 'unban', 'export', 'manage'],
+            'icon' => 'shield-user',
+        ],
+        'roles' => [
+            'label' => 'Roles',
+            'group' => 'system',
+            'actions' => ['view', 'create', 'edit', 'delete'],
+            'icon' => 'key',
+        ],
+
     ],
 
     /*

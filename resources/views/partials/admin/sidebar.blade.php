@@ -19,32 +19,66 @@
 
         {{-- General --}}
         <x-ui.sidebar-group>
-            <x-ui.sidebar-menu-item>
-                <x-ui.sidebar-menu-button href="{{ route('admin.dashboard') }}" :isActive="request()->routeIs('admin.dashboard')">
-                    <x-lucide-layout-dashboard />
-                    <span>Dashboard</span>
-                </x-ui.sidebar-menu-button>
-            </x-ui.sidebar-menu-item>
-
-            <x-ui.sidebar-group-label>Management</x-ui.sidebar-group-label>
-
-            <x-ui.sidebar-menu>
-
+            @can('dashboard.view')
                 <x-ui.sidebar-menu-item>
-                    <x-ui.sidebar-menu-button href="{{ route('admin.users.index') }}" :isActive="request()->routeIs('admin.users.*')">
-                        <x-lucide-users />
-                        <span>Users</span>
+                    <x-ui.sidebar-menu-button href="{{ route('admin.dashboard') }}" :isActive="request()->routeIs('admin.dashboard')">
+                        <x-lucide-layout-dashboard />
+                        <span>Dashboard</span>
                     </x-ui.sidebar-menu-button>
                 </x-ui.sidebar-menu-item>
+            @endcan
 
-                <x-ui.sidebar-menu-item>
-                    <x-ui.sidebar-menu-button href="{{ route('admin.guests.index') }}" :isActive="request()->routeIs('admin.guests.*')">
-                        <x-lucide-user />
-                        <span>Guests</span>
-                    </x-ui.sidebar-menu-button>
-                </x-ui.sidebar-menu-item>
+            @canany(['users.view', 'guests.view'])
+                <x-ui.sidebar-group-label>Management</x-ui.sidebar-group-label>
 
-            </x-ui.sidebar-menu>
+                <x-ui.sidebar-menu>
+
+                    @can('users.view')
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.users.index') }}" :isActive="request()->routeIs('admin.users.*')">
+                                <x-lucide-users />
+                                <span>Users</span>
+                            </x-ui.sidebar-menu-button>
+                        </x-ui.sidebar-menu-item>
+                    @endcan
+
+                    @can('guests.view')
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.guests.index') }}" :isActive="request()->routeIs('admin.guests.*')">
+                                <x-lucide-user />
+                                <span>Guests</span>
+                            </x-ui.sidebar-menu-button>
+                        </x-ui.sidebar-menu-item>
+                    @endcan
+
+                </x-ui.sidebar-menu>
+            @endcanany
+
+            @canany(['staff.view', 'roles.view'])
+                <x-ui.sidebar-group-label>System</x-ui.sidebar-group-label>
+
+                <x-ui.sidebar-menu>
+
+                    @can('staff.view')
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.staff.index') }}" :isActive="request()->routeIs('admin.staff.*')">
+                                <x-lucide-shield-user />
+                                <span>Staff</span>
+                            </x-ui.sidebar-menu-button>
+                        </x-ui.sidebar-menu-item>
+                    @endcan
+
+                    @can('roles.view')
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.roles.index') }}" :isActive="request()->routeIs('admin.roles.*')">
+                                <x-lucide-key />
+                                <span>Roles</span>
+                            </x-ui.sidebar-menu-button>
+                        </x-ui.sidebar-menu-item>
+                    @endcan
+
+                </x-ui.sidebar-menu>
+            @endcanany
         </x-ui.sidebar-group>
 
     </x-ui.sidebar-content>
