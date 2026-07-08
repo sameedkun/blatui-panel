@@ -4,6 +4,7 @@ namespace App\Livewire\Admin\Management\Users;
 
 use App\Livewire\Admin\BaseIndex;
 use App\Models\User;
+use App\Services\AccountDeletionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
@@ -13,6 +14,9 @@ use Livewire\Attributes\Title;
 #[Title('Users')]
 class Index extends BaseIndex
 {
+    /** Primary status view: 'active' | 'pending' | 'trashed'. */
+    public string $tab = 'active';
+
     // ── Single-row confirmation state ─────────────────────────────────────────
 
     public ?int $banningUserId = null;
@@ -25,6 +29,20 @@ class Index extends BaseIndex
 
     public ?int $forceDeleteId = null;
 
+    public ?int $schedulingId = null;
+
+    public string $deletionReason = '';
+
+    public ?int $purgingId = null;
+
+    public string $purgeReason = '';
+
+    // ── Bulk reason state (single-row uses the props above) ───────────────────
+
+    public string $bulkDeletionReason = '';
+
+    public string $bulkPurgeReason = '';
+
     // ── Filters ───────────────────────────────────────────────────────────────
 
     public array $filters = [
@@ -33,19 +51,27 @@ class Index extends BaseIndex
         'social' => [],
         'registered_from' => '',
         'registered_to' => '',
-        'view' => '',
     ];
+
+    /** Switch the primary status view, clearing any cross-tab selection. */
+    public function setTab(string $tab): void
+    {
+        $this->tab = in_array($tab, ['active', 'pending', 'trashed'], true) ? $tab : 'active';
+        $this->clearSelection();
+        $this->resetPage();
+    }
 
     // ── Base query ────────────────────────────────────────────────────────────
     protected function baseQuery(): Builder
     {
         $query = User::query()->appUsers();
 
-        if (($this->filters['view'] ?? '') === 'trashed') {
-            $query->onlyTrashed();
-        }
-
-        return $query;
+        // Pending-deletion accounts live only in the 'pending' tab, never 'active'.
+        return match ($this->tab) {
+            'trashed' => $query->onlyTrashed(),
+            'pending' => $query->pendingDeletion(),
+            default => $query->whereNull('deletion_requested_at'),
+        };
     }
 
     protected function searchableColumns(): array
@@ -107,12 +133,6 @@ class Index extends BaseIndex
                 'label' => 'Registered to',
                 'type' => 'date',
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('registration_date', '<=', $v.' 23:59:59'),
-            ],
-            'view' => [
-                'label' => 'View',
-                'type' => 'select',
-                'options' => ['trashed' => 'Deleted'],
-                'apply' => fn (Builder $q, string $v): Builder => $q, // handled in baseQuery()
             ],
         ];
     }
@@ -177,24 +197,15 @@ class Index extends BaseIndex
                 'from_key' => 'registered_from',
                 'to_key' => 'registered_to',
             ],
-            'view' => [
-                'label' => 'Deleted',
-                'type' => 'toggle',
-                'active_value' => 'trashed',
-                'active_label' => 'Showing Deleted',
-                'icon' => 'trash-2',
-            ],
         ];
     }
 
-    // ── Bulk action config ────────────────────────────────────────────────────
+    // ── Bulk action config (varies by status tab) ─────────────────────────────
 
     protected function bulkActionConfig(): array
     {
-        $isTrashed = ($this->filters['view'] ?? '') === 'trashed';
-
-        if ($isTrashed) {
-            return [
+        return match ($this->tab) {
+            'trashed' => [
                 [
                     'key' => 'restore',
                     'label' => 'Restore',
@@ -210,34 +221,59 @@ class Index extends BaseIndex
                     'variant' => 'destructive',
                     'permission' => 'users.force-delete',
                 ],
-            ];
-        }
-
-        return [
-            [
-                'key' => 'ban',
-                'label' => 'Ban',
-                'icon' => 'ban',
-                'confirm' => true,
-                'dialog_event' => 'open-dialog-bulk-ban',
-                'permission' => 'users.ban',
             ],
-            [
-                'key' => 'unban',
-                'label' => 'Unban',
-                'icon' => 'shield-check',
-                'confirm' => true,
-                'permission' => 'users.unban',
+            'pending' => [
+                [
+                    'key' => 'stop-deletion',
+                    'label' => 'Stop Deletion',
+                    'icon' => 'shield-check',
+                    'confirm' => true,
+                    'permission' => 'users.delete',
+                ],
+                [
+                    'key' => 'instant-purge',
+                    'label' => 'Purge Now',
+                    'icon' => 'trash-2',
+                    'confirm' => true,
+                    'variant' => 'destructive',
+                    'dialog_event' => 'open-dialog-bulk-instant-purge',
+                    'permission' => 'users.force-delete',
+                ],
             ],
-            [
-                'key' => 'delete',
-                'label' => 'Delete',
-                'icon' => 'trash',
-                'confirm' => true,
-                'variant' => 'destructive',
-                'permission' => 'users.delete',
+            default => [
+                [
+                    'key' => 'ban',
+                    'label' => 'Ban',
+                    'icon' => 'ban',
+                    'confirm' => true,
+                    'dialog_event' => 'open-dialog-bulk-ban',
+                    'permission' => 'users.ban',
+                ],
+                [
+                    'key' => 'unban',
+                    'label' => 'Unban',
+                    'icon' => 'shield-check',
+                    'confirm' => true,
+                    'permission' => 'users.unban',
+                ],
+                [
+                    'key' => 'schedule-deletion',
+                    'label' => 'Schedule Deletion',
+                    'icon' => 'clock',
+                    'confirm' => true,
+                    'dialog_event' => 'open-dialog-bulk-schedule-deletion',
+                    'permission' => 'users.delete',
+                ],
+                [
+                    'key' => 'delete',
+                    'label' => 'Delete',
+                    'icon' => 'trash',
+                    'confirm' => true,
+                    'variant' => 'destructive',
+                    'permission' => 'users.delete',
+                ],
             ],
-        ];
+        };
     }
 
     // ── Single-row actions ────────────────────────────────────────────────────
@@ -331,6 +367,59 @@ class Index extends BaseIndex
         $this->toastSuccess("{$name} has been permanently deleted.");
     }
 
+    // ── Account deletion (grace period) ───────────────────────────────────────
+
+    public function openScheduleDeletionDialog(int $userId): void
+    {
+        $this->authorize('users.delete');
+        $this->schedulingId = $userId;
+        $this->deletionReason = '';
+        $this->dispatch('open-dialog-schedule-deletion');
+    }
+
+    public function confirmScheduleDeletion(AccountDeletionService $deletions): void
+    {
+        $this->authorize('users.delete');
+
+        $user = User::query()->appUsers()->findOrFail($this->schedulingId);
+        $deletions->requestByAdmin($user, trim($this->deletionReason) ?: null);
+
+        $this->schedulingId = null;
+        $this->deletionReason = '';
+        $this->toastSuccess("{$user->name} is scheduled for deletion.");
+    }
+
+    public function stopDeletion(int $userId, AccountDeletionService $deletions): void
+    {
+        $this->authorize('users.delete');
+
+        $user = User::query()->appUsers()->findOrFail($userId);
+        $deletions->cancelByAdmin($user);
+
+        $this->toastSuccess("Deletion cancelled for {$user->name}.");
+    }
+
+    public function confirmInstantPurge(int $userId): void
+    {
+        $this->authorize('users.force-delete');
+        $this->purgingId = $userId;
+        $this->purgeReason = '';
+        $this->dispatch('open-dialog-instant-purge');
+    }
+
+    public function instantPurge(AccountDeletionService $deletions): void
+    {
+        $this->authorize('users.force-delete');
+
+        $user = User::query()->appUsers()->findOrFail($this->purgingId);
+        $name = $user->name;
+        $deletions->instantPurgeByAdmin($user, trim($this->purgeReason) ?: null);
+
+        $this->purgingId = null;
+        $this->purgeReason = '';
+        $this->toastSuccess("{$name} has been permanently deleted.");
+    }
+
     // ── Bulk actions ──────────────────────────────────────────────────────────
 
     public function executeBulkBan(): void
@@ -387,6 +476,59 @@ class Index extends BaseIndex
         User::withTrashed()->whereIn('id', $this->selectedIds)->forceDelete();
 
         $this->clearSelection();
+        $this->toastSuccess("{$count} users permanently deleted.");
+    }
+
+    public function executeBulkScheduleDeletion(AccountDeletionService $deletions): void
+    {
+        $this->authorize('users.delete');
+
+        $reason = trim($this->bulkDeletionReason) ?: null;
+        $count = 0;
+
+        // Fetch first, then mutate — avoids chunking while rows change scope.
+        User::query()->appUsers()->whereIn('id', $this->selectedIds)->get()
+            ->each(function (User $user) use ($deletions, $reason, &$count): void {
+                $deletions->requestByAdmin($user, $reason);
+                $count++;
+            });
+
+        $this->clearSelection();
+        $this->bulkDeletionReason = '';
+        $this->toastSuccess("{$count} users scheduled for deletion.");
+    }
+
+    public function executeBulkStopDeletion(AccountDeletionService $deletions): void
+    {
+        $this->authorize('users.delete');
+
+        $count = 0;
+
+        User::query()->appUsers()->pendingDeletion()->whereIn('id', $this->selectedIds)->get()
+            ->each(function (User $user) use ($deletions, &$count): void {
+                $deletions->cancelByAdmin($user);
+                $count++;
+            });
+
+        $this->clearSelection();
+        $this->toastSuccess("Deletion cancelled for {$count} users.");
+    }
+
+    public function executeBulkInstantPurge(AccountDeletionService $deletions): void
+    {
+        $this->authorize('users.force-delete');
+
+        $reason = trim($this->bulkPurgeReason) ?: null;
+        $count = 0;
+
+        User::query()->appUsers()->whereIn('id', $this->selectedIds)->get()
+            ->each(function (User $user) use ($deletions, $reason, &$count): void {
+                $deletions->instantPurgeByAdmin($user, $reason);
+                $count++;
+            });
+
+        $this->clearSelection();
+        $this->bulkPurgeReason = '';
         $this->toastSuccess("{$count} users permanently deleted.");
     }
 

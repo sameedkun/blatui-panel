@@ -203,6 +203,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Account Deletion Grace Period
+    |--------------------------------------------------------------------------
+    |
+    | Hours a pending account-deletion request stays live before the scheduled
+    | purge permanently removes the account. Admin instant-purge skips this.
+    |
+    */
+    'account_deletion_grace_hours' => env('ACCOUNT_DELETION_GRACE_HOURS', 24),
+
+    /*
+    |--------------------------------------------------------------------------
     | Initial Admin User
     |--------------------------------------------------------------------------
     | When seeding the database, this user is created and assigned the super admin role.

@@ -49,4 +49,36 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
+
+    /** A standard app user (not banned). */
+    public function app(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'type' => 'app',
+            'banned_at' => null,
+            'ban_reason' => null,
+        ]);
+    }
+
+    /** A guest account — never enters the deletion flow. */
+    public function guest(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'type' => 'guest',
+        ]);
+    }
+
+    /**
+     * An account with a pending deletion request.
+     *
+     * @param  'user'|'admin'  $by
+     */
+    public function pendingDeletion(string $by = 'user', ?\DateTimeInterface $requestedAt = null): static
+    {
+        return $this->app()->state(fn (array $attributes) => [
+            'deletion_requested_at' => $requestedAt ?? now(),
+            'deletion_requested_by' => $by,
+            'deletion_reason' => null,
+        ]);
+    }
 }

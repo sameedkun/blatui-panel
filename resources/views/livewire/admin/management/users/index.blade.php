@@ -21,19 +21,32 @@
         </div>
     @endif
 
+    {{-- Status tabs --}}
+    <div class="flex items-center gap-1 border-b border-border">
+        @foreach (['active' => 'Active', 'pending' => 'Pending Deletion', 'trashed' => 'Deleted'] as $tabKey => $tabLabel)
+            <button wire:click="setTab('{{ $tabKey }}')" type="button"
+                class="relative -mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors {{ $tab === $tabKey ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground' }}">
+                {{ $tabLabel }}
+            </button>
+        @endforeach
+    </div>
+
     {{-- Toolbar --}}
     <x-admin.filter-bar :config="$filterBarConfig" :filters="$filters" :has-active-filters="$this->hasActiveFilters()"
         search-placeholder="Search name, email, ID..." />
 
     {{-- Table --}}
     @php
-        $isTrashedView = ($filters['view'] ?? '') === 'trashed';
-        $canBulkAct = $isTrashedView
-            ? auth()->user()->canAny(['users.restore', 'users.force-delete'])
-            : auth()->user()->canAny(['users.ban', 'users.unban', 'users.delete']);
-        $canRowAct = $isTrashedView
-            ? auth()->user()->canAny(['users.edit', 'users.restore', 'users.force-delete'])
-            : auth()->user()->canAny(['users.edit', 'users.ban', 'users.delete']);
+        $canBulkAct = match ($tab) {
+            'trashed' => auth()->user()->canAny(['users.restore', 'users.force-delete']),
+            'pending' => auth()->user()->canAny(['users.delete', 'users.force-delete']),
+            default => auth()->user()->canAny(['users.ban', 'users.unban', 'users.delete']),
+        };
+        $canRowAct = match ($tab) {
+            'trashed' => auth()->user()->canAny(['users.edit', 'users.restore', 'users.force-delete']),
+            'pending' => auth()->user()->canAny(['users.edit', 'users.delete', 'users.force-delete']),
+            default => auth()->user()->canAny(['users.edit', 'users.ban', 'users.delete']),
+        };
     @endphp
     <div class="overflow-hidden rounded-md border border-border">
         <table class="w-full text-sm">
@@ -127,7 +140,25 @@
 
                         {{-- Status --}}
                         <td class="px-4 py-3">
-                            @if ($user->banned_at)
+                            @if ($user->isPendingDeletion())
+                                {{-- Pending-deletion countdown only (grace period) --}}
+                                <div class="inline-flex"
+                                    x-data="{
+                                        purgeAt: {{ $user->deletionPurgesAt()->getTimestamp() * 1000 }},
+                                        now: Date.now(),
+                                        get remaining() {
+                                            const mins = Math.max(0, Math.floor((this.purgeAt - this.now) / 60000));
+                                            const h = Math.floor(mins / 60);
+                                            return h > 0 ? `Deleting in ${h}h` : (mins > 0 ? `Deleting in ${mins}m` : 'Purging…');
+                                        },
+                                    }"
+                                    x-init="setInterval(() => now = Date.now(), 60000)">
+                                    <x-ui.badge variant="destructive" class="gap-1 bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0">
+                                        <x-lucide-clock class="size-3" />
+                                        <span x-text="remaining"></span>
+                                    </x-ui.badge>
+                                </div>
+                            @elseif ($user->banned_at)
                                 <x-ui.badge variant="destructive">Banned</x-ui.badge>
                             @elseif(!$user->email_verified_at)
                                 <x-ui.badge variant="secondary">Unverified</x-ui.badge>
@@ -150,62 +181,83 @@
                         {{-- Row actions --}}
                         <td class="px-4 py-3 text-right">
                             @if ($canRowAct)
-                            <x-admin.dropdown align="end" width="w-44">
-                                <x-slot:trigger>
-                                    <x-ui.button variant="ghost" size="icon" class="size-8">
-                                        <x-lucide-ellipsis class="size-4" />
-                                        <span class="sr-only">Actions</span>
-                                    </x-ui.button>
-                                </x-slot:trigger>
+                                <x-admin.dropdown align="end" width="w-48">
+                                    <x-slot:trigger>
+                                        <x-ui.button variant="ghost" size="icon" class="size-8">
+                                            <x-lucide-ellipsis class="size-4" />
+                                            <span class="sr-only">Actions</span>
+                                        </x-ui.button>
+                                    </x-slot:trigger>
 
-                                @can('users.edit')
-                                    <x-admin.dropdown-item href="{{ route('admin.users.edit', $user) }}">
-                                        <x-lucide-pencil class="size-4" />
-                                        Edit
-                                    </x-admin.dropdown-item>
-                                @endcan
+                                    @can('users.edit')
+                                        <x-admin.dropdown-item href="{{ route('admin.users.edit', $user) }}">
+                                            <x-lucide-pencil class="size-4" />
+                                            Edit
+                                        </x-admin.dropdown-item>
+                                    @endcan
 
-                                @if (!$user->trashed())
-                                    @can('users.ban')
-                                        @if (!$user->banned_at)
-                                            <x-admin.dropdown-item @click="$wire.openBanDialog({{ $user->id }})">
-                                                <x-lucide-ban class="size-4" />
-                                                Ban
+                                    @if ($tab === 'trashed')
+                                        @can('users.restore')
+                                            <x-admin.dropdown-item @click="$wire.confirmRestore({{ $user->id }})">
+                                                <x-lucide-rotate-ccw class="size-4" />
+                                                Restore
                                             </x-admin.dropdown-item>
-                                        @else
-                                            <x-admin.dropdown-item @click="$wire.unban({{ $user->id }})">
+                                        @endcan
+
+                                        @can('users.force-delete')
+                                            <x-admin.dropdown-separator />
+                                            <x-admin.dropdown-item variant="destructive"
+                                                @click="$wire.confirmForceDelete({{ $user->id }})">
+                                                <x-lucide-trash-2 class="size-4" />
+                                                Permanently Delete
+                                            </x-admin.dropdown-item>
+                                        @endcan
+                                    @elseif ($tab === 'pending')
+                                        @can('users.delete')
+                                            <x-admin.dropdown-item @click="$wire.stopDeletion({{ $user->id }})">
                                                 <x-lucide-shield-check class="size-4" />
-                                                Unban
+                                                Stop Deletion
                                             </x-admin.dropdown-item>
-                                        @endif
-                                    @endcan
+                                        @endcan
 
-                                    @can('users.delete')
-                                        <x-admin.dropdown-separator />
-                                        <x-admin.dropdown-item variant="destructive"
-                                            @click="$wire.confirmDelete({{ $user->id }})">
-                                            <x-lucide-trash class="size-4" />
-                                            Delete
-                                        </x-admin.dropdown-item>
-                                    @endcan
-                                @else
-                                    @can('users.restore')
-                                        <x-admin.dropdown-item @click="$wire.confirmRestore({{ $user->id }})">
-                                            <x-lucide-rotate-ccw class="size-4" />
-                                            Restore
-                                        </x-admin.dropdown-item>
-                                    @endcan
+                                        @can('users.force-delete')
+                                            <x-admin.dropdown-separator />
+                                            <x-admin.dropdown-item variant="destructive"
+                                                @click="$wire.confirmInstantPurge({{ $user->id }})">
+                                                <x-lucide-trash-2 class="size-4" />
+                                                Purge Now
+                                            </x-admin.dropdown-item>
+                                        @endcan
+                                    @else
+                                        @can('users.ban')
+                                            @if (!$user->banned_at)
+                                                <x-admin.dropdown-item @click="$wire.openBanDialog({{ $user->id }})">
+                                                    <x-lucide-ban class="size-4" />
+                                                    Ban
+                                                </x-admin.dropdown-item>
+                                            @else
+                                                <x-admin.dropdown-item @click="$wire.unban({{ $user->id }})">
+                                                    <x-lucide-shield-check class="size-4" />
+                                                    Unban
+                                                </x-admin.dropdown-item>
+                                            @endif
+                                        @endcan
 
-                                    @can('users.force-delete')
-                                        <x-admin.dropdown-separator />
-                                        <x-admin.dropdown-item variant="destructive"
-                                            @click="$wire.confirmForceDelete({{ $user->id }})">
-                                            <x-lucide-trash-2 class="size-4" />
-                                            Permanently Delete
-                                        </x-admin.dropdown-item>
-                                    @endcan
-                                @endif
-                            </x-admin.dropdown>
+                                        @can('users.delete')
+                                            <x-admin.dropdown-item @click="$wire.openScheduleDeletionDialog({{ $user->id }})">
+                                                <x-lucide-clock class="size-4" />
+                                                Schedule Deletion
+                                            </x-admin.dropdown-item>
+
+                                            <x-admin.dropdown-separator />
+                                            <x-admin.dropdown-item variant="destructive"
+                                                @click="$wire.confirmDelete({{ $user->id }})">
+                                                <x-lucide-trash class="size-4" />
+                                                Delete
+                                            </x-admin.dropdown-item>
+                                        @endcan
+                                    @endif
+                                </x-admin.dropdown>
                             @endif
                         </td>
 

@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enum\UserType;
+use Carbon\CarbonInterface;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -30,6 +31,9 @@ use Spatie\Sluggable\Attributes\Sluggable;
     'last_login',
     'banned_at',
     'ban_reason',
+    'deletion_requested_at',
+    'deletion_requested_by',
+    'deletion_reason',
     'avatar',
     'type',
     'email_verified_at',
@@ -54,6 +58,7 @@ class User extends Authenticatable
             'registration_date' => 'datetime',
             'last_login' => 'datetime',
             'banned_at' => 'datetime',
+            'deletion_requested_at' => 'datetime',
             'type' => UserType::class,
         ];
     }
@@ -168,5 +173,33 @@ class User extends Authenticatable
     public function scopeNotBanned(Builder $query): Builder
     {
         return $query->whereNull('banned_at');
+    }
+
+    // -------------------------------------------------------------------------
+    // Pending deletion (grace period — app users only)
+    // -------------------------------------------------------------------------
+
+    public function isPendingDeletion(): bool
+    {
+        return $this->deletion_requested_at !== null;
+    }
+
+    /** When the scheduled purge will permanently remove this account, if pending. */
+    public function deletionPurgesAt(): ?CarbonInterface
+    {
+        return $this->deletion_requested_at
+            ?->copy()
+            ->addHours((int) config('panel.account_deletion_grace_hours', 24));
+    }
+
+    /** The user may only self-cancel a deletion they requested themselves. */
+    public function canCancelDeletion(): bool
+    {
+        return $this->isPendingDeletion() && $this->deletion_requested_by === 'user';
+    }
+
+    public function scopePendingDeletion(Builder $query): Builder
+    {
+        return $query->whereNotNull('deletion_requested_at');
     }
 }

@@ -100,3 +100,63 @@
 >
     This action <strong>cannot be undone</strong>. All selected users will be permanently removed.
 </x-admin.confirm-dialog>
+
+{{-- ── Account deletion (grace period) ────────────────────────────────────── --}}
+
+<x-admin.reason-dialog
+    id="schedule-deletion"
+    title="Schedule Account Deletion"
+    description="The account stays live during the grace period, then is permanently purged. You can stop it before then."
+    model="deletionReason"
+    confirm="confirmScheduleDeletion"
+    confirm-label="Schedule Deletion"
+    variant="destructive"
+    cancel="$wire.set('schedulingId', null)"
+    placeholder="Reason for deletion (optional)"
+/>
+
+<x-admin.reason-dialog
+    id="instant-purge"
+    title="Purge Account Now"
+    description="This permanently deletes the account immediately, skipping the grace period."
+    model="purgeReason"
+    confirm="instantPurge"
+    confirm-label="Purge Permanently"
+    variant="destructive"
+    cancel="$wire.set('purgingId', null)"
+    placeholder="Reason (optional)"
+/>
+
+<x-admin.reason-dialog
+    id="bulk-schedule-deletion"
+    title="Schedule {{ count($selectedIds) }} Accounts for Deletion"
+    description="Each account stays live during the grace period, then is permanently purged."
+    model="bulkDeletionReason"
+    confirm="executeBulkScheduleDeletion"
+    confirm-label="Schedule Deletion"
+    variant="destructive"
+    cancel="$wire.cancelBulkAction()"
+    placeholder="Reason for deletion (optional)"
+/>
+
+<x-admin.confirm-dialog
+    id="bulk-stop-deletion"
+    title="Stop Deletion for {{ count($selectedIds) }} Accounts"
+    confirm="$wire.executeBulkStopDeletion()"
+    cancel="$wire.cancelBulkAction()"
+    confirm-label="Stop Deletion"
+>
+    This cancels the pending deletion for all selected accounts.
+</x-admin.confirm-dialog>
+
+<x-admin.reason-dialog
+    id="bulk-instant-purge"
+    title="Purge {{ count($selectedIds) }} Accounts Now"
+    description="This permanently deletes all selected accounts immediately, skipping the grace period."
+    model="bulkPurgeReason"
+    confirm="executeBulkInstantPurge"
+    confirm-label="Purge Permanently"
+    variant="destructive"
+    cancel="$wire.cancelBulkAction()"
+    placeholder="Reason (optional)"
+/>
