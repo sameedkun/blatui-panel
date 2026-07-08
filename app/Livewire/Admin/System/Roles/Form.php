@@ -2,7 +2,10 @@
 
 namespace App\Livewire\Admin\System\Roles;
 
+use App\Enum\ActivityAction;
+use App\Enum\ActivityModule;
 use App\Livewire\Admin\BaseForm;
+use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -15,6 +18,8 @@ use Spatie\Permission\Models\Role;
 #[Layout('layouts.admin.app')]
 class Form extends BaseForm
 {
+    use LogsAdminActivity;
+
     public ?int $roleId = null;
 
     #[Validate]
@@ -69,12 +74,29 @@ class Form extends BaseForm
 
         if ($this->isEditing) {
             $role = Role::findOrFail($this->roleId);
+            $before = $role->getOriginal();
+            $permsBefore = $role->permissions->pluck('name')->sort()->values()->all();
+
             $role->update(['name' => $this->name]);
+            $role->syncPermissions($this->permissions);
+
+            $changes = $this->auditDiff($role, $before);
+            $permsAfter = collect($this->permissions)->sort()->values()->all();
+            if ($permsBefore != $permsAfter) {
+                $changes['permissions'] = ['attributes' => $permsAfter, 'old' => $permsBefore];
+            }
+
+            if ($changes !== []) {
+                $this->logActivity(ActivityModule::Role, ActivityAction::Updated, $role, $changes);
+            }
         } else {
             $role = Role::create(['name' => $this->name, 'guard_name' => config('panel.guard')]);
-        }
+            $role->syncPermissions($this->permissions);
 
-        $role->syncPermissions($this->permissions);
+            $this->logActivity(ActivityModule::Role, ActivityAction::Created, $role, [
+                'attributes' => ['name' => $role->name, 'permissions' => $this->permissions],
+            ]);
+        }
 
         return $this->redirectWithSuccess(
             "{$role->name} role ".($this->isEditing ? 'updated' : 'created').' successfully.',

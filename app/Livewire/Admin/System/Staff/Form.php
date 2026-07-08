@@ -2,8 +2,11 @@
 
 namespace App\Livewire\Admin\System\Staff;
 
+use App\Enum\ActivityAction;
+use App\Enum\ActivityModule;
 use App\Enum\UserType;
 use App\Livewire\Admin\BaseForm;
+use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
@@ -18,6 +21,8 @@ use Spatie\Permission\Models\Role;
 #[Layout('layouts.admin.app')]
 class Form extends BaseForm
 {
+    use LogsAdminActivity;
+
     public ?int $userId = null;
 
     #[Validate]
@@ -175,8 +180,22 @@ class Form extends BaseForm
                 $data['password_changed_at'] = null;
             }
 
+            $before = $user->getOriginal();
+            $rolesBefore = $user->roles->pluck('name')->sort()->values()->all();
+
             $user->update($data);
             $user->syncRoles($this->roles);
+
+            $changes = $this->auditDiff($user, $before);
+            $rolesAfter = collect($this->roles)->sort()->values()->all();
+            if ($rolesBefore != $rolesAfter) {
+                $changes['roles'] = ['attributes' => $rolesAfter, 'old' => $rolesBefore];
+            }
+
+            if ($changes !== [] || filled($this->password)) {
+                $this->logActivity(ActivityModule::Staff, ActivityAction::Updated, $user,
+                    $changes + (filled($this->password) ? ['password_changed' => true] : []));
+            }
 
             return $this->redirectWithSuccess("{$user->name} updated successfully.");
         }
@@ -190,6 +209,15 @@ class Form extends BaseForm
         ]);
 
         $user->syncRoles($this->roles);
+
+        $this->logActivity(ActivityModule::Staff, ActivityAction::Created, $user, [
+            'attributes' => [
+                'name' => $user->name,
+                'email' => $user->email,
+                'type' => $user->type->value,
+                'roles' => $this->roles,
+            ],
+        ]);
 
         return $this->redirectWithSuccess("{$user->name} created successfully.");
     }

@@ -245,3 +245,45 @@ via `php artisan blatui:mcp` (tools: search_registry, get_component, get_example
 install_command; resources `blatui://component|block|chart/{name}`).
 
 </laravel-boost-guidelines>
+
+## Audit Logging
+
+Audit trail uses `spatie/laravel-activitylog`. Always write through the shared
+`App\Support\ActivityLogger` (or the `LogsAdminActivity` concern that delegates to it) —
+callable from Livewire, services, jobs, and API controllers alike. **One logger method, ever** —
+no per-event helper methods.
+
+Activity is described on **four orthogonal axes** (all enums in `App\Enum`):
+
+1. **category** — `ActivityLogName` (Spatie `log_name`): a tiny fixed set that never grows with
+   modules — `Audit`, `Authentication`, `System`. Defaults to `Audit`.
+2. **module** — `ActivityModule` (`User`, `Staff`, `Role`, `Permission`, `Plan`, …): grows freely
+   per feature. Stored in `properties.module` — the **canonical** module store, and the only one for
+   subject-less events (e.g. an account purge). It is *also* inferable from `subject_type` when a
+   subject exists, but **never overwrite `subject_type`** — Spatie keeps the real model class there
+   (`App\Models\User`) for its polymorphic `subject()` relation and `Activity::forSubject($user)`.
+3. **action** — `ActivityAction` (Spatie `event` column): reusable verbs (`Updated`, never
+   `UpdatedEmail`). No module-specific actions, no event explosion — bulk ops reuse the base action
+   with a `bulk => true` property.
+4. **context** — `ActivityContext` (`Admin`, `Api`, `Scheduler`, `Queue`, `Console`, `Webhook`):
+   auto-detected from the runtime (request → Admin/Api, console → Console); pass an explicit
+   `context:` only for Scheduler/Queue/Webhook origins the runtime can't infer. Stored in
+   `properties.context`.
+
+`ActivityLogger::log(module:, action:, subject:, properties:, causer: false, context: null, logName: Audit)`.
+
+- **Never** put the `LogsActivity` trait on `User` (or auto-log model events on it): bulk
+  `whereIn(...)->update(...)` paths bypass Eloquent events (missing the most important actions), and
+  guest signups + `last_login` writes on every login would flood the log.
+- **Causer:** defaults to `auth()->user()`. From a no-`auth()` context (jobs, scheduled work,
+  webhooks) pass an explicit causer — `null` for a system action (guaranteed, never re-resolved), or
+  a specific `Model`.
+- **Diffs:** `ActivityLogger::diff($model, $before)`. Snapshot `$before = $model->getOriginal()`
+  **before** `update()`/`save()` (`finishSave()` runs `syncOriginal()`, so afterwards `getOriginal()`
+  holds the new values). Never store `password`/tokens — record a `password_changed => true` flag.
+- **Guests** (`type = guest`) are never logged for account/auth activity.
+- Auth events are handled by `App\Listeners\AuthActivityListener`, wired via Laravel's event
+  discovery (its `handle*` methods type-hint their events) — do not also register it manually, or
+  events double-log.
+- If module-filtering ever becomes a performance bottleneck at very high row counts, add a dedicated
+  `module` column then — not before.

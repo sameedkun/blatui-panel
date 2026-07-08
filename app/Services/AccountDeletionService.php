@@ -2,8 +2,12 @@
 
 namespace App\Services;
 
+use App\Enum\ActivityAction;
+use App\Enum\ActivityContext;
+use App\Enum\ActivityModule;
 use App\Enum\UserType;
 use App\Models\User;
+use App\Support\ActivityLogger;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -29,7 +33,10 @@ class AccountDeletionService
 
         $this->markRequested($user, 'user', $reason);
 
-        // TODO: audit log hook — deletion_requested (by user), reason.
+        ActivityLogger::log(ActivityModule::User, ActivityAction::DeletionRequested, $user, [
+            'initiated_by' => 'user',
+            'reason' => $reason,
+        ]);
     }
 
     /**
@@ -42,7 +49,10 @@ class AccountDeletionService
 
         $this->markRequested($user, 'admin', $reason);
 
-        // TODO: audit log hook — deletion_requested (by admin), reason.
+        ActivityLogger::log(ActivityModule::User, ActivityAction::DeletionRequested, $user, [
+            'initiated_by' => 'admin',
+            'reason' => $reason,
+        ]);
     }
 
     /**
@@ -59,7 +69,9 @@ class AccountDeletionService
 
         $this->clearRequest($user);
 
-        // TODO: audit log hook — deletion_cancelled (by user).
+        ActivityLogger::log(ActivityModule::User, ActivityAction::DeletionCancelled, $user, [
+            'initiated_by' => 'user',
+        ]);
     }
 
     /**
@@ -69,7 +81,9 @@ class AccountDeletionService
     {
         $this->clearRequest($user);
 
-        // TODO: audit log hook — deletion_cancelled (by admin).
+        ActivityLogger::log(ActivityModule::User, ActivityAction::DeletionCancelled, $user, [
+            'initiated_by' => 'admin',
+        ]);
     }
 
     /**
@@ -80,8 +94,25 @@ class AccountDeletionService
      */
     public function purge(User $user, string $initiatedBy): void
     {
-        // TODO: audit log hook — account_purged. Snapshot id/email/type/created_at
-        // and $initiatedBy BEFORE the account is destroyed, since nothing survives.
+        // Already purged — stay idempotent and skip a duplicate audit entry.
+        if (! $user->exists) {
+            return;
+        }
+
+        // Snapshot before destruction — nothing survives the forceDelete.
+        $snapshot = [
+            'id' => $user->id,
+            'email' => $user->email,
+            'type' => $user->type->value,
+            'created_at' => $user->created_at?->toIso8601String(),
+        ];
+
+        // The scheduled sweep runs with no auth() session, so force a null
+        // (system) causer and an explicit Scheduler context rather than trusting
+        // the ambient runtime; admin instant-purge keeps the acting admin and
+        // auto-detects its (Admin) context.
+        $causer = $initiatedBy === 'scheduled' ? null : auth()->user();
+        $context = $initiatedBy === 'scheduled' ? ActivityContext::Scheduler : null;
 
         DB::transaction(function () use ($user): void {
             $this->deleteRelatedData($user);
@@ -90,6 +121,11 @@ class AccountDeletionService
                 $user->forceDelete();
             }
         });
+
+        ActivityLogger::log(ActivityModule::User, ActivityAction::Purged, null, [
+            'initiated_by' => $initiatedBy,
+            'snapshot' => $snapshot,
+        ], causer: $causer, context: $context);
     }
 
     /**

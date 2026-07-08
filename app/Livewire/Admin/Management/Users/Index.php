@@ -2,7 +2,10 @@
 
 namespace App\Livewire\Admin\Management\Users;
 
+use App\Enum\ActivityAction;
+use App\Enum\ActivityModule;
 use App\Livewire\Admin\BaseIndex;
+use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Models\User;
 use App\Services\AccountDeletionService;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,6 +17,8 @@ use Livewire\Attributes\Title;
 #[Title('Users')]
 class Index extends BaseIndex
 {
+    use LogsAdminActivity;
+
     /** Primary status view: 'active' | 'pending' | 'trashed'. */
     public string $tab = 'active';
 
@@ -291,10 +296,13 @@ class Index extends BaseIndex
         $this->authorize('users.ban');
 
         $user = User::findOrFail($this->banningUserId);
+        $reason = trim($this->banReason) ?: 'Banned by administrator.';
         $user->update([
             'banned_at' => now(),
-            'ban_reason' => trim($this->banReason) ?: 'Banned by administrator.',
+            'ban_reason' => $reason,
         ]);
+
+        $this->logActivity(ActivityModule::User, ActivityAction::Banned, $user, ['ban_reason' => $reason]);
 
         $this->banningUserId = null;
         $this->banReason = '';
@@ -307,6 +315,8 @@ class Index extends BaseIndex
 
         $user = User::findOrFail($userId);
         $user->update(['banned_at' => null, 'ban_reason' => null]);
+
+        $this->logActivity(ActivityModule::User, ActivityAction::Unbanned, $user);
 
         $this->toastSuccess("{$user->name} has been unbanned.");
     }
@@ -326,6 +336,8 @@ class Index extends BaseIndex
         $name = $user->name;
         $user->delete();
 
+        $this->logActivity(ActivityModule::User, ActivityAction::Deleted, $user);
+
         $this->deletingId = null;
         $this->toastSuccess("{$name} has been deleted.");
     }
@@ -344,6 +356,8 @@ class Index extends BaseIndex
         $user = User::withTrashed()->findOrFail($this->restoringId);
         $user->restore();
 
+        $this->logActivity(ActivityModule::User, ActivityAction::Restored, $user);
+
         $this->restoringId = null;
         $this->toastSuccess("{$user->name} has been restored.");
     }
@@ -361,6 +375,9 @@ class Index extends BaseIndex
 
         $user = User::withTrashed()->findOrFail($this->forceDeleteId);
         $name = $user->name;
+
+        $this->logActivity(ActivityModule::User, ActivityAction::ForceDeleted, $user, ['user_id' => $user->id, 'name' => $name]);
+
         $user->forceDelete();
 
         $this->forceDeleteId = null;
@@ -426,9 +443,18 @@ class Index extends BaseIndex
     {
         $this->authorize('users.ban');
 
-        $count = User::whereIn('id', $this->selectedIds)->update([
+        $ids = $this->selectedIds;
+        $reason = trim($this->bulkBanReason) ?: 'Banned by administrator.';
+        $count = User::whereIn('id', $ids)->update([
             'banned_at' => now(),
-            'ban_reason' => trim($this->bulkBanReason) ?: 'Banned by administrator.',
+            'ban_reason' => $reason,
+        ]);
+
+        $this->logActivity(ActivityModule::User, ActivityAction::Banned, null, [
+            'bulk' => true,
+            'user_ids' => $ids,
+            'count' => $count,
+            'ban_reason' => $reason,
         ]);
 
         $this->clearSelection();
@@ -439,8 +465,15 @@ class Index extends BaseIndex
     {
         $this->authorize('users.unban');
 
-        $count = User::whereIn('id', $this->selectedIds)
+        $ids = $this->selectedIds;
+        $count = User::whereIn('id', $ids)
             ->update(['banned_at' => null, 'ban_reason' => null]);
+
+        $this->logActivity(ActivityModule::User, ActivityAction::Unbanned, null, [
+            'bulk' => true,
+            'user_ids' => $ids,
+            'count' => $count,
+        ]);
 
         $this->clearSelection();
         $this->toastSuccess("{$count} users unbanned.");
@@ -450,8 +483,15 @@ class Index extends BaseIndex
     {
         $this->authorize('users.delete');
 
-        $count = count($this->selectedIds);
-        User::whereIn('id', $this->selectedIds)->delete();
+        $ids = $this->selectedIds;
+        $count = count($ids);
+        User::whereIn('id', $ids)->delete();
+
+        $this->logActivity(ActivityModule::User, ActivityAction::Deleted, null, [
+            'bulk' => true,
+            'user_ids' => $ids,
+            'count' => $count,
+        ]);
 
         $this->clearSelection();
         $this->toastSuccess("{$count} users deleted.");
@@ -461,8 +501,15 @@ class Index extends BaseIndex
     {
         $this->authorize('users.restore');
 
-        $count = count($this->selectedIds);
-        User::withTrashed()->whereIn('id', $this->selectedIds)->restore();
+        $ids = $this->selectedIds;
+        $count = count($ids);
+        User::withTrashed()->whereIn('id', $ids)->restore();
+
+        $this->logActivity(ActivityModule::User, ActivityAction::Restored, null, [
+            'bulk' => true,
+            'user_ids' => $ids,
+            'count' => $count,
+        ]);
 
         $this->clearSelection();
         $this->toastSuccess("{$count} users restored.");
@@ -472,8 +519,16 @@ class Index extends BaseIndex
     {
         $this->authorize('users.force-delete');
 
-        $count = count($this->selectedIds);
-        User::withTrashed()->whereIn('id', $this->selectedIds)->forceDelete();
+        $ids = $this->selectedIds;
+        $count = count($ids);
+
+        $this->logActivity(ActivityModule::User, ActivityAction::ForceDeleted, null, [
+            'bulk' => true,
+            'user_ids' => $ids,
+            'count' => $count,
+        ]);
+
+        User::withTrashed()->whereIn('id', $ids)->forceDelete();
 
         $this->clearSelection();
         $this->toastSuccess("{$count} users permanently deleted.");

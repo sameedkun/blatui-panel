@@ -2,8 +2,11 @@
 
 namespace App\Livewire\Admin\Management\Users;
 
+use App\Enum\ActivityAction;
+use App\Enum\ActivityModule;
 use App\Enum\UserType;
 use App\Livewire\Admin\BaseForm;
+use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -15,6 +18,8 @@ use Livewire\Attributes\Validate;
 #[Layout('layouts.admin.app')]
 class Form extends BaseForm
 {
+    use LogsAdminActivity;
+
     public ?int $userId = null;
 
     #[Validate]
@@ -105,7 +110,14 @@ class Form extends BaseForm
                 $data['password_changed_at'] = null;
             }
 
+            $before = $user->getOriginal();
             $user->update($data);
+
+            $changes = $this->auditDiff($user, $before);
+            if ($changes !== [] || filled($this->password)) {
+                $this->logActivity(ActivityModule::User, ActivityAction::Updated, $user,
+                    $changes + (filled($this->password) ? ['password_changed' => true] : []));
+            }
 
             return $this->redirectWithSuccess("{$user->name} updated successfully.");
         }
@@ -116,6 +128,10 @@ class Form extends BaseForm
             'email_verified_at' => $this->autoVerifyEmail ? now() : null,
             'registration_date' => now(),
             'type' => UserType::App,
+        ]);
+
+        $this->logActivity(ActivityModule::User, ActivityAction::Created, $user, [
+            'attributes' => ['name' => $user->name, 'email' => $user->email, 'type' => $user->type->value],
         ]);
 
         return $this->redirectWithSuccess("{$user->name} created successfully.");
