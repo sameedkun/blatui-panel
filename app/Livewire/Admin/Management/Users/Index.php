@@ -6,6 +6,7 @@ use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
 use App\Livewire\Admin\BaseIndex;
 use App\Livewire\Admin\Concerns\LogsAdminActivity;
+use App\Livewire\Admin\Management\Users\Concerns\HandlesUserRowActions;
 use App\Models\User;
 use App\Services\AccountDeletionService;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,32 +18,13 @@ use Livewire\Attributes\Title;
 #[Title('Users')]
 class Index extends BaseIndex
 {
+    use HandlesUserRowActions;
     use LogsAdminActivity;
 
     /** Primary status view: 'active' | 'pending' | 'trashed'. */
     public string $tab = 'active';
 
-    // ── Single-row confirmation state ─────────────────────────────────────────
-
-    public ?int $banningUserId = null;
-
-    public string $banReason = '';
-
-    public ?int $deletingId = null;
-
-    public ?int $restoringId = null;
-
-    public ?int $forceDeleteId = null;
-
-    public ?int $schedulingId = null;
-
-    public string $deletionReason = '';
-
-    public ?int $purgingId = null;
-
-    public string $purgeReason = '';
-
-    // ── Bulk reason state (single-row uses the props above) ───────────────────
+    // ── Bulk reason state (single-row state lives in HandlesUserRowActions) ────
 
     public string $bulkDeletionReason = '';
 
@@ -281,163 +263,7 @@ class Index extends BaseIndex
         };
     }
 
-    // ── Single-row actions ────────────────────────────────────────────────────
-
-    public function openBanDialog(int $userId): void
-    {
-        $this->authorize('users.ban');
-        $this->banningUserId = $userId;
-        $this->banReason = '';
-        $this->dispatch('open-dialog-ban-user');
-    }
-
-    public function confirmBan(): void
-    {
-        $this->authorize('users.ban');
-
-        $user = User::findOrFail($this->banningUserId);
-        $reason = trim($this->banReason) ?: 'Banned by administrator.';
-        $user->update([
-            'banned_at' => now(),
-            'ban_reason' => $reason,
-        ]);
-
-        $this->logActivity(ActivityModule::User, ActivityAction::Banned, $user, ['ban_reason' => $reason]);
-
-        $this->banningUserId = null;
-        $this->banReason = '';
-        $this->toastSuccess("User {$user->name} has been banned.");
-    }
-
-    public function unban(int $userId): void
-    {
-        $this->authorize('users.unban');
-
-        $user = User::findOrFail($userId);
-        $user->update(['banned_at' => null, 'ban_reason' => null]);
-
-        $this->logActivity(ActivityModule::User, ActivityAction::Unbanned, $user);
-
-        $this->toastSuccess("{$user->name} has been unbanned.");
-    }
-
-    public function confirmDelete(int $userId): void
-    {
-        $this->authorize('users.delete');
-        $this->deletingId = $userId;
-        $this->dispatch('open-alert-dialog-delete-user');
-    }
-
-    public function delete(): void
-    {
-        $this->authorize('users.delete');
-
-        $user = User::findOrFail($this->deletingId);
-        $name = $user->name;
-        $user->delete();
-
-        $this->logActivity(ActivityModule::User, ActivityAction::Deleted, $user);
-
-        $this->deletingId = null;
-        $this->toastSuccess("{$name} has been deleted.");
-    }
-
-    public function confirmRestore(int $userId): void
-    {
-        $this->authorize('users.restore');
-        $this->restoringId = $userId;
-        $this->dispatch('open-alert-dialog-restore-user');
-    }
-
-    public function restore(): void
-    {
-        $this->authorize('users.restore');
-
-        $user = User::withTrashed()->findOrFail($this->restoringId);
-        $user->restore();
-
-        $this->logActivity(ActivityModule::User, ActivityAction::Restored, $user);
-
-        $this->restoringId = null;
-        $this->toastSuccess("{$user->name} has been restored.");
-    }
-
-    public function confirmForceDelete(int $userId): void
-    {
-        $this->authorize('users.force-delete');
-        $this->forceDeleteId = $userId;
-        $this->dispatch('open-alert-dialog-force-delete-user');
-    }
-
-    public function forceDelete(): void
-    {
-        $this->authorize('users.force-delete');
-
-        $user = User::withTrashed()->findOrFail($this->forceDeleteId);
-        $name = $user->name;
-
-        $this->logActivity(ActivityModule::User, ActivityAction::ForceDeleted, $user, ['user_id' => $user->id, 'name' => $name]);
-
-        $user->forceDelete();
-
-        $this->forceDeleteId = null;
-        $this->toastSuccess("{$name} has been permanently deleted.");
-    }
-
-    // ── Account deletion (grace period) ───────────────────────────────────────
-
-    public function openScheduleDeletionDialog(int $userId): void
-    {
-        $this->authorize('users.delete');
-        $this->schedulingId = $userId;
-        $this->deletionReason = '';
-        $this->dispatch('open-dialog-schedule-deletion');
-    }
-
-    public function confirmScheduleDeletion(AccountDeletionService $deletions): void
-    {
-        $this->authorize('users.delete');
-
-        $user = User::query()->appUsers()->findOrFail($this->schedulingId);
-        $deletions->requestByAdmin($user, trim($this->deletionReason) ?: null);
-
-        $this->schedulingId = null;
-        $this->deletionReason = '';
-        $this->toastSuccess("{$user->name} is scheduled for deletion.");
-    }
-
-    public function stopDeletion(int $userId, AccountDeletionService $deletions): void
-    {
-        $this->authorize('users.delete');
-
-        $user = User::query()->appUsers()->findOrFail($userId);
-        $deletions->cancelByAdmin($user);
-
-        $this->toastSuccess("Deletion cancelled for {$user->name}.");
-    }
-
-    public function confirmInstantPurge(int $userId): void
-    {
-        $this->authorize('users.force-delete');
-        $this->purgingId = $userId;
-        $this->purgeReason = '';
-        $this->dispatch('open-dialog-instant-purge');
-    }
-
-    public function instantPurge(AccountDeletionService $deletions): void
-    {
-        $this->authorize('users.force-delete');
-
-        $user = User::query()->appUsers()->findOrFail($this->purgingId);
-        $name = $user->name;
-        $deletions->instantPurgeByAdmin($user, trim($this->purgeReason) ?: null);
-
-        $this->purgingId = null;
-        $this->purgeReason = '';
-        $this->toastSuccess("{$name} has been permanently deleted.");
-    }
-
-    // ── Bulk actions ──────────────────────────────────────────────────────────
+    // ── Bulk actions (single-row actions live in HandlesUserRowActions) ───────
 
     public function executeBulkBan(): void
     {

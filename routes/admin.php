@@ -4,6 +4,7 @@ use App\Livewire\Admin\Dashboard;
 use App\Livewire\Admin\Management\Guests\Index as GuestsIndex;
 use App\Livewire\Admin\Management\Users\Form as UsersForm;
 use App\Livewire\Admin\Management\Users\Index as UsersIndex;
+use App\Livewire\Admin\Management\Users\Show as UsersShow;
 use App\Livewire\Admin\System\ActivityLogs\Index as ActivityLogsIndex;
 use App\Livewire\Admin\System\Roles\Form as RolesForm;
 use App\Livewire\Admin\System\Roles\Index as RolesIndex;
@@ -19,6 +20,7 @@ Route::middleware(['auth', 'panel'])->name('admin.')->group(function () {
         Route::get('/', UsersIndex::class)->name('index');
         Route::get('/create', UsersForm::class)->name('create')->middleware('permission:users.create');
         Route::get('/{user}/edit', UsersForm::class)->name('edit')->middleware('permission:users.edit');
+        Route::get('/{user}', UsersShow::class)->name('show')->middleware('permission:users.manage')->withTrashed();
     });
 
     // ── Guests ─────────────────────────────────────────────────────────────

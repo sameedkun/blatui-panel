@@ -23,4 +23,9 @@ trait HasToast
     {
         $this->toast('warning', $title, $description);
     }
+
+    public function toastInfo(string $title, string $description = ''): void
+    {
+        $this->toast('info', $title, $description);
+    }
 }

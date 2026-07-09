@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enum\UserType;
 use Carbon\CarbonInterface;
 use Database\Factories\UserFactory;
@@ -202,5 +201,19 @@ class User extends Authenticatable
     public function scopePendingDeletion(Builder $query): Builder
     {
         return $query->whereNotNull('deletion_requested_at');
+    }
+
+    // -------------------------------------------------------------------------
+    // Lifecycle state (active / pending deletion / soft deleted)
+    // -------------------------------------------------------------------------
+
+    /** The account's current lifecycle state, used to gate which actions apply. */
+    public function lifecycleState(): string
+    {
+        return match (true) {
+            $this->trashed() => 'trashed',
+            $this->isPendingDeletion() => 'pending',
+            default => 'active',
+        };
     }
 }

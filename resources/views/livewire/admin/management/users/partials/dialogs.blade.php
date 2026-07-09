@@ -1,50 +1,9 @@
 {{-- Confirmation dialogs for the Users index. Included by index.blade — shares its
      Livewire scope ($wire, $selectedIds, etc.). --}}
 
-{{-- ── Single-row ─────────────────────────────────────────────────────────── --}}
+{{-- ── Single-row (shared with the user profile page) ─────────────────────── --}}
 
-<x-admin.reason-dialog
-    id="ban-user"
-    title="Ban User"
-    description='Optionally provide a reason. Defaults to "Banned by administrator."'
-    model="banReason"
-    confirm="confirmBan"
-    confirm-label="Ban User"
-    cancel="$wire.set('banningUserId', null)"
-    placeholder="Reason for the ban (optional)"
-/>
-
-<x-admin.confirm-dialog
-    id="delete-user"
-    title="Delete User"
-    confirm="$wire.delete()"
-    cancel="$wire.set('deletingId', null)"
-    confirm-label="Delete"
-    variant="destructive"
->
-    This will soft-delete the user. They can be restored later.
-</x-admin.confirm-dialog>
-
-<x-admin.confirm-dialog
-    id="restore-user"
-    title="Restore User"
-    confirm="$wire.restore()"
-    cancel="$wire.set('restoringId', null)"
-    confirm-label="Restore"
->
-    This will restore the user's account.
-</x-admin.confirm-dialog>
-
-<x-admin.confirm-dialog
-    id="force-delete-user"
-    title="Permanently Delete"
-    confirm="$wire.forceDelete()"
-    cancel="$wire.set('forceDeleteId', null)"
-    confirm-label="Delete Permanently"
-    variant="destructive"
->
-    This action <strong>cannot be undone</strong>. The user and all associated data will be permanently removed.
-</x-admin.confirm-dialog>
+@include('livewire.admin.management.users.partials.single-row-dialogs')
 
 {{-- ── Bulk ───────────────────────────────────────────────────────────────── --}}
 

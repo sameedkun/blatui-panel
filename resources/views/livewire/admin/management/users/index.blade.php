@@ -180,8 +180,19 @@
 
                         {{-- Row actions --}}
                         <td class="px-4 py-3 text-right">
-                            @if ($canRowAct)
-                                <x-admin.dropdown align="end" width="w-48">
+                            <div class="flex items-center justify-end gap-1">
+                                @can('users.view')
+                                    <x-admin.tooltip text="View profile">
+                                        <x-ui.button variant="ghost" size="icon" class="size-8"
+                                            href="{{ route('admin.users.show', $user) }}">
+                                            <x-lucide-eye class="size-4" />
+                                            <span class="sr-only">View profile</span>
+                                        </x-ui.button>
+                                    </x-admin.tooltip>
+                                @endcan
+
+                                @if ($canRowAct)
+                                    <x-admin.dropdown align="end" width="w-48">
                                     <x-slot:trigger>
                                         <x-ui.button variant="ghost" size="icon" class="size-8">
                                             <x-lucide-ellipsis class="size-4" />
@@ -258,7 +269,8 @@
                                         @endcan
                                     @endif
                                 </x-admin.dropdown>
-                            @endif
+                                @endif
+                            </div>
                         </td>
 
                     </tr>
