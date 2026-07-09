@@ -54,7 +54,7 @@
                 </x-ui.sidebar-menu>
             @endcanany
 
-            @canany(['staff.view', 'roles.view'])
+            @canany(['staff.view', 'roles.view', 'activity_logs.view'])
                 <x-ui.sidebar-group-label>System</x-ui.sidebar-group-label>
 
                 <x-ui.sidebar-menu>
@@ -73,6 +73,15 @@
                             <x-ui.sidebar-menu-button href="{{ route('admin.roles.index') }}" :isActive="request()->routeIs('admin.roles.*')">
                                 <x-lucide-key />
                                 <span>Roles</span>
+                            </x-ui.sidebar-menu-button>
+                        </x-ui.sidebar-menu-item>
+                    @endcan
+
+                    @can('activity_logs.view')
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.activity-logs.index') }}" :isActive="request()->routeIs('admin.activity-logs.*')">
+                                <x-lucide-clipboard-list />
+                                <span>Activity Logs</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan

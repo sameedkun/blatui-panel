@@ -159,6 +159,12 @@ return [
             'actions' => ['view', 'create', 'edit', 'delete'],
             'icon' => 'key',
         ],
+        'activity_logs' => [
+            'label' => 'Activity Logs',
+            'group' => 'system',
+            'actions' => ['view', 'export'],
+            'icon' => 'clipboard-list',
+        ],
 
     ],
 
@@ -211,6 +217,18 @@ return [
     |
     */
     'account_deletion_grace_hours' => env('ACCOUNT_DELETION_GRACE_HOURS', 24),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Activity Log Export Threshold
+    |--------------------------------------------------------------------------
+    |
+    | Filtered activity-log exports up to this many rows stream straight to the
+    | browser; anything larger is handed to the ExportActivityLog queued job so
+    | the web request never hangs building a huge file.
+    |
+    */
+    'activity_log_export_queue_threshold' => env('ACTIVITY_LOG_EXPORT_QUEUE_THRESHOLD', 5000),
 
     /*
     |--------------------------------------------------------------------------

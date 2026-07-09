@@ -24,6 +24,10 @@ return new class extends Migration
             $table->timestamp('banned_at')->nullable();
             $table->text('ban_reason')->nullable();
 
+            $table->timestamp('deletion_requested_at')->nullable()->index();
+            $table->string('deletion_requested_by')->nullable();
+            $table->text('deletion_reason')->nullable();
+
             $table->string('google_id')->nullable()->unique();
             $table->string('apple_id')->nullable()->unique();
             $table->string('avatar')->nullable();
