@@ -4,13 +4,16 @@
     $banned = (bool) $record->banned_at;
     $unverified = ! $record->email_verified_at;
     $isApp = $record->isAppUser();
+    $menuData = ['record' => $record, 'state' => $state, 'isApp' => $isApp, 'unverified' => $unverified];
 @endphp
 
 <x-ui.card>
-    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    {{-- Identity on the left, actions on the right, same row at every breakpoint —
+         the header never stacks. --}}
+    <div class="flex items-center justify-between gap-4">
 
         {{-- Identity --}}
-        <div class="flex items-center gap-4">
+        <div class="flex min-w-0 items-center gap-4">
             <x-ui.avatar class="size-16 shrink-0 rounded-full">
                 @if ($record->avatar)
                     <x-ui.avatar-image :src="$record->avatar" :alt="$record->name" />
@@ -60,36 +63,25 @@
             </div>
         </div>
 
-        {{-- Actions: inline on desktop, collapsed into a menu on mobile. State-gated —
-             each button is also rejected by its action method if invoked out of state. --}}
-        <div class="shrink-0">
+        {{-- Actions: importance-based split, not a width/count threshold — Edit and
+             Ban/Unban are the only two permanent buttons; everything else always lives
+             behind "Actions". The split itself never moves; only the responsive collapse
+             (primary buttons folding into the single mobile menu) is breakpoint-driven.
+             State-gating happens here in the view and again in each action method. --}}
+        <div class="flex shrink-0 items-center gap-2">
 
-            {{-- Desktop --}}
-            <div class="hidden flex-wrap items-center gap-2 md:flex">
-                @if ($state === 'trashed')
-                    @can('users.restore')
-                        <x-ui.button variant="outline" wire:click="confirmRestore({{ $record->id }})">
-                            <x-lucide-rotate-ccw class="size-4" />
-                            Restore
+            {{-- Primary — desktop only; folded into the single mobile menu below. --}}
+            <div class="hidden items-center gap-2 md:flex">
+                @if ($state === 'active')
+                    @can('users.edit')
+                        <x-ui.button variant="outline" href="{{ route('admin.users.edit', $record) }}">
+                            <x-lucide-pencil class="size-4" />
+                            Edit
                         </x-ui.button>
                     @endcan
+                @endif
 
-                    @can('users.force-delete')
-                        <x-ui.button variant="destructive" wire:click="confirmForceDelete({{ $record->id }})">
-                            <x-lucide-trash-2 class="size-4" />
-                            Force Delete
-                        </x-ui.button>
-                    @endcan
-                @else
-                    @if ($state === 'active')
-                        @can('users.edit')
-                            <x-ui.button variant="outline" href="{{ route('admin.users.edit', $record) }}">
-                                <x-lucide-pencil class="size-4" />
-                                Edit
-                            </x-ui.button>
-                        @endcan
-                    @endif
-
+                @if ($state !== 'trashed')
                     @if ($banned)
                         @can('users.unban')
                             <x-ui.button variant="outline" wire:click="unban({{ $record->id }})">
@@ -105,105 +97,45 @@
                             </x-ui.button>
                         @endcan
                     @endif
-
-                    @if ($isApp)
-                        @if ($state === 'pending')
-                            @can('users.delete')
-                                <x-ui.button variant="outline" wire:click="stopDeletion({{ $record->id }})">
-                                    <x-lucide-shield-check class="size-4" />
-                                    Stop Deletion
-                                </x-ui.button>
-                            @endcan
-
-                            @can('users.force-delete')
-                                <x-ui.button variant="ghost" class="text-destructive hover:text-destructive"
-                                    wire:click="confirmInstantPurge({{ $record->id }})">
-                                    <x-lucide-trash-2 class="size-4" />
-                                    Instant Purge
-                                </x-ui.button>
-                            @endcan
-                        @else
-                            @can('users.delete')
-                                <x-ui.button variant="outline" wire:click="openScheduleDeletionDialog({{ $record->id }})">
-                                    <x-lucide-clock class="size-4" />
-                                    Schedule Deletion
-                                </x-ui.button>
-
-                                <x-ui.button variant="ghost" class="text-destructive hover:text-destructive"
-                                    wire:click="confirmDelete({{ $record->id }})">
-                                    <x-lucide-trash class="size-4" />
-                                    Soft Delete
-                                </x-ui.button>
-                            @endcan
-                        @endif
-
-                        {{-- Scaffolded — wiring points only, not yet functional. --}}
-                        <div class="mx-1 h-6 w-px bg-border"></div>
-
-                        @if ($unverified)
-                            <x-admin.tooltip text="Not yet available">
-                                <x-ui.button variant="outline" class="text-muted-foreground"
-                                    wire:click="verifyEmailManually">
-                                    <x-lucide-badge-check class="size-4" />
-                                    Verify Email
-                                </x-ui.button>
-                            </x-admin.tooltip>
-
-                            <x-admin.tooltip text="Not yet available">
-                                <x-ui.button variant="outline" class="text-muted-foreground"
-                                    wire:click="resendVerificationEmail">
-                                    <x-lucide-mail class="size-4" />
-                                    Resend Verification
-                                </x-ui.button>
-                            </x-admin.tooltip>
-                        @endif
-
-                        <x-admin.tooltip text="Not yet available">
-                            <x-ui.button variant="outline" class="text-muted-foreground"
-                                wire:click="sendPasswordResetLink">
-                                <x-lucide-key class="size-4" />
-                                Send Password Reset
-                            </x-ui.button>
-                        </x-admin.tooltip>
-                    @endif
                 @endif
             </div>
 
-            {{-- Mobile --}}
-            <div class="md:hidden">
-                <x-admin.dropdown align="end" width="w-56">
+            {{-- Secondary — desktop menu, anchored to its own right/end edge so it
+                 always opens inward. --}}
+            <div class="hidden md:block">
+                <x-admin.dropdown align="end" width="w-64">
                     <x-slot:trigger>
-                        <x-ui.button variant="outline" size="sm">
+                        <x-ui.button variant="outline">
                             Actions
                             <x-lucide-chevron-down class="size-4" />
                         </x-ui.button>
                     </x-slot:trigger>
 
-                    @if ($state === 'trashed')
-                        @can('users.restore')
-                            <x-admin.dropdown-item @click="$wire.confirmRestore({{ $record->id }})">
-                                <x-lucide-rotate-ccw class="size-4" />
-                                Restore
+                    @include('livewire.admin.management.users.profile.components.header-actions-menu', $menuData)
+                </x-admin.dropdown>
+            </div>
+
+            {{-- Mobile — primary + secondary fold into a single menu, still anchored
+                 end so it opens inward instead of clipping the left viewport edge. --}}
+            <div class="md:hidden">
+                <x-admin.dropdown align="end" width="w-64">
+                    <x-slot:trigger>
+                        <x-ui.button variant="outline">
+                            Actions
+                            <x-lucide-chevron-down class="size-4" />
+                        </x-ui.button>
+                    </x-slot:trigger>
+
+                    @if ($state === 'active')
+                        @can('users.edit')
+                            <x-admin.dropdown-item href="{{ route('admin.users.edit', $record) }}">
+                                <x-lucide-pencil class="size-4" />
+                                Edit
                             </x-admin.dropdown-item>
                         @endcan
+                    @endif
 
-                        @can('users.force-delete')
-                            <x-admin.dropdown-item variant="destructive"
-                                @click="$wire.confirmForceDelete({{ $record->id }})">
-                                <x-lucide-trash-2 class="size-4" />
-                                Force Delete
-                            </x-admin.dropdown-item>
-                        @endcan
-                    @else
-                        @if ($state === 'active')
-                            @can('users.edit')
-                                <x-admin.dropdown-item href="{{ route('admin.users.edit', $record) }}">
-                                    <x-lucide-pencil class="size-4" />
-                                    Edit
-                                </x-admin.dropdown-item>
-                            @endcan
-                        @endif
-
+                    @if ($state !== 'trashed')
                         @if ($banned)
                             @can('users.unban')
                                 <x-admin.dropdown-item @click="$wire.unban({{ $record->id }})">
@@ -219,63 +151,11 @@
                                 </x-admin.dropdown-item>
                             @endcan
                         @endif
-
-                        @if ($isApp)
-                            @if ($state === 'pending')
-                                @can('users.delete')
-                                    <x-admin.dropdown-item @click="$wire.stopDeletion({{ $record->id }})">
-                                        <x-lucide-shield-check class="size-4" />
-                                        Stop Deletion
-                                    </x-admin.dropdown-item>
-                                @endcan
-
-                                @can('users.force-delete')
-                                    <x-admin.dropdown-separator />
-                                    <x-admin.dropdown-item variant="destructive"
-                                        @click="$wire.confirmInstantPurge({{ $record->id }})">
-                                        <x-lucide-trash-2 class="size-4" />
-                                        Instant Purge
-                                    </x-admin.dropdown-item>
-                                @endcan
-                            @else
-                                @can('users.delete')
-                                    <x-admin.dropdown-item @click="$wire.openScheduleDeletionDialog({{ $record->id }})">
-                                        <x-lucide-clock class="size-4" />
-                                        Schedule Deletion
-                                    </x-admin.dropdown-item>
-
-                                    <x-admin.dropdown-separator />
-                                    <x-admin.dropdown-item variant="destructive"
-                                        @click="$wire.confirmDelete({{ $record->id }})">
-                                        <x-lucide-trash class="size-4" />
-                                        Soft Delete
-                                    </x-admin.dropdown-item>
-                                @endcan
-                            @endif
-
-                            <x-admin.dropdown-separator />
-
-                            @if ($unverified)
-                                <x-admin.dropdown-item class="text-muted-foreground"
-                                    @click="$wire.verifyEmailManually">
-                                    <x-lucide-badge-check class="size-4" />
-                                    Verify Email
-                                </x-admin.dropdown-item>
-
-                                <x-admin.dropdown-item class="text-muted-foreground"
-                                    @click="$wire.resendVerificationEmail">
-                                    <x-lucide-mail class="size-4" />
-                                    Resend Verification
-                                </x-admin.dropdown-item>
-                            @endif
-
-                            <x-admin.dropdown-item class="text-muted-foreground"
-                                @click="$wire.sendPasswordResetLink">
-                                <x-lucide-key class="size-4" />
-                                Send Password Reset
-                            </x-admin.dropdown-item>
-                        @endif
                     @endif
+
+                    <x-admin.dropdown-separator />
+
+                    @include('livewire.admin.management.users.profile.components.header-actions-menu', $menuData)
                 </x-admin.dropdown>
             </div>
 

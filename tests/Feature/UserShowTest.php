@@ -185,13 +185,15 @@ class UserShowTest extends TestCase
 
         // Text-only assertSee/assertDontSee would false-positive on the always-rendered
         // (Alpine-hidden) dialog markup shared across states, so assert on the
-        // wire:click hooks that are unique to each header button instead.
+        // click hooks that are unique to each menu item instead. Restore/Force Delete
+        // are secondary actions (Alpine @click="$wire.X()" inside the Actions menu).
         Livewire::test(Show::class, ['user' => $user])
-            ->assertSee('wire:click="confirmRestore('.$user->id.')"', false)
-            ->assertSee('wire:click="confirmForceDelete('.$user->id.')"', false)
-            ->assertDontSee('wire:click="openScheduleDeletionDialog('.$user->id.')"', false)
-            ->assertDontSee('wire:click="confirmDelete('.$user->id.')"', false)
-            ->assertDontSee('wire:click="confirmInstantPurge('.$user->id.')"', false)
+            ->assertSee('$wire.confirmRestore('.$user->id.')', false)
+            ->assertSee('$wire.confirmForceDelete('.$user->id.')', false)
+            ->assertDontSee('$wire.openScheduleDeletionDialog('.$user->id.')', false)
+            ->assertDontSee('$wire.confirmDelete('.$user->id.')', false)
+            ->assertDontSee('$wire.confirmInstantPurge('.$user->id.')', false)
+            ->assertDontSee('$wire.openBanDialog('.$user->id.')', false)
             ->assertDontSee('wire:click="openBanDialog('.$user->id.')"', false)
             ->assertDontSeeHtml('href="'.route('admin.users.edit', $user).'"');
     }
@@ -201,12 +203,13 @@ class UserShowTest extends TestCase
         $this->actingAsSuperAdmin();
         $user = User::factory()->pendingDeletion('admin')->create();
 
+        // Ban/Unban are primary (desktop: real wire:click; mobile menu: Alpine @click).
         Livewire::test(Show::class, ['user' => $user])
-            ->assertSee('wire:click="stopDeletion('.$user->id.')"', false)
-            ->assertSee('wire:click="confirmInstantPurge('.$user->id.')"', false)
+            ->assertSee('$wire.stopDeletion('.$user->id.')', false)
+            ->assertSee('$wire.confirmInstantPurge('.$user->id.')', false)
             ->assertSee('wire:click="openBanDialog('.$user->id.')"', false) // grace-window abuse still bannable
-            ->assertDontSee('wire:click="openScheduleDeletionDialog('.$user->id.')"', false)
-            ->assertDontSee('wire:click="confirmDelete('.$user->id.')"', false)
+            ->assertDontSee('$wire.openScheduleDeletionDialog('.$user->id.')', false)
+            ->assertDontSee('$wire.confirmDelete('.$user->id.')', false)
             ->assertDontSeeHtml('href="'.route('admin.users.edit', $user).'"');
     }
 
