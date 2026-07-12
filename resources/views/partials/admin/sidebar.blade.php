@@ -137,10 +137,9 @@
                             </div>
                         </x-ui.dropdown-menu-label>
                         <x-ui.dropdown-menu-separator />
-                        <x-ui.dropdown-menu-item
-                            href="{{ Route::has('settings.profile') ? route('settings.profile') : '#' }}">
+                        <x-ui.dropdown-menu-item href="{{ route('admin.account') }}">
                             <x-lucide-user class="size-4" />
-                            Profile
+                            My Account
                         </x-ui.dropdown-menu-item>
                         <x-ui.dropdown-menu-item
                             href="{{ Route::has('settings.account') ? route('settings.account') : '#' }}">

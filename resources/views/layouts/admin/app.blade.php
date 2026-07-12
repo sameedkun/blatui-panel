@@ -45,16 +45,18 @@
                         <x-lucide-settings class="size-4" aria-hidden="true" />
                     </x-ui.button>
 
-                    {{-- User avatar (desktop shortcut) --}}
-                    <x-ui.avatar class="size-8 cursor-pointer rounded-full">
-                        @if (auth()->user()->avatar)
-                            <x-ui.avatar-image src="{{ auth()->user()->avatar }}" alt="{{ auth()->user()->name }}" />
-                        @else
-                            <x-ui.avatar-fallback class="text-xs">
-                                {{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 2)) }}
-                            </x-ui.avatar-fallback>
-                        @endif
-                    </x-ui.avatar>
+                    {{-- User avatar (desktop shortcut to the account page) --}}
+                    <a href="{{ route('admin.account') }}" aria-label="My account" wire:navigate>
+                        <x-ui.avatar class="size-8 cursor-pointer rounded-full">
+                            @if (auth()->user()->avatar)
+                                <x-ui.avatar-image src="{{ auth()->user()->avatar }}" alt="{{ auth()->user()->name }}" />
+                            @else
+                                <x-ui.avatar-fallback class="text-xs">
+                                    {{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 2)) }}
+                                </x-ui.avatar-fallback>
+                            @endif
+                        </x-ui.avatar>
+                    </a>
                 </div>
             </header>
 

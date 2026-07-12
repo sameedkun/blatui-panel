@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Admin\Account\Index as AccountIndex;
 use App\Livewire\Admin\Dashboard;
 use App\Livewire\Admin\Management\Guests\Index as GuestsIndex;
 use App\Livewire\Admin\Management\Users\Form as UsersForm;
@@ -10,9 +11,14 @@ use App\Livewire\Admin\System\Roles\Form as RolesForm;
 use App\Livewire\Admin\System\Roles\Index as RolesIndex;
 use App\Livewire\Admin\System\Staff\Form as StaffForm;
 use App\Livewire\Admin\System\Staff\Index as StaffIndex;
+use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'panel'])->name('admin.')->group(function () {
+// AuthenticateSession is what makes "log out other devices" on the account page
+// actually invalidate other panel sessions: it stamps the password hash into the
+// session and logs a session out when that hash no longer matches — so rotating
+// the hash (Auth::logoutOtherDevices) kills every other session on its next request.
+Route::middleware(['auth', 'panel', AuthenticateSession::class])->name('admin.')->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
 
     // ── Users ─────────────────────────────────────────────────────────────
@@ -46,4 +52,7 @@ Route::middleware(['auth', 'panel'])->name('admin.')->group(function () {
     Route::prefix('activity-logs')->name('activity-logs.')->middleware('permission:activity_logs.view')->group(function () {
         Route::get('/', ActivityLogsIndex::class)->name('index');
     });
+
+    // ── My Account (self-service; every staff member, no extra permission) ──
+    Route::get('/account', AccountIndex::class)->name('account');
 });
