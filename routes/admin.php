@@ -3,6 +3,7 @@
 use App\Livewire\Admin\Account\Index as AccountIndex;
 use App\Livewire\Admin\Dashboard;
 use App\Livewire\Admin\Management\Guests\Index as GuestsIndex;
+use App\Livewire\Admin\Management\Guests\Show as GuestsShow;
 use App\Livewire\Admin\Management\Users\Form as UsersForm;
 use App\Livewire\Admin\Management\Users\Index as UsersIndex;
 use App\Livewire\Admin\Management\Users\Show as UsersShow;
@@ -32,6 +33,7 @@ Route::middleware(['auth', 'panel', AuthenticateSession::class])->name('admin.')
     // ── Guests ─────────────────────────────────────────────────────────────
     Route::prefix('guests')->name('guests.')->middleware('permission:guests.view')->group(function () {
         Route::get('/', GuestsIndex::class)->name('index');
+        Route::get('/{user}', GuestsShow::class)->name('show')->middleware('permission:guests.manage')->withTrashed();
     });
 
     // ── Staff ─────────────────────────────────────────────────────────────

@@ -2,8 +2,13 @@
 
 namespace App\Livewire\Admin\Management\Guests;
 
+use App\Enum\ActivityAction;
+use App\Enum\ActivityModule;
 use App\Livewire\Admin\BaseIndex;
+use App\Livewire\Admin\Concerns\LogsAdminActivity;
+use App\Livewire\Admin\Management\Guests\Concerns\HandlesGuestRowActions;
 use App\Models\User;
+use App\Services\AccountDeletionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
@@ -13,17 +18,8 @@ use Livewire\Attributes\Title;
 #[Title('Guests')]
 class Index extends BaseIndex
 {
-    // ── Single-row confirmation state ─────────────────────────────────────────
-
-    public ?int $banningUserId = null;
-
-    public string $banReason = '';
-
-    public ?int $deletingId = null;
-
-    public ?int $restoringId = null;
-
-    public ?int $forceDeleteId = null;
+    use HandlesGuestRowActions;
+    use LogsAdminActivity;
 
     // ── Filters ───────────────────────────────────────────────────────────────
 
@@ -31,19 +27,14 @@ class Index extends BaseIndex
         'status' => [],
         'registered_from' => '',
         'registered_to' => '',
-        'view' => '',
     ];
 
     // ── Base query ────────────────────────────────────────────────────────────
     protected function baseQuery(): Builder
     {
-        $query = User::query()->guests();
-
-        if (($this->filters['view'] ?? '') === 'trashed') {
-            $query->onlyTrashed();
-        }
-
-        return $query;
+        // Deleted guests are rare (Delete is now instant/permanent), so instead
+        // of a separate "trashed" filter, they're just shown inline with a badge.
+        return User::query()->guests()->withTrashed();
     }
 
     protected function searchableColumns(): array
@@ -79,12 +70,6 @@ class Index extends BaseIndex
                 'label' => 'Registered to',
                 'type' => 'date',
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('registration_date', '<=', $v.' 23:59:59'),
-            ],
-            'view' => [
-                'label' => 'View',
-                'type' => 'select',
-                'options' => ['trashed' => 'Deleted'],
-                'apply' => fn (Builder $q, string $v): Builder => $q, // handled in baseQuery()
             ],
         ];
     }
@@ -140,42 +125,16 @@ class Index extends BaseIndex
                 'from_key' => 'registered_from',
                 'to_key' => 'registered_to',
             ],
-            'view' => [
-                'label' => 'Deleted',
-                'type' => 'toggle',
-                'active_value' => 'trashed',
-                'active_label' => 'Showing Deleted',
-                'icon' => 'trash-2',
-            ],
         ];
     }
 
     // ── Bulk action config ────────────────────────────────────────────────────
+    // Deleted (trashed) rows aren't selectable — see the checkbox column in the
+    // view — so only the active-guest bulk actions apply here. Restore /
+    // Force-Delete stay as row-only actions on trashed rows.
 
     protected function bulkActionConfig(): array
     {
-        $isTrashed = ($this->filters['view'] ?? '') === 'trashed';
-
-        if ($isTrashed) {
-            return [
-                [
-                    'key' => 'restore',
-                    'label' => 'Restore',
-                    'icon' => 'rotate-ccw',
-                    'confirm' => true,
-                    'permission' => 'guests.restore',
-                ],
-                [
-                    'key' => 'force-delete',
-                    'label' => 'Permanently Delete',
-                    'icon' => 'trash-2',
-                    'confirm' => true,
-                    'variant' => 'destructive',
-                    'permission' => 'guests.force-delete',
-                ],
-            ];
-        }
-
         return [
             [
                 'key' => 'ban',
@@ -204,95 +163,8 @@ class Index extends BaseIndex
     }
 
     // ── Single-row actions ────────────────────────────────────────────────────
-
-    public function openBanDialog(int $userId): void
-    {
-        $this->authorize('guests.ban');
-        $this->banningUserId = $userId;
-        $this->banReason = '';
-        $this->dispatch('open-dialog-ban-user');
-    }
-
-    public function confirmBan(): void
-    {
-        $this->authorize('guests.ban');
-
-        $user = User::findOrFail($this->banningUserId);
-        $user->update([
-            'banned_at' => now(),
-            'ban_reason' => trim($this->banReason) ?: 'Banned by administrator.',
-        ]);
-
-        $this->banningUserId = null;
-        $this->banReason = '';
-        $this->toastSuccess("Guest {$user->name} has been banned.");
-    }
-
-    public function unban(int $userId): void
-    {
-        $this->authorize('guests.unban');
-
-        $user = User::findOrFail($userId);
-        $user->update(['banned_at' => null, 'ban_reason' => null]);
-
-        $this->toastSuccess("{$user->name} has been unbanned.");
-    }
-
-    public function confirmDelete(int $userId): void
-    {
-        $this->authorize('guests.delete');
-        $this->deletingId = $userId;
-        $this->dispatch('open-alert-dialog-delete-user');
-    }
-
-    public function delete(): void
-    {
-        $this->authorize('guests.delete');
-
-        $user = User::findOrFail($this->deletingId);
-        $name = $user->name;
-        $user->delete();
-
-        $this->deletingId = null;
-        $this->toastSuccess("{$name} has been deleted.");
-    }
-
-    public function confirmRestore(int $userId): void
-    {
-        $this->authorize('guests.restore');
-        $this->restoringId = $userId;
-        $this->dispatch('open-alert-dialog-restore-user');
-    }
-
-    public function restore(): void
-    {
-        $this->authorize('guests.restore');
-
-        $user = User::withTrashed()->findOrFail($this->restoringId);
-        $user->restore();
-
-        $this->restoringId = null;
-        $this->toastSuccess("{$user->name} has been restored.");
-    }
-
-    public function confirmForceDelete(int $userId): void
-    {
-        $this->authorize('guests.force-delete');
-        $this->forceDeleteId = $userId;
-        $this->dispatch('open-alert-dialog-force-delete-user');
-    }
-
-    public function forceDelete(): void
-    {
-        $this->authorize('guests.force-delete');
-
-        $user = User::withTrashed()->findOrFail($this->forceDeleteId);
-        $name = $user->name;
-        $user->forceDelete();
-
-        $this->forceDeleteId = null;
-        $this->toastSuccess("{$name} has been permanently deleted.");
-    }
+    // Ban, delete, restore, force-delete come from HandlesGuestRowActions —
+    // shared with the guest profile page so the two never drift apart.
 
     // ── Bulk actions ──────────────────────────────────────────────────────────
 
@@ -300,9 +172,18 @@ class Index extends BaseIndex
     {
         $this->authorize('guests.ban');
 
-        $count = User::whereIn('id', $this->selectedIds)->update([
+        $ids = $this->selectedIds;
+        $reason = trim($this->bulkBanReason) ?: 'Banned by administrator.';
+        $count = User::query()->guests()->whereIn('id', $ids)->update([
             'banned_at' => now(),
-            'ban_reason' => trim($this->bulkBanReason) ?: 'Banned by administrator.',
+            'ban_reason' => $reason,
+        ]);
+
+        $this->logActivity(ActivityModule::Guest, ActivityAction::Banned, null, [
+            'bulk' => true,
+            'user_ids' => $ids,
+            'count' => $count,
+            'ban_reason' => $reason,
         ]);
 
         $this->clearSelection();
@@ -313,30 +194,54 @@ class Index extends BaseIndex
     {
         $this->authorize('guests.unban');
 
-        $count = User::whereIn('id', $this->selectedIds)
+        $ids = $this->selectedIds;
+        $count = User::query()->guests()->whereIn('id', $ids)
             ->update(['banned_at' => null, 'ban_reason' => null]);
+
+        $this->logActivity(ActivityModule::Guest, ActivityAction::Unbanned, null, [
+            'bulk' => true,
+            'user_ids' => $ids,
+            'count' => $count,
+        ]);
 
         $this->clearSelection();
         $this->toastSuccess("{$count} guests unbanned.");
     }
 
-    public function executeBulkDelete(): void
+    /**
+     * Instant, on-the-spot delete — permanently purges every selected guest and
+     * their related data, same as the single-row {@see HandlesGuestRowActions::delete()}.
+     * Fetches first, then mutates, since purging changes each row's scope mid-loop.
+     */
+    public function executeBulkDelete(AccountDeletionService $deletions): void
     {
         $this->authorize('guests.delete');
 
-        $count = count($this->selectedIds);
-        User::whereIn('id', $this->selectedIds)->delete();
+        $count = 0;
+
+        User::query()->guests()->whereIn('id', $this->selectedIds)->get()
+            ->each(function (User $guest) use ($deletions, &$count): void {
+                $deletions->purgeGuestByAdmin($guest);
+                $count++;
+            });
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} guests deleted.");
+        $this->toastSuccess("{$count} guests permanently deleted.");
     }
 
     public function executeBulkRestore(): void
     {
         $this->authorize('guests.restore');
 
-        $count = count($this->selectedIds);
-        User::withTrashed()->whereIn('id', $this->selectedIds)->restore();
+        $ids = $this->selectedIds;
+        $count = count($ids);
+        User::query()->guests()->withTrashed()->whereIn('id', $ids)->restore();
+
+        $this->logActivity(ActivityModule::Guest, ActivityAction::Restored, null, [
+            'bulk' => true,
+            'user_ids' => $ids,
+            'count' => $count,
+        ]);
 
         $this->clearSelection();
         $this->toastSuccess("{$count} guests restored.");
@@ -346,8 +251,16 @@ class Index extends BaseIndex
     {
         $this->authorize('guests.force-delete');
 
-        $count = count($this->selectedIds);
-        User::withTrashed()->whereIn('id', $this->selectedIds)->forceDelete();
+        $ids = $this->selectedIds;
+        $count = count($ids);
+
+        $this->logActivity(ActivityModule::Guest, ActivityAction::ForceDeleted, null, [
+            'bulk' => true,
+            'user_ids' => $ids,
+            'count' => $count,
+        ]);
+
+        User::query()->guests()->withTrashed()->whereIn('id', $ids)->forceDelete();
 
         $this->clearSelection();
         $this->toastSuccess("{$count} guests permanently deleted.");
@@ -361,7 +274,7 @@ class Index extends BaseIndex
 
         return view('livewire.admin.management.guests.index', [
             'users' => $users,
-            'pageIds' => $users->pluck('id')->map(fn ($id) => (string) $id)->toArray(),
+            'pageIds' => $users->reject(fn (User $user): bool => $user->trashed())->pluck('id')->map(fn ($id) => (string) $id)->toArray(),
             'stats' => $this->resolveStats(),
             'filterBarConfig' => $this->filterBarConfig(),
         ]);

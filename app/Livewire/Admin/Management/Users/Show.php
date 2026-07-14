@@ -46,12 +46,6 @@ class Show extends BaseShow
         return $this->record->name;
     }
 
-    /** Viewing a full profile (vs. the list) is gated behind the stronger 'manage' ability. */
-    protected function viewPermission(): ?string
-    {
-        return 'users.manage';
-    }
-
     /**
      * The tab registry defines display order. Every tab is registered and shown;
      * unbuilt ones render a "coming soon" placeholder. Swapping a renderer later

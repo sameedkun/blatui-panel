@@ -20,13 +20,10 @@
 
     {{-- Table --}}
     @php
-        $isTrashedView = ($filters['view'] ?? '') === 'trashed';
-        $canBulkAct = $isTrashedView
-            ? auth()->user()->canAny(['guests.restore', 'guests.force-delete'])
-            : auth()->user()->canAny(['guests.ban', 'guests.unban', 'guests.delete']);
-        $canRowAct = $isTrashedView
-            ? auth()->user()->canAny(['guests.restore', 'guests.force-delete'])
-            : auth()->user()->canAny(['guests.ban', 'guests.delete']);
+        // Deleted (trashed) guests are shown inline with a badge instead of behind
+        // a filter, but aren't bulk-selectable — bulk actions only apply to active rows.
+        $canBulkAct = auth()->user()->canAny(['guests.ban', 'guests.unban', 'guests.delete']);
+        $canRowAct = auth()->user()->canAny(['guests.ban', 'guests.delete', 'guests.restore', 'guests.force-delete']);
     @endphp
     <div class="overflow-hidden rounded-md border border-border">
         <table class="w-full text-sm">
@@ -72,9 +69,9 @@
                     <tr wire:key="user-row-{{ $user->id }}"
                         class="group hover:bg-muted/30 {{ in_array((string) $user->id, $this->selectedIds) ? 'bg-muted/20' : '' }}">
 
-                        {{-- Checkbox --}}
+                        {{-- Checkbox (trashed rows aren't bulk-selectable) --}}
                         <td class="px-4 py-3">
-                            @if ($canBulkAct)
+                            @if ($canBulkAct && ! $user->trashed())
                                 <input type="checkbox" x-data :checked="$wire.selectedIds.includes('{{ $user->id }}')"
                                     @change="$wire.toggleSelection('{{ $user->id }}')"
                                     class="blat-checkbox cursor-pointer dark:bg-input/30" />
@@ -95,14 +92,6 @@
                                 <div class="min-w-0">
                                     <div class="flex items-center gap-1.5">
                                         <span class="truncate font-medium">{{ $user->name }}</span>
-                                        {{-- Social icons --}}
-                                        @if ($user->google_id)
-                                            <x-icons.google class="size-4 text-red-500" title="Google" />
-                                        @endif
-
-                                        @if ($user->apple_id)
-                                            <x-icons.apple class="size-4 text-foreground" title="Apple" />
-                                        @endif
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <span class="truncate text-xs text-muted-foreground">{{ $user->email }}</span>
@@ -120,12 +109,21 @@
 
                         {{-- Status --}}
                         <td class="px-4 py-3">
-                            @if ($user->banned_at)
-                                <x-ui.badge variant="destructive">Banned</x-ui.badge>
-                            @else
-                                <x-ui.badge variant="default"
-                                    class="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0">Active</x-ui.badge>
-                            @endif
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                @if ($user->trashed())
+                                    <x-ui.badge variant="destructive">
+                                        <x-lucide-trash-2 class="size-3" />
+                                        Deleted
+                                    </x-ui.badge>
+                                @endif
+
+                                @if ($user->banned_at)
+                                    <x-ui.badge variant="destructive">Banned</x-ui.badge>
+                                @elseif (! $user->trashed())
+                                    <x-ui.badge variant="default"
+                                        class="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0">Active</x-ui.badge>
+                                @endif
+                            </div>
                         </td>
 
                         {{-- Registered --}}
@@ -140,57 +138,69 @@
 
                         {{-- Row actions --}}
                         <td class="px-4 py-3 text-right">
-                            @if ($canRowAct)
-                            <x-admin.dropdown align="end" width="w-44">
-                                <x-slot:trigger>
-                                    <x-ui.button variant="ghost" size="icon" class="size-8">
-                                        <x-lucide-ellipsis class="size-4" />
-                                        <span class="sr-only">Actions</span>
-                                    </x-ui.button>
-                                </x-slot:trigger>
+                            <div class="flex items-center justify-end gap-1">
+                                @can('guests.view')
+                                    <x-admin.tooltip text="View profile">
+                                        <x-ui.button variant="ghost" size="icon" class="size-8"
+                                            href="{{ route('admin.guests.show', $user) }}">
+                                            <x-lucide-eye class="size-4" />
+                                            <span class="sr-only">View profile</span>
+                                        </x-ui.button>
+                                    </x-admin.tooltip>
+                                @endcan
 
-                                @if (!$user->trashed())
-                                    @can('guests.ban')
-                                        @if (!$user->banned_at)
-                                            <x-admin.dropdown-item @click="$wire.openBanDialog({{ $user->id }})">
-                                                <x-lucide-ban class="size-4" />
-                                                Ban
+                                @if ($canRowAct)
+                                <x-admin.dropdown align="end" width="w-44">
+                                    <x-slot:trigger>
+                                        <x-ui.button variant="ghost" size="icon" class="size-8">
+                                            <x-lucide-ellipsis class="size-4" />
+                                            <span class="sr-only">Actions</span>
+                                        </x-ui.button>
+                                    </x-slot:trigger>
+
+                                    @if (!$user->trashed())
+                                        @can('guests.ban')
+                                            @if (!$user->banned_at)
+                                                <x-admin.dropdown-item @click="$wire.openBanDialog({{ $user->id }})">
+                                                    <x-lucide-ban class="size-4" />
+                                                    Ban
+                                                </x-admin.dropdown-item>
+                                            @else
+                                                <x-admin.dropdown-item @click="$wire.unban({{ $user->id }})">
+                                                    <x-lucide-shield-check class="size-4" />
+                                                    Unban
+                                                </x-admin.dropdown-item>
+                                            @endif
+                                        @endcan
+
+                                        @can('guests.delete')
+                                            <x-admin.dropdown-separator />
+                                            <x-admin.dropdown-item variant="destructive"
+                                                @click="$wire.confirmDelete({{ $user->id }})">
+                                                <x-lucide-trash class="size-4" />
+                                                Delete
                                             </x-admin.dropdown-item>
-                                        @else
-                                            <x-admin.dropdown-item @click="$wire.unban({{ $user->id }})">
-                                                <x-lucide-shield-check class="size-4" />
-                                                Unban
+                                        @endcan
+                                    @else
+                                        @can('guests.restore')
+                                            <x-admin.dropdown-item @click="$wire.confirmRestore({{ $user->id }})">
+                                                <x-lucide-rotate-ccw class="size-4" />
+                                                Restore
                                             </x-admin.dropdown-item>
-                                        @endif
-                                    @endcan
+                                        @endcan
 
-                                    @can('guests.delete')
-                                        <x-admin.dropdown-separator />
-                                        <x-admin.dropdown-item variant="destructive"
-                                            @click="$wire.confirmDelete({{ $user->id }})">
-                                            <x-lucide-trash class="size-4" />
-                                            Delete
-                                        </x-admin.dropdown-item>
-                                    @endcan
-                                @else
-                                    @can('guests.restore')
-                                        <x-admin.dropdown-item @click="$wire.confirmRestore({{ $user->id }})">
-                                            <x-lucide-rotate-ccw class="size-4" />
-                                            Restore
-                                        </x-admin.dropdown-item>
-                                    @endcan
-
-                                    @can('guests.force-delete')
-                                        <x-admin.dropdown-separator />
-                                        <x-admin.dropdown-item variant="destructive"
-                                            @click="$wire.confirmForceDelete({{ $user->id }})">
-                                            <x-lucide-trash-2 class="size-4" />
-                                            Permanently Delete
-                                        </x-admin.dropdown-item>
-                                    @endcan
+                                        @can('guests.force-delete')
+                                            <x-admin.dropdown-separator />
+                                            <x-admin.dropdown-item variant="destructive"
+                                                @click="$wire.confirmForceDelete({{ $user->id }})">
+                                                <x-lucide-trash-2 class="size-4" />
+                                                Permanently Delete
+                                            </x-admin.dropdown-item>
+                                        @endcan
+                                    @endif
+                                </x-admin.dropdown>
                                 @endif
-                            </x-admin.dropdown>
-                            @endif
+                            </div>
                         </td>
 
                     </tr>
@@ -243,6 +253,6 @@
     @endif
 
     {{-- ── Confirmation dialogs ──────────────────────────────────────────── --}}
-    @include('livewire.admin.management.users.partials.dialogs')
+    @include('livewire.admin.management.guests.partials.dialogs')
 
 </div>

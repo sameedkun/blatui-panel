@@ -10,6 +10,7 @@ namespace App\Enum;
 enum ActivityModule: string
 {
     case User = 'user';
+    case Guest = 'guest';
     case Staff = 'staff';
     case Role = 'role';
     case Permission = 'permission';

@@ -113,6 +113,7 @@ class AccountDeletionService
         // auto-detects its (Admin) context.
         $causer = $initiatedBy === 'scheduled' ? null : auth()->user();
         $context = $initiatedBy === 'scheduled' ? ActivityContext::Scheduler : null;
+        $module = $user->type === UserType::Guest ? ActivityModule::Guest : ActivityModule::User;
 
         DB::transaction(function () use ($user): void {
             $this->deleteRelatedData($user);
@@ -122,7 +123,7 @@ class AccountDeletionService
             }
         });
 
-        ActivityLogger::log(ActivityModule::User, ActivityAction::Purged, null, [
+        ActivityLogger::log($module, ActivityAction::Purged, null, [
             'initiated_by' => $initiatedBy,
             'snapshot' => $snapshot,
         ], causer: $causer, context: $context);
@@ -140,6 +141,18 @@ class AccountDeletionService
         }
 
         $this->purge($user, 'admin_instant');
+    }
+
+    /**
+     * Admin permanently deletes a guest account immediately. Guests never enter
+     * the grace-period flow at all, so this skips straight to the purge — no
+     * request/cancel phase, no reason column to persist.
+     */
+    public function purgeGuestByAdmin(User $guest): void
+    {
+        $this->assertGuestUser($guest);
+
+        $this->purge($guest, 'admin_instant');
     }
 
     /**
@@ -219,6 +232,13 @@ class AccountDeletionService
     {
         if ($user->type !== UserType::App) {
             throw new InvalidArgumentException('The account deletion flow is only available to app users.');
+        }
+    }
+
+    protected function assertGuestUser(User $user): void
+    {
+        if ($user->type !== UserType::Guest) {
+            throw new InvalidArgumentException('This action is only available to guest accounts.');
         }
     }
 }
