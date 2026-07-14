@@ -38,11 +38,11 @@
 
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 
-            {{-- Editable profile --}}
-            <x-ui.card variant="sectioned" class="lg:col-span-2">
-                <form wire:submit="saveProfile" class="flex flex-col gap-6">
+            {{-- Editable profile — ordered after Account Details on small screens --}}
+            <x-ui.card variant="sectioned" class="order-2 lg:order-1 lg:col-span-2">
+                <form wire:submit="saveProfile" class="flex h-full flex-col gap-6">
                     <div class="flex items-center gap-4 px-6">
-                        <x-ui.avatar class="size-16 rounded-full">
+                        <x-ui.avatar class="size-24 rounded-full">
                             @if ($avatarUpload)
                                 <x-ui.avatar-image :src="$avatarUpload->temporaryUrl()" :alt="$user->name" />
                             @elseif ($user->avatar)
@@ -146,8 +146,9 @@
                 </form>
             </x-ui.card>
 
-            {{-- Read-only account details — compact, no duplicate name/email inputs --}}
-            <x-ui.card class="lg:col-span-1">
+            {{-- Read-only account details — compact, no duplicate name/email inputs.
+                 Shown first on small screens, second (right column) on lg+. --}}
+            <x-ui.card class="order-1 lg:order-2 lg:col-span-1">
                 <div class="mb-6">
                     <h3 class="text-base font-semibold">Account Details</h3>
                     <p class="text-sm text-muted-foreground">
