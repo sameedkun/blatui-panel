@@ -101,8 +101,8 @@
                         <x-ui.sidebar-menu-button size="lg"
                             class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
                             <x-ui.avatar class="size-8 rounded-lg">
-                                @if(auth()->user()->avatar)
-                                    <x-ui.avatar-image src="{{ auth()->user()->avatar ?? '' }}"
+                                @if(auth()->user()->avatarUrl())
+                                    <x-ui.avatar-image src="{{ auth()->user()->avatarUrl() }}"
                                         alt="{{ auth()->user()->name ?? 'User' }}" />
                                 @endif
                                 <x-ui.avatar-fallback class="rounded-lg">
@@ -121,8 +121,8 @@
                         <x-ui.dropdown-menu-label class="p-0 font-normal">
                             <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                                 <x-ui.avatar class="size-8 rounded-lg">
-                                    @if(auth()->user()->avatar)
-                                        <x-ui.avatar-image src="{{ auth()->user()->avatar ?? '' }}"
+                                    @if(auth()->user()->avatarUrl())
+                                        <x-ui.avatar-image src="{{ auth()->user()->avatarUrl() }}"
                                             alt="{{ auth()->user()->name ?? 'User' }}" />
                                     @endif
                                     <x-ui.avatar-fallback class="rounded-lg">

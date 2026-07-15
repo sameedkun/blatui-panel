@@ -13,8 +13,8 @@
         {{-- Identity --}}
         <div class="flex min-w-0 items-center gap-4">
             <x-ui.avatar class="size-16 shrink-0 rounded-full">
-                @if ($record->avatar)
-                    <x-ui.avatar-image :src="$record->avatar" :alt="$record->name" />
+                @if ($record->avatarUrl())
+                    <x-ui.avatar-image :src="$record->avatarUrl()" :alt="$record->name" />
                 @endif
                 <x-ui.avatar-fallback class="text-lg">
                     {{ strtoupper(substr($record->name, 0, 2)) }}

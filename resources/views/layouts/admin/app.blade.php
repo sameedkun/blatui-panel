@@ -48,8 +48,8 @@
                     {{-- User avatar (desktop shortcut to the account page) --}}
                     <a href="{{ route('admin.account') }}" aria-label="My account" wire:navigate>
                         <x-ui.avatar class="size-8 cursor-pointer rounded-full">
-                            @if (auth()->user()->avatar)
-                                <x-ui.avatar-image src="{{ auth()->user()->avatar }}" alt="{{ auth()->user()->name }}" />
+                            @if (auth()->user()->avatarUrl())
+                                <x-ui.avatar-image src="{{ auth()->user()->avatarUrl() }}" alt="{{ auth()->user()->name }}" />
                             @else
                                 <x-ui.avatar-fallback class="text-xs">
                                     {{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 2)) }}

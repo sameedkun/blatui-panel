@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Concerns\CausesActivity;
 use Spatie\Permission\Traits\HasRoles;
@@ -201,6 +202,20 @@ class User extends Authenticatable
     public function scopePendingDeletion(Builder $query): Builder
     {
         return $query->whereNotNull('deletion_requested_at');
+    }
+
+    // -------------------------------------------------------------------------
+    // Avatar
+    // -------------------------------------------------------------------------
+
+    /** Full URL to the avatar on the default disk, or null if unset/missing. */
+    public function avatarUrl(): ?string
+    {
+        if (! $this->avatar) {
+            return null;
+        }
+
+        return Storage::exists($this->avatar) ? Storage::url($this->avatar) : null;
     }
 
     // -------------------------------------------------------------------------

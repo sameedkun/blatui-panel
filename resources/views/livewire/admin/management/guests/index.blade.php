@@ -82,8 +82,8 @@
                         <td class="px-4 py-3">
                             <div class="flex items-center gap-3">
                                 <x-ui.avatar class="size-8 shrink-0 rounded-full">
-                                    @if ($user->avatar)
-                                        <x-ui.avatar-image :src="$user->avatar" :alt="$user->name" />
+                                    @if ($user->avatarUrl())
+                                        <x-ui.avatar-image :src="$user->avatarUrl()" :alt="$user->name" />
                                     @endif
                                     <x-ui.avatar-fallback class="text-xs">
                                         {{ strtoupper(substr($user->name, 0, 2)) }}

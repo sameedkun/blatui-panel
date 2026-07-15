@@ -45,8 +45,8 @@
                         <x-ui.avatar class="size-24 rounded-full">
                             @if ($avatarUpload)
                                 <x-ui.avatar-image :src="$avatarUpload->temporaryUrl()" :alt="$user->name" />
-                            @elseif ($user->avatar)
-                                <x-ui.avatar-image :src="$user->avatar" :alt="$user->name" />
+                            @elseif ($user->avatarUrl())
+                                <x-ui.avatar-image :src="$user->avatarUrl()" :alt="$user->name" />
                             @endif
 
                             <x-ui.avatar-fallback class="text-lg">
