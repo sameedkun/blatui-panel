@@ -10,6 +10,8 @@ use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Livewire\Admin\Management\Guests\Concerns\HandlesGuestRowActions;
 use App\Models\User;
 use App\Services\AccountDeletionService;
+use App\Services\GuestConversionService;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 
@@ -108,16 +110,28 @@ class Show extends BaseShow
     }
 
     /**
-     * Scaffolded — wiring point only. Toasts rather than silently doing
-     * nothing, but does not yet perform the conversion.
-     *
-     * TODO: when built, this must flip `type` to App, decide what happens to
-     * guest-only fields (google_id/apple_id stay, deletion_* stay unused),
-     * and be logged as a staff-initiated account-type change.
+     * The record stops being a guest on conversion, so — unlike the index —
+     * the profile has nowhere to stay and redirects to the new app user's
+     * page. The conversion itself (and its audit entry) still runs through
+     * {@see GuestConversionService}; no new logic here.
      */
-    public function convertToAppUser(): void
+    public function confirmConvert(GuestConversionService $conversions)
     {
-        $this->toastInfo('Not yet available', 'Converting a guest to an app account is not implemented yet.');
+        $this->authorize('guests.convert');
+
+        $guest = User::query()->guests()->withTrashed()->findOrFail($this->convertingId);
+        $this->assertLifecycleState($guest, ['active']);
+
+        $this->validate([
+            'convertEmail' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($guest->id)],
+        ]);
+
+        $name = $guest->name;
+        $conversions->convertByAdmin($guest, $this->convertEmail, trim($this->convertName) ?: null);
+
+        session()->flash('toast', ['type' => 'success', 'title' => "{$name} has been converted to an app user."]);
+
+        return $this->redirect(route('admin.users.show', $guest));
     }
 
     /**

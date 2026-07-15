@@ -5,8 +5,9 @@
       trashed  → Restore, Force Delete (legacy safety net; the active-state
                  Delete below is instant, so guests shouldn't normally reach
                  this state anymore)
-      active   → Convert to App User (scaffolded, not yet functional), then a
-                 divider, then Delete (destructive, permanent — no grace period)
+      active   → Convert to App User (hidden while banned — a banned guest
+                 must be unbanned first), then a divider, then Delete
+                 (destructive, permanent — no grace period)
 
     Expects: $record, $state
 --}}
@@ -25,10 +26,14 @@
         </x-admin.dropdown-item>
     @endcan
 @else
-    <x-admin.dropdown-item class="text-muted-foreground" @click="$wire.convertToAppUser">
-        <x-lucide-user-plus class="size-4" />
-        Convert to App User
-    </x-admin.dropdown-item>
+    @if ($record->isGuest() && ! $record->banned_at)
+        @can('guests.convert')
+            <x-admin.dropdown-item @click="$wire.openConvertDialog({{ $record->id }})">
+                <x-lucide-user-plus class="size-4" />
+                Convert to App User
+            </x-admin.dropdown-item>
+        @endcan
+    @endif
 
     @can('guests.delete')
         <x-admin.dropdown-separator />

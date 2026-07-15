@@ -23,4 +23,5 @@ enum ActivityAction: string
     case DeletionRequested = 'deletion_requested';
     case DeletionCancelled = 'deletion_cancelled';
     case Purged = 'purged';
+    case Converted = 'converted';
 }

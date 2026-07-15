@@ -29,7 +29,7 @@ class GuestShowTest extends TestCase
     /** Staff granted exactly the given abilities (plus panel access). */
     private function staffWith(array $abilities): User
     {
-        foreach (['panel.access-admin', 'guests.view', 'guests.manage', 'guests.ban', 'guests.unban', 'guests.delete', 'guests.restore', 'guests.force-delete'] as $name) {
+        foreach (['panel.access-admin', 'guests.view', 'guests.manage', 'guests.ban', 'guests.unban', 'guests.delete', 'guests.restore', 'guests.force-delete', 'guests.convert'] as $name) {
             Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
         }
 
@@ -180,7 +180,7 @@ class GuestShowTest extends TestCase
             ->assertSee('$wire.confirmRestore('.$guest->id.')', false)
             ->assertSee('$wire.confirmForceDelete('.$guest->id.')', false)
             ->assertDontSee('$wire.confirmDelete('.$guest->id.')', false)
-            ->assertDontSee('$wire.convertToAppUser', false)
+            ->assertDontSee('$wire.openConvertDialog('.$guest->id.')', false)
             ->assertDontSee('$wire.openBanDialog('.$guest->id.')', false)
             ->assertDontSee('wire:click="openBanDialog('.$guest->id.')"', false);
     }
@@ -229,13 +229,43 @@ class GuestShowTest extends TestCase
         $this->assertDatabaseMissing('users', ['id' => $guest->id]);
     }
 
-    public function test_scaffolded_convert_to_app_user_toasts_not_yet_available(): void
+    public function test_convert_to_app_user_from_profile_flips_type_and_redirects_to_users_show(): void
     {
         $this->actingAsSuperAdmin();
         $guest = User::factory()->guest()->create(['banned_at' => null]);
 
         Livewire::test(Show::class, ['user' => $guest])
-            ->call('convertToAppUser')
-            ->assertDispatched('toast', type: 'info');
+            ->call('openConvertDialog', $guest->id)
+            ->set('convertEmail', 'converted@example.com')
+            ->set('convertName', 'Converted Name')
+            ->call('confirmConvert')
+            ->assertRedirect(route('admin.users.show', $guest));
+
+        $fresh = $guest->fresh();
+        $this->assertTrue($fresh->isAppUser());
+        $this->assertSame('converted@example.com', $fresh->email);
+        $this->assertSame('Converted Name', $fresh->name);
+
+        $row = Activity::where('subject_id', $guest->id)->where('event', 'converted')->firstOrFail();
+        $this->assertSame('admin', $row->properties['initiated_by']);
+    }
+
+    public function test_convert_action_is_forbidden_without_permission(): void
+    {
+        $this->actingAs($this->staffWith(['guests.view', 'guests.manage'])); // no guests.convert
+        $guest = User::factory()->guest()->create(['banned_at' => null]);
+
+        Livewire::test(Show::class, ['user' => $guest])
+            ->call('openConvertDialog', $guest->id)
+            ->assertForbidden();
+    }
+
+    public function test_convert_action_hidden_for_a_banned_guest(): void
+    {
+        $this->actingAsSuperAdmin();
+        $guest = User::factory()->guest()->create(['banned_at' => now()]);
+
+        Livewire::test(Show::class, ['user' => $guest])
+            ->assertDontSee('$wire.openConvertDialog('.$guest->id.')', false);
     }
 }

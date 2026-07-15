@@ -9,7 +9,9 @@ use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Livewire\Admin\Management\Users\Concerns\HandlesUserRowActions;
 use App\Models\User;
 use App\Services\AccountDeletionService;
+use App\Services\GuestConversionService;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Validation\Rule;
 
 /**
  * Single-row guest actions (ban, delete, restore, force-delete) shared by the
@@ -38,6 +40,12 @@ trait HandlesGuestRowActions
     public ?int $restoringId = null;
 
     public ?int $forceDeleteId = null;
+
+    public ?int $convertingId = null;
+
+    public string $convertEmail = '';
+
+    public string $convertName = '';
 
     public function openBanDialog(int $userId): void
     {
@@ -83,6 +91,44 @@ trait HandlesGuestRowActions
         $this->logActivity(ActivityModule::Guest, ActivityAction::Unbanned, $guest);
 
         $this->toastSuccess("{$guest->name} has been unbanned.");
+    }
+
+    public function openConvertDialog(int $userId): void
+    {
+        $this->authorize('guests.convert');
+
+        $guest = User::query()->guests()->withTrashed()->findOrFail($userId);
+        $this->assertLifecycleState($guest, ['active']);
+
+        $this->convertingId = $userId;
+        $this->convertEmail = $guest->email;
+        $this->convertName = $guest->name;
+        $this->dispatch('open-dialog-convert-user');
+    }
+
+    /**
+     * Flips the guest to a real app user in place — same row, same id.
+     * The admin never sets a password directly; {@see GuestConversionService}
+     * generates a random unusable one and defers the reset-link handoff.
+     */
+    public function confirmConvert(GuestConversionService $conversions): void
+    {
+        $this->authorize('guests.convert');
+
+        $guest = User::query()->guests()->withTrashed()->findOrFail($this->convertingId);
+        $this->assertLifecycleState($guest, ['active']);
+
+        $this->validate([
+            'convertEmail' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($guest->id)],
+        ]);
+
+        $conversions->convertByAdmin($guest, $this->convertEmail, trim($this->convertName) ?: null);
+
+        $this->convertingId = null;
+        $this->convertEmail = '';
+        $this->convertName = '';
+        $this->dispatch('close-dialog-convert-user');
+        $this->toastSuccess("{$guest->name} has been converted to an app user.");
     }
 
     public function confirmDelete(int $userId): void
