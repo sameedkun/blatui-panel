@@ -52,10 +52,20 @@ class AuthActivityListener
 
         RateLimiter::hit($key, 60);
 
+        $user = $email ? User::where('email', $email)->first() : null;
+
+        // Guests are never logged for auth activity, so only attach the subject
+        // (and let it surface on the profile's Activity tab) for staff/app users.
+        $loggableUser = $user && ! $user->isGuest() ? $user : null;
+
         ActivityLogger::log(
-            ActivityModule::User,
+            $loggableUser ? $this->moduleFor($loggableUser) : ActivityModule::User,
             ActivityAction::Failed,
-            properties: ['email' => $email],
+            $loggableUser,
+            properties: [
+                'email' => $email,
+                'reason' => $user ? 'Invalid password' : 'Account not found',
+            ],
             causer: null,
             logName: ActivityLogName::Authentication,
         );

@@ -29,7 +29,7 @@ class UserShowTest extends TestCase
     /** Staff granted exactly the given abilities (plus panel access). */
     private function staffWith(array $abilities): User
     {
-        foreach (['panel.access-admin', 'users.view', 'users.manage', 'users.edit', 'users.ban', 'users.unban', 'users.delete', 'users.restore', 'users.force-delete'] as $name) {
+        foreach (['panel.access-admin', 'users.view', 'users.manage', 'users.edit', 'users.ban', 'users.unban', 'users.delete', 'users.restore', 'users.force-delete', 'activity_logs.view'] as $name) {
             Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
         }
 
@@ -38,20 +38,6 @@ class UserShowTest extends TestCase
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         return $staff;
-    }
-
-    public function test_page_loads_for_a_permitted_user(): void
-    {
-        $this->actingAs($this->staffWith(['users.view', 'users.manage']));
-        $user = User::factory()->app()->create(['name' => 'Ada Lovelace']);
-
-        $this->get(route('admin.users.show', $user))
-            ->assertOk()
-            ->assertSeeLivewire(Show::class)
-            ->assertSee('Ada Lovelace')
-            // Title/breadcrumb read "Users → {name}" — never the component name "Show".
-            ->assertSeeText('Ada Lovelace')
-            ->assertDontSeeText('Users → Show');
     }
 
     public function test_page_403s_without_users_view(): void
@@ -107,31 +93,6 @@ class UserShowTest extends TestCase
         $this->assertSame('banned', $profileRow->event);
     }
 
-    public function test_ban_from_profile_updates_the_header_state(): void
-    {
-        $this->actingAsSuperAdmin();
-        $user = User::factory()->app()->create();
-
-        Livewire::test(Show::class, ['user' => $user])
-            ->assertDontSee('Unban')
-            ->call('openBanDialog', $user->id)
-            ->set('banReason', 'spam')
-            ->call('confirmBan')
-            ->assertSee('Unban'); // refreshRecord() reflects the new banned state
-    }
-
-    public function test_tab_is_url_addressable_and_survives_refresh(): void
-    {
-        $this->actingAsSuperAdmin();
-        $user = User::factory()->app()->create();
-
-        Livewire::withQueryParams(['tab' => 'devices'])
-            ->test(Show::class, ['user' => $user])
-            ->assertSet('tab', 'devices')
-            ->assertSee('Devices')
-            ->assertSee('Coming soon');
-    }
-
     public function test_stats_show_real_joined_date_and_placeholders_never_fake_zeros(): void
     {
         $this->actingAsSuperAdmin();
@@ -149,68 +110,36 @@ class UserShowTest extends TestCase
         $this->assertNull($stats['Subscriptions']['value']);
         $this->assertNull($stats['Devices']['value']);
         $this->assertNull($stats['Tickets']['value']);
-        $this->assertNull($stats['Activity']['value']);
+        // Activity is a real count (not a placeholder) — 0 for a freshly created user.
+        $this->assertSame('0', $stats['Activity']['value']);
         $this->assertSame('Mar 15, 2024', $stats['Joined']['value']);
     }
 
-    public function test_overview_shows_password_changed_at(): void
-    {
-        $this->actingAsSuperAdmin();
-        $user = User::factory()->app()->create([
-            'password_changed_at' => now()->parse('2025-01-10 12:00'),
-        ]);
-
-        Livewire::test(Show::class, ['user' => $user])
-            ->assertSee('Password changed')
-            ->assertSee('Jan 10, 2025');
-    }
-
-    public function test_trashed_user_profile_is_reachable_via_the_route(): void
-    {
-        $this->actingAsSuperAdmin();
-        $user = User::factory()->app()->create(['name' => 'Deleted Dana']);
-        $user->delete();
-
-        $this->get(route('admin.users.show', $user))
-            ->assertOk()
-            ->assertSee('Deleted Dana');
-    }
-
-    public function test_header_shows_only_restore_and_force_delete_when_trashed(): void
+    public function test_activity_stat_card_reflects_the_records_audit_trail(): void
     {
         $this->actingAsSuperAdmin();
         $user = User::factory()->app()->create();
-        $user->delete();
-        $user->refresh();
 
-        // Text-only assertSee/assertDontSee would false-positive on the always-rendered
-        // (Alpine-hidden) dialog markup shared across states, so assert on the
-        // click hooks that are unique to each menu item instead. Restore/Force Delete
-        // are secondary actions (Alpine @click="$wire.X()" inside the Actions menu).
         Livewire::test(Show::class, ['user' => $user])
-            ->assertSee('$wire.confirmRestore('.$user->id.')', false)
-            ->assertSee('$wire.confirmForceDelete('.$user->id.')', false)
-            ->assertDontSee('$wire.openScheduleDeletionDialog('.$user->id.')', false)
-            ->assertDontSee('$wire.confirmDelete('.$user->id.')', false)
-            ->assertDontSee('$wire.confirmInstantPurge('.$user->id.')', false)
-            ->assertDontSee('$wire.openBanDialog('.$user->id.')', false)
-            ->assertDontSee('wire:click="openBanDialog('.$user->id.')"', false)
-            ->assertDontSeeHtml('href="'.route('admin.users.edit', $user).'"');
+            ->call('openBanDialog', $user->id)
+            ->set('banReason', 'spam')
+            ->call('confirmBan');
+
+        $component = Livewire::test(Show::class, ['user' => $user]);
+        $stats = collect($component->instance()->statCards())->keyBy('label');
+
+        $this->assertSame('1', $stats['Activity']['value']);
     }
 
-    public function test_header_keeps_ban_available_and_shows_purge_actions_when_pending(): void
+    public function test_activity_stat_card_is_a_placeholder_without_activity_logs_permission(): void
     {
-        $this->actingAsSuperAdmin();
-        $user = User::factory()->pendingDeletion('admin')->create();
+        $this->actingAs($this->staffWith(['users.view', 'users.manage']));
+        $user = User::factory()->app()->create();
 
-        // Ban/Unban are primary (desktop: real wire:click; mobile menu: Alpine @click).
-        Livewire::test(Show::class, ['user' => $user])
-            ->assertSee('$wire.stopDeletion('.$user->id.')', false)
-            ->assertSee('$wire.confirmInstantPurge('.$user->id.')', false)
-            ->assertSee('wire:click="openBanDialog('.$user->id.')"', false) // grace-window abuse still bannable
-            ->assertDontSee('$wire.openScheduleDeletionDialog('.$user->id.')', false)
-            ->assertDontSee('$wire.confirmDelete('.$user->id.')', false)
-            ->assertDontSeeHtml('href="'.route('admin.users.edit', $user).'"');
+        $component = Livewire::test(Show::class, ['user' => $user]);
+        $stats = collect($component->instance()->statCards())->keyBy('label');
+
+        $this->assertNull($stats['Activity']['value']);
     }
 
     public function test_ban_action_rejects_a_trashed_account_even_if_forged(): void

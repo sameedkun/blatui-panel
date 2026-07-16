@@ -5,16 +5,20 @@ namespace App\Livewire\Admin\Management\Guests;
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
 use App\Livewire\Admin\BaseShow;
+use App\Livewire\Admin\Concerns\HasActivityDetailModal;
 use App\Livewire\Admin\Concerns\HasShowTabs;
 use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Livewire\Admin\Management\Guests\Concerns\HandlesGuestRowActions;
 use App\Models\User;
 use App\Services\AccountDeletionService;
 use App\Services\GuestConversionService;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
+use Livewire\WithPagination;
+use Spatie\Activitylog\Models\Activity;
 
 /**
  * Read-focused profile page for a single guest — the trimmed counterpart to
@@ -31,8 +35,10 @@ use Livewire\Attributes\Layout;
 class Show extends BaseShow
 {
     use HandlesGuestRowActions;
+    use HasActivityDetailModal;
     use HasShowTabs;
     use LogsAdminActivity;
+    use WithPagination;
 
     // Convert/merge are only offered from this profile page (not the Guests
     // index row actions), so — unlike ban/delete/restore — they live here
@@ -85,8 +91,26 @@ class Show extends BaseShow
                 'view' => 'livewire.admin.management.guests.profile.tabs.overview',
             ],
             'subscriptions' => $this->comingSoonTab('Subscriptions', 'credit-card', 'Subscriptions for this account will appear here once billing ships.'),
-            'activity' => $this->comingSoonTab('Activity', 'activity', 'A full activity timeline for this account will appear here.'),
+            'activity' => [
+                'label' => 'Activity',
+                'icon' => 'activity',
+                'view' => 'livewire.admin.management.users.profile.tabs.activity',
+                'permission' => 'activity_logs.view',
+                'data' => fn (): array => [
+                    'activities' => $this->recordActivity(),
+                    'selectedActivity' => $this->selectedActivityDetail(),
+                ],
+            ],
         ];
+    }
+
+    /** Paginated audit trail for this record — powers the profile's Activity tab. */
+    protected function recordActivity(): LengthAwarePaginator
+    {
+        return Activity::forSubject($this->record)
+            ->with('causer')
+            ->latest()
+            ->paginate(10);
     }
 
     /**
@@ -251,9 +275,17 @@ class Show extends BaseShow
     {
         return [
             ['label' => 'Subscriptions', 'icon' => 'credit-card', 'value' => null],
-            ['label' => 'Activity', 'icon' => 'activity', 'value' => null],
+            ['label' => 'Activity', 'icon' => 'activity', 'value' => $this->recordActivityCount()],
             ['label' => 'Joined', 'icon' => 'calendar', 'value' => $this->record->registration_date?->format('M d, Y') ?? '—'],
         ];
+    }
+
+    /** Total audit-log rows for this record, or null (renders "Coming soon") without permission to see them. */
+    protected function recordActivityCount(): ?string
+    {
+        return auth()->user()->can('activity_logs.view')
+            ? (string) Activity::forSubject($this->record)->count()
+            : null;
     }
 
     public function render(): View

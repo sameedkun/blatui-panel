@@ -5,13 +5,17 @@ namespace App\Livewire\Admin\Management\Users;
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
 use App\Livewire\Admin\BaseShow;
+use App\Livewire\Admin\Concerns\HasActivityDetailModal;
 use App\Livewire\Admin\Concerns\HasShowTabs;
 use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Livewire\Admin\Management\Users\Concerns\HandlesUserRowActions;
 use App\Models\User;
 use App\Services\AccountDeletionService;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
+use Livewire\WithPagination;
+use Spatie\Activitylog\Models\Activity;
 
 /**
  * Permanent resource page for a single user — the read-focused profile that
@@ -28,8 +32,10 @@ use Livewire\Attributes\Layout;
 class Show extends BaseShow
 {
     use HandlesUserRowActions;
+    use HasActivityDetailModal;
     use HasShowTabs;
     use LogsAdminActivity;
+    use WithPagination;
 
     public function mount(User $user): void
     {
@@ -61,9 +67,27 @@ class Show extends BaseShow
             ],
             'subscriptions' => $this->comingSoonTab('Subscriptions', 'credit-card', 'Subscriptions for this account will appear here once billing ships.'),
             'devices' => $this->comingSoonTab('Devices', 'smartphone', 'Devices registered to this account will appear here once device management ships.'),
-            'activity' => $this->comingSoonTab('Activity', 'activity', 'A full activity timeline for this account will appear here.'),
+            'activity' => [
+                'label' => 'Activity',
+                'icon' => 'activity',
+                'view' => 'livewire.admin.management.users.profile.tabs.activity',
+                'permission' => 'activity_logs.view',
+                'data' => fn (): array => [
+                    'activities' => $this->recordActivity(),
+                    'selectedActivity' => $this->selectedActivityDetail(),
+                ],
+            ],
             'tickets' => $this->comingSoonTab('Tickets', 'ticket', 'Support tickets opened by this account will appear here once support ships.'),
         ];
+    }
+
+    /** Paginated audit trail for this record — powers the profile's Activity tab. */
+    protected function recordActivity(): LengthAwarePaginator
+    {
+        return Activity::forSubject($this->record)
+            ->with('causer')
+            ->latest()
+            ->paginate(10);
     }
 
     /**
@@ -154,9 +178,17 @@ class Show extends BaseShow
             ['label' => 'Subscriptions', 'icon' => 'credit-card', 'value' => null],
             ['label' => 'Devices', 'icon' => 'smartphone', 'value' => null],
             ['label' => 'Tickets', 'icon' => 'ticket', 'value' => null],
-            ['label' => 'Activity', 'icon' => 'activity', 'value' => null],
+            ['label' => 'Activity', 'icon' => 'activity', 'value' => $this->recordActivityCount()],
             ['label' => 'Joined', 'icon' => 'calendar', 'value' => $this->record->registration_date?->format('M d, Y') ?? '—'],
         ];
+    }
+
+    /** Total audit-log rows for this record, or null (renders "Coming soon") without permission to see them. */
+    protected function recordActivityCount(): ?string
+    {
+        return auth()->user()->can('activity_logs.view')
+            ? (string) Activity::forSubject($this->record)->count()
+            : null;
     }
 
     public function render(): View

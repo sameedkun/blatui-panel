@@ -65,11 +65,28 @@ class ActivityLogger
         $properties = array_merge($properties, [
             'module' => $module->value,
             'context' => $context->value,
+            ...self::requestMeta($context),
         ]);
 
         $activity
             ->withProperties(array_filter($properties, fn ($value): bool => $value !== null && $value !== []))
             ->log($action->value);
+    }
+
+    /**
+     * IP + user-agent, captured only for contexts backed by a real inbound HTTP
+     * request (Admin, Api, Webhook) — Console/Scheduler/Queue never have one.
+     *
+     * @return array{ip: ?string, user_agent: ?string}
+     */
+    protected static function requestMeta(ActivityContext $context): array
+    {
+        $hasRequest = in_array($context, [ActivityContext::Admin, ActivityContext::Api, ActivityContext::Webhook], true);
+
+        return [
+            'ip' => $hasRequest ? request()?->ip() : null,
+            'user_agent' => $hasRequest ? request()?->userAgent() : null,
+        ];
     }
 
     /**

@@ -10,8 +10,10 @@ use App\Livewire\Admin\Management\Users\Index as UsersIndex;
 use App\Models\User;
 use App\Services\AccountDeletionService;
 use App\Support\ActivityLogger;
+use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
@@ -144,5 +146,67 @@ class ActivityLogTest extends TestCase
 
         $activity = Activity::where('event', 'assigned')->firstOrFail();
         $this->assertSame($actor->id, $activity->causer_id);
+    }
+
+    public function test_ip_and_user_agent_are_captured_for_request_backed_contexts(): void
+    {
+        app()->instance('request', Request::create('/', 'GET', server: [
+            'REMOTE_ADDR' => '203.0.113.5',
+            'HTTP_USER_AGENT' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0 Safari/537.36',
+        ]));
+
+        ActivityLogger::log(ActivityModule::User, ActivityAction::Updated, context: ActivityContext::Admin);
+
+        $activity = Activity::latest('id')->first();
+        $this->assertSame('203.0.113.5', $activity->properties['ip']);
+        $this->assertSame('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0 Safari/537.36', $activity->properties['user_agent']);
+    }
+
+    public function test_ip_and_user_agent_are_not_captured_for_console_or_scheduler_context(): void
+    {
+        // No real inbound request backs a Console/Scheduler-context entry, even
+        // if one happens to be bound in the container (e.g. under PHPUnit).
+        ActivityLogger::log(ActivityModule::User, ActivityAction::Updated, context: ActivityContext::Console);
+        $consoleEntry = Activity::latest('id')->first();
+        $this->assertArrayNotHasKey('ip', (array) $consoleEntry->properties);
+        $this->assertArrayNotHasKey('user_agent', (array) $consoleEntry->properties);
+
+        ActivityLogger::log(ActivityModule::User, ActivityAction::Purged, context: ActivityContext::Scheduler);
+        $schedulerEntry = Activity::latest('id')->first();
+        $this->assertArrayNotHasKey('ip', (array) $schedulerEntry->properties);
+        $this->assertArrayNotHasKey('user_agent', (array) $schedulerEntry->properties);
+    }
+
+    public function test_failed_login_records_a_reason_and_attaches_the_matched_app_user_as_subject(): void
+    {
+        $user = User::factory()->app()->create(['email' => 'known@example.com']);
+
+        event(new Failed('web', null, ['email' => 'known@example.com', 'password' => 'wrong']));
+
+        $activity = Activity::where('event', 'failed')->firstOrFail();
+        $this->assertSame('Invalid password', $activity->properties['reason']);
+        $this->assertSame($user->id, $activity->subject_id);
+        $this->assertSame(User::class, $activity->subject_type);
+        $this->assertSame('user', $activity->properties['module']);
+    }
+
+    public function test_failed_login_for_an_unknown_email_has_no_subject(): void
+    {
+        event(new Failed('web', null, ['email' => 'nobody@example.com', 'password' => 'wrong']));
+
+        $activity = Activity::where('event', 'failed')->firstOrFail();
+        $this->assertSame('Account not found', $activity->properties['reason']);
+        $this->assertNull($activity->subject_id);
+    }
+
+    public function test_failed_login_for_a_guest_email_is_not_attached_as_subject(): void
+    {
+        $guest = User::factory()->guest()->create(['email' => 'guest@example.com']);
+
+        event(new Failed('web', null, ['email' => 'guest@example.com', 'password' => 'wrong']));
+
+        $activity = Activity::where('event', 'failed')->firstOrFail();
+        $this->assertNull($activity->subject_id);
+        $this->assertNotSame($guest->id, $activity->subject_id);
     }
 }

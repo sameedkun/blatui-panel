@@ -11,19 +11,6 @@
             default => ['variant' => 'outline', 'class' => ''],
         };
     };
-
-    $formatValue = function ($value): string {
-        if (is_bool($value)) {
-            return $value ? 'Yes' : 'No';
-        }
-        if (is_null($value)) {
-            return '—';
-        }
-        if (is_array($value)) {
-            return json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        }
-        return (string) $value;
-    };
 @endphp
 
 <div class="flex flex-col gap-6">
@@ -234,152 +221,11 @@
     <x-admin.pagination :paginator="$activities" />
 
     {{-- ── Deep-linked detail modal ─────────────────────────────────────── --}}
-    <x-ui.dialog id="activity-detail" :open="$selectedActivity !== null"
-        x-init="$watch('open', value => { if (! value) $wire.clearSelected() })">
-        <x-ui.dialog-content class="sm:max-w-2xl">
-            @if ($selectedActivity)
-                @php
-                    $sProps = collect($selectedActivity->properties ?? []);
-                    $attributes = (array) $sProps->get('attributes', []);
-                    $old = (array) $sProps->get('old', []);
-                    $rest = $sProps->except(['module', 'context', 'attributes', 'old']);
-
-                    $subject = $selectedActivity->subject;
-                    $subjectUrl = null;
-                    if ($subject instanceof \App\Models\User) {
-                        $subjectUrl = $subject->isStaff()
-                            ? route('admin.staff.edit', $subject)
-                            : route('admin.users.edit', $subject);
-                    }
-                    $sBadge = $actionBadge($selectedActivity->event);
-                @endphp
-
-                <x-ui.dialog-header>
-                    <x-ui.dialog-title class="flex items-center gap-2">
-                        <x-ui.badge :variant="$sBadge['variant']" class="{{ $sBadge['class'] }}">
-                            {{ Str::headline($selectedActivity->event ?? '—') }}
-                        </x-ui.badge>
-                        <span class="text-muted-foreground">{{ Str::headline($sProps['module'] ?? '') }}</span>
-                    </x-ui.dialog-title>
-                    <x-ui.dialog-description>
-                        {{ $selectedActivity->created_at?->toDayDateTimeString() }}
-                        ({{ $selectedActivity->created_at?->diffForHumans() }})
-                    </x-ui.dialog-description>
-                </x-ui.dialog-header>
-
-                <div class="max-h-[60vh] space-y-4 overflow-y-auto">
-
-                    {{-- Facts grid --}}
-                    <dl class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                        <div>
-                            <dt class="text-xs text-muted-foreground">Causer</dt>
-                            <dd class="font-medium">
-                                @if ($selectedActivity->causer)
-                                    {{ $selectedActivity->causer->name }}
-                                    <span class="block text-xs font-normal text-muted-foreground">{{ $selectedActivity->causer->email }}</span>
-                                @else
-                                    System
-                                @endif
-                            </dd>
-                        </div>
-                        <div>
-                            <dt class="text-xs text-muted-foreground">Subject</dt>
-                            <dd class="font-medium">
-                                @if ($selectedActivity->subject_type)
-                                    @if ($subjectUrl)
-                                        <a href="{{ $subjectUrl }}" class="text-primary underline hover:no-underline">
-                                            {{ class_basename($selectedActivity->subject_type) }} #{{ $selectedActivity->subject_id }}
-                                        </a>
-                                    @else
-                                        <span class="font-mono text-xs">
-                                            {{ class_basename($selectedActivity->subject_type) }} #{{ $selectedActivity->subject_id }}
-                                        </span>
-                                        <span class="block text-xs font-normal text-muted-foreground">no longer exists</span>
-                                    @endif
-                                @else
-                                    <span class="text-muted-foreground">—</span>
-                                @endif
-                            </dd>
-                        </div>
-                        <div>
-                            <dt class="text-xs text-muted-foreground">Category</dt>
-                            <dd><x-ui.badge variant="secondary">{{ Str::headline($selectedActivity->log_name ?? '—') }}</x-ui.badge></dd>
-                        </div>
-                        <div>
-                            <dt class="text-xs text-muted-foreground">Context</dt>
-                            <dd><x-ui.badge variant="outline">{{ Str::headline($sProps['context'] ?? '—') }}</x-ui.badge></dd>
-                        </div>
-                    </dl>
-
-                    {{-- Before → after diff --}}
-                    @if (! empty($attributes))
-                        <div>
-                            <p class="mb-1.5 text-xs font-semibold text-muted-foreground">Changes</p>
-                            <div class="overflow-hidden rounded-md border border-border">
-                                <table class="w-full text-sm">
-                                    <thead>
-                                        <tr class="border-b border-border bg-muted/40 text-xs text-muted-foreground">
-                                            <th class="px-3 py-2 text-left font-medium">Field</th>
-                                            <th class="px-3 py-2 text-left font-medium">Before</th>
-                                            <th class="px-3 py-2 text-left font-medium">After</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-border">
-                                        @foreach ($attributes as $field => $newValue)
-                                            <tr>
-                                                <td class="px-3 py-2 font-medium">{{ Str::headline($field) }}</td>
-                                                <td class="px-3 py-2 text-muted-foreground line-through decoration-destructive/40">
-                                                    {{ $formatValue($old[$field] ?? null) }}
-                                                </td>
-                                                <td class="px-3 py-2 text-emerald-700 dark:text-emerald-400">
-                                                    {{ $formatValue($newValue) }}
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    @endif
-
-                    {{-- Remaining properties --}}
-                    @if ($rest->isNotEmpty())
-                        <div>
-                            <p class="mb-1.5 text-xs font-semibold text-muted-foreground">Properties</p>
-                            <dl class="space-y-2 rounded-md border border-border bg-muted/20 p-3 text-sm">
-                                @foreach ($rest as $key => $value)
-                                    <div class="flex gap-3">
-                                        <dt class="w-32 shrink-0 text-xs text-muted-foreground">{{ Str::headline($key) }}</dt>
-                                        <dd class="min-w-0 flex-1 break-words font-mono text-xs">
-                                            @if (is_array($value) && (isset($value['attributes']) || isset($value['old'])))
-                                                {{ $formatValue($value['old'] ?? null) }}
-                                                <span class="text-muted-foreground">→</span>
-                                                {{ $formatValue($value['attributes'] ?? null) }}
-                                            @else
-                                                {{ $formatValue($value) }}
-                                            @endif
-                                        </dd>
-                                    </div>
-                                @endforeach
-                            </dl>
-                        </div>
-                    @endif
-
-                    {{-- Scope to this subject --}}
-                    @if ($selectedActivity->subject_type)
-                        <div class="border-t border-border pt-3">
-                            <button type="button"
-                                @click="open = false"
-                                wire:click="scopeToActivitySubject({{ $selectedActivity->id }})"
-                                class="inline-flex items-center gap-1.5 text-xs text-primary underline hover:no-underline">
-                                <x-lucide-filter class="size-3.5" />
-                                Show all activity for this record
-                            </button>
-                        </div>
-                    @endif
-                </div>
-            @endif
-        </x-ui.dialog-content>
-    </x-ui.dialog>
+    @include('livewire.admin.system.activity-logs.partials.detail-dialog', [
+        'activity' => $selectedActivity,
+        'dialogId' => 'activity-detail',
+        'closeMethod' => 'clearSelected',
+        'showScopeLink' => true,
+    ])
 
 </div>
