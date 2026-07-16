@@ -32,4 +32,7 @@
     {{-- Shared single-row action dialogs (same components as the Guests index) --}}
     @include('livewire.admin.management.guests.partials.single-row-dialogs')
 
+    {{-- Convert/merge — profile-only, not shared with the Guests index --}}
+    @include('livewire.admin.management.guests.profile.partials.conversion-dialogs')
+
 </div>

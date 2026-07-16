@@ -97,5 +97,95 @@ class GuestConversionServiceTest extends TestCase
         $this->assertSame('admin', $row->properties['initiated_by']);
         $this->assertSame('old@example.com', $row->properties['old_email']);
         $this->assertSame('new@example.com', $row->properties['new_email']);
+        $this->assertFalse($row->properties['email_verified_by_admin']);
+    }
+
+    public function test_convert_by_admin_can_mark_the_email_as_verified(): void
+    {
+        $guest = User::factory()->guest()->create(['banned_at' => null]);
+
+        $this->service()->convertByAdmin($guest, 'new@example.com', null, true);
+
+        $fresh = $guest->fresh();
+        $this->assertNotNull($fresh->email_verified_at);
+
+        $row = Activity::where('subject_id', $guest->id)->where('event', 'converted')->firstOrFail();
+        $this->assertTrue($row->properties['email_verified_by_admin']);
+    }
+
+    public function test_convert_by_admin_defaults_to_unverified_email(): void
+    {
+        $guest = User::factory()->guest()->create(['banned_at' => null]);
+
+        $this->service()->convertByAdmin($guest, 'new@example.com');
+
+        $this->assertNull($guest->fresh()->email_verified_at);
+    }
+
+    public function test_merging_a_non_guest_is_rejected(): void
+    {
+        $appUser = User::factory()->app()->create();
+        $destination = User::factory()->app()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->service()->mergeByAdmin($appUser, $destination, 'Duplicate account');
+    }
+
+    public function test_merging_a_banned_guest_is_rejected(): void
+    {
+        $guest = User::factory()->guest()->create(['banned_at' => now()]);
+        $destination = User::factory()->app()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->service()->mergeByAdmin($guest, $destination, 'Duplicate account');
+    }
+
+    public function test_merge_destination_must_be_an_app_user(): void
+    {
+        $guest = User::factory()->guest()->create(['banned_at' => null]);
+        $anotherGuest = User::factory()->guest()->create(['banned_at' => null]);
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->service()->mergeByAdmin($guest, $anotherGuest, 'Duplicate account');
+    }
+
+    public function test_merge_requires_a_reason(): void
+    {
+        $guest = User::factory()->guest()->create(['banned_at' => null]);
+        $destination = User::factory()->app()->create();
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->service()->mergeByAdmin($guest, $destination, '   ');
+    }
+
+    public function test_merge_permanently_removes_the_guest_and_survives_as_the_destination(): void
+    {
+        $guest = User::factory()->guest()->create(['banned_at' => null]);
+        $destination = User::factory()->app()->create();
+
+        $result = $this->service()->mergeByAdmin($guest, $destination, 'Confirmed same person via support ticket');
+
+        $this->assertSame($destination->id, $result->id);
+        $this->assertDatabaseMissing('users', ['id' => $guest->id]);
+        $this->assertNotNull($destination->fresh());
+    }
+
+    public function test_merge_logs_the_merged_activity_with_the_reason(): void
+    {
+        $guest = User::factory()->guest()->create(['banned_at' => null]);
+        $destination = User::factory()->app()->create();
+
+        $this->service()->mergeByAdmin($guest, $destination, 'Confirmed same person via support ticket');
+
+        $row = Activity::where('subject_id', $destination->id)->where('event', 'merged')->firstOrFail();
+
+        $this->assertSame('user', $row->properties['module']);
+        $this->assertSame('admin', $row->properties['initiated_by']);
+        $this->assertSame($guest->id, $row->properties['guest_id']);
+        $this->assertSame('Confirmed same person via support ticket', $row->properties['reason']);
     }
 }

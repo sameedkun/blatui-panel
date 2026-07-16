@@ -29,7 +29,7 @@ class GuestShowTest extends TestCase
     /** Staff granted exactly the given abilities (plus panel access). */
     private function staffWith(array $abilities): User
     {
-        foreach (['panel.access-admin', 'guests.view', 'guests.manage', 'guests.ban', 'guests.unban', 'guests.delete', 'guests.restore', 'guests.force-delete', 'guests.convert'] as $name) {
+        foreach (['panel.access-admin', 'guests.view', 'guests.manage', 'guests.ban', 'guests.unban', 'guests.delete', 'guests.restore', 'guests.force-delete', 'users.convert', 'users.merge'] as $name) {
             Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
         }
 
@@ -252,7 +252,7 @@ class GuestShowTest extends TestCase
 
     public function test_convert_action_is_forbidden_without_permission(): void
     {
-        $this->actingAs($this->staffWith(['guests.view', 'guests.manage'])); // no guests.convert
+        $this->actingAs($this->staffWith(['guests.view', 'guests.manage'])); // no users.convert
         $guest = User::factory()->guest()->create(['banned_at' => null]);
 
         Livewire::test(Show::class, ['user' => $guest])
@@ -267,5 +267,78 @@ class GuestShowTest extends TestCase
 
         Livewire::test(Show::class, ['user' => $guest])
             ->assertDontSee('$wire.openConvertDialog('.$guest->id.')', false);
+    }
+
+    public function test_convert_with_mark_email_verified_skips_verification(): void
+    {
+        $this->actingAsSuperAdmin();
+        $guest = User::factory()->guest()->create(['banned_at' => null]);
+
+        Livewire::test(Show::class, ['user' => $guest])
+            ->call('openConvertDialog', $guest->id)
+            ->set('convertEmail', 'converted@example.com')
+            ->set('convertMarkEmailVerified', true)
+            ->call('confirmConvert')
+            ->assertRedirect(route('admin.users.show', $guest));
+
+        $this->assertNotNull($guest->fresh()->email_verified_at);
+
+        $row = Activity::where('subject_id', $guest->id)->where('event', 'converted')->firstOrFail();
+        $this->assertTrue($row->properties['email_verified_by_admin']);
+    }
+
+    public function test_merge_action_is_forbidden_without_permission(): void
+    {
+        $this->actingAs($this->staffWith(['guests.view', 'guests.manage'])); // no users.merge
+        $guest = User::factory()->guest()->create(['banned_at' => null]);
+
+        Livewire::test(Show::class, ['user' => $guest])
+            ->call('openMergeDialog', $guest->id)
+            ->assertForbidden();
+    }
+
+    public function test_merge_action_hidden_for_a_banned_guest(): void
+    {
+        $this->actingAsSuperAdmin();
+        $guest = User::factory()->guest()->create(['banned_at' => now()]);
+
+        Livewire::test(Show::class, ['user' => $guest])
+            ->assertDontSee('$wire.openMergeDialog('.$guest->id.')', false);
+    }
+
+    public function test_merge_requires_a_reason(): void
+    {
+        $this->actingAsSuperAdmin();
+        $guest = User::factory()->guest()->create(['banned_at' => null]);
+        $destination = User::factory()->app()->create();
+
+        Livewire::test(Show::class, ['user' => $guest])
+            ->call('openMergeDialog', $guest->id)
+            ->set('mergeDestinationId', $destination->id)
+            ->set('mergeReason', '')
+            ->call('confirmMerge')
+            ->assertHasErrors(['mergeReason' => 'required']);
+
+        $this->assertDatabaseHas('users', ['id' => $guest->id]);
+    }
+
+    public function test_merge_from_profile_disposes_of_the_guest_and_redirects_to_the_destination(): void
+    {
+        $this->actingAsSuperAdmin();
+        $guest = User::factory()->guest()->create(['banned_at' => null]);
+        $destination = User::factory()->app()->create();
+
+        Livewire::test(Show::class, ['user' => $guest])
+            ->call('openMergeDialog', $guest->id)
+            ->set('mergeDestinationId', $destination->id)
+            ->set('mergeReason', 'Same person, confirmed via support ticket #123')
+            ->call('confirmMerge')
+            ->assertRedirect(route('admin.users.show', $destination));
+
+        $this->assertDatabaseMissing('users', ['id' => $guest->id]);
+
+        $row = Activity::where('subject_id', $destination->id)->where('event', 'merged')->firstOrFail();
+        $this->assertSame('admin', $row->properties['initiated_by']);
+        $this->assertSame($guest->id, $row->properties['guest_id']);
     }
 }

@@ -77,7 +77,7 @@ return [
     | Soft delete: restore, force-delete
     | User states: ban, unban
     | Bulk ops:    export, import
-    | Operational: manage, access, reply, assign, convert
+    | Operational: manage, access, reply, assign, convert, merge
     |
     */
     'action_vocabulary' => [
@@ -96,6 +96,7 @@ return [
         'reply',
         'assign',
         'convert',
+        'merge',
     ],
 
     /*
@@ -137,13 +138,13 @@ return [
         'users' => [
             'label' => 'Users',
             'group' => 'users',
-            'actions' => ['view', 'create', 'edit', 'delete', 'restore', 'force-delete', 'ban', 'unban', 'export', 'manage'],
+            'actions' => ['view', 'create', 'edit', 'delete', 'restore', 'force-delete', 'ban', 'unban', 'export', 'manage', 'convert', 'merge'],
             'icon' => 'users',
         ],
         'guests' => [
             'label' => 'Guests',
             'group' => 'users',
-            'actions' => ['view', 'delete', 'restore', 'force-delete', 'ban', 'unban', 'export', 'manage', 'convert'],
+            'actions' => ['view', 'delete', 'restore', 'force-delete', 'ban', 'unban', 'export', 'manage'],
             'icon' => 'user-friends',
         ],
 

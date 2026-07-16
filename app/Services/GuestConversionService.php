@@ -13,45 +13,104 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use InvalidArgumentException;
 
-/**
- * Converts a guest account into a real app user in place — same row, same id,
- * same activity history. Never creates a new record.
- */
 class GuestConversionService
 {
-    /**
-     * The guest converts their own account (future public API). The guest
-     * chooses their own password directly, so no reset flow is needed.
-     */
-    public function convertBySelf(User $guest, string $email, string $password, ?string $name = null): void
+    public function __construct(
+        private readonly AccountMergeService $merger,
+    ) {}
+
+    public function convertBySelf(User $guest, string $email, string $password, ?string $name = null): User
     {
         $this->assertGuestUser($guest);
         $this->assertNotBanned($guest);
         $this->validateEmail($email, $guest);
 
         $this->convert($guest, $email, $name, Hash::make($password), 'self');
+
+        return $guest->fresh();
     }
 
-    /**
-     * An admin converts a guest on the account's behalf. The admin never sets
-     * a real password directly — a random, unusable one is generated instead;
-     * the real owner sets their own credentials via the password-reset flow.
-     */
-    public function convertByAdmin(User $guest, string $email, ?string $name = null): void
+    public function convertByAdmin(User $guest, string $email, ?string $name = null, bool $markEmailVerified = false): User
     {
         $this->assertGuestUser($guest);
         $this->assertNotBanned($guest);
         $this->validateEmail($email, $guest);
 
-        $this->convert($guest, $email, $name, Hash::make(Str::random(64)), 'admin');
+        $this->convert($guest, $email, $name, Hash::make(Str::random(64)), 'admin', $markEmailVerified);
 
         // TODO: Password::sendResetLink(['email' => $guest->email]) — deferred
-        // until the future API/client defines a `password.reset` route for the
-        // ResetPassword notification to link to (none exists yet; this admin
-        // panel only has staff login, not a self-service auth surface).
+        // until a self-service auth surface with a password.reset route exists.
+        // Always sent regardless of $markEmailVerified — the admin never sets
+        // (or sees) the real password either way.
+
+        return $guest->fresh();
     }
 
-    private function convert(User $guest, string $email, ?string $name, string $hashedPassword, string $initiatedBy): void
+    /**
+     * Google id: string, email: string, emailVerified: bool, name: ?string
+     */
+    public function convertWithGoogle(User $guest, string $googleId, string $email, bool $emailVerified, ?string $name = null): User
+    {
+        return $this->convertWithProvider($guest, 'google', $googleId, $email, $emailVerified, $name);
+    }
+
+    public function convertWithApple(User $guest, string $appleId, string $email, bool $emailVerified, ?string $name = null): User
+    {
+        return $this->convertWithProvider($guest, 'apple', $appleId, $email, $emailVerified, $name);
+    }
+
+    /**
+     * Admin merges a guest into an account identified as the same person
+     * (support case). Requires a reason; fully traceable in the audit log.
+     */
+    public function mergeByAdmin(User $guest, User $destination, string $reason): User
+    {
+        $this->assertGuestUser($guest);
+        $this->assertNotBanned($guest);
+
+        return $this->merger->mergeByAdmin($guest, $destination, $reason);
+    }
+
+    private function convertWithProvider(
+        User $guest,
+        string $provider,
+        string $providerId,
+        string $email,
+        bool $emailVerified,
+        ?string $name,
+    ): User {
+        $this->assertGuestUser($guest);
+        $this->assertNotBanned($guest);
+
+        $column = "{$provider}_id";
+
+        $existing = User::where('type', UserType::App)
+            ->where(fn ($q) => $q->where($column, $providerId)
+                ->orWhere(fn ($sub) => $sub->where('email', $email)->whereNull($column)))
+            ->first();
+
+        if ($existing) {
+            return $this->merger->mergeFromProvider($guest, $existing, $provider, $providerId);
+        }
+
+        $guest->forceFill([
+            'type' => UserType::App,
+            'email' => $email,
+            $column => $providerId,
+            'name' => $name ?: $guest->name,
+            'password' => Hash::make(Str::random(64)),
+            'email_verified_at' => $emailVerified ? now() : null,
+        ])->save();
+
+        ActivityLogger::log(ActivityModule::Guest, ActivityAction::Converted, $guest, [
+            'initiated_by' => 'self',
+            'provider' => $provider,
+        ]);
+
+        return $guest->fresh();
+    }
+
+    private function convert(User $guest, string $email, ?string $name, string $hashedPassword, string $initiatedBy, bool $markEmailVerified = false): void
     {
         $oldEmail = $guest->email;
 
@@ -60,18 +119,18 @@ class GuestConversionService
             'email' => $email,
             'name' => $name ?: $guest->name,
             'password' => $hashedPassword,
-            'email_verified_at' => null,
+            'email_verified_at' => $markEmailVerified ? now() : null,
         ])->save();
 
         ActivityLogger::log(ActivityModule::Guest, ActivityAction::Converted, $guest, [
             'initiated_by' => $initiatedBy,
             'old_email' => $oldEmail,
             'new_email' => $email,
+            'email_verified_by_admin' => $markEmailVerified,
         ]);
 
-        // TODO: $guest->sendEmailVerificationNotification() — deferred until
-        // User implements MustVerifyEmail and the future API/client defines a
-        // `verification.verify` route for the VerifyEmail notification to link to.
+        // TODO: when $markEmailVerified is false, $guest->sendEmailVerificationNotification()
+        // — deferred until User implements MustVerifyEmail and a verification.verify route exists.
     }
 
     private function assertGuestUser(User $guest): void

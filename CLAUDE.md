@@ -1,3 +1,25 @@
+@PROJECT_CONTEXT.md
+
+## Keeping PROJECT_CONTEXT.md current
+
+`PROJECT_CONTEXT.md` is the fast-context file new chats read first — treat it as living
+documentation, not a one-time snapshot. Whenever a change you make would make that file stale,
+update it in the same session (small, targeted edits — don't regenerate it wholesale):
+
+- New or removed Livewire module (e.g. a new `Management/*` or `System/*` area), route group, or
+  permission-vocabulary action in `config/panel.php`.
+- New or removed enum case in `app/Enum/*` (`UserType`, `Activity{LogName,Module,Action,Context}`).
+- New or changed account-lifecycle service in `app/Services/`, or a new shared trait in
+  `app/Livewire/Admin/Concerns/`.
+- New scheduled/queued job, or a change to an existing one's cadence/behavior.
+- A "known rough edge / deferred work" item gets resolved (remove it) or a new TODO/deferred
+  wiring point is introduced (add it).
+- Any change to the directory map (new top-level `app/` or `resources/views/` folder).
+
+Skip the update for changes that don't shift the architecture — bug fixes, styling, copy edits,
+test additions for existing behavior, etc. If unsure whether a change is significant enough,
+prefer updating over leaving it stale.
+
 <laravel-boost-guidelines>
 === foundation rules ===
 

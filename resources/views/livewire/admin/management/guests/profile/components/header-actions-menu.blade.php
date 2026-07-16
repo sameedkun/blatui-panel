@@ -5,9 +5,13 @@
       trashed  → Restore, Force Delete (legacy safety net; the active-state
                  Delete below is instant, so guests shouldn't normally reach
                  this state anymore)
-      active   → Convert to App User (hidden while banned — a banned guest
-                 must be unbanned first), then a divider, then Delete
-                 (destructive, permanent — no grace period)
+      active   → Convert to App User, Merge into Existing Account (both
+                 hidden while banned — a banned guest must be unbanned
+                 first), then a divider, then Delete (destructive,
+                 permanent — no grace period)
+
+    These are deliberately separate, explicit operations — the admin picks
+    one, nothing auto-detects a "collision" and merges silently.
 
     Expects: $record, $state
 --}}
@@ -27,10 +31,17 @@
     @endcan
 @else
     @if ($record->isGuest() && ! $record->banned_at)
-        @can('guests.convert')
+        @can('users.convert')
             <x-admin.dropdown-item @click="$wire.openConvertDialog({{ $record->id }})">
                 <x-lucide-user-plus class="size-4" />
                 Convert to App User
+            </x-admin.dropdown-item>
+        @endcan
+
+        @can('users.merge')
+            <x-admin.dropdown-item @click="$wire.openMergeDialog({{ $record->id }})">
+                <x-lucide-merge class="size-4" />
+                Merge into Existing Account
             </x-admin.dropdown-item>
         @endcan
     @endif

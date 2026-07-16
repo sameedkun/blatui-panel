@@ -11,6 +11,7 @@ use App\Livewire\Admin\Management\Guests\Concerns\HandlesGuestRowActions;
 use App\Models\User;
 use App\Services\AccountDeletionService;
 use App\Services\GuestConversionService;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
@@ -21,8 +22,10 @@ use Livewire\Attributes\Layout;
  * app-user grace-period deletion flow or email-verification lifecycle, so
  * both the tab set and the header actions are deliberately smaller here.
  *
- * Header actions reuse the shared {@see HandlesGuestRowActions} — a ban here
- * is byte-for-byte the same action (and audit-log row) as a ban from the index.
+ * Ban/delete/restore reuse the shared {@see HandlesGuestRowActions} — a ban
+ * here is byte-for-byte the same action (and audit-log row) as a ban from the
+ * index. Convert/merge are profile-only (no Guests index row action for
+ * either), so they're defined directly on this class instead of that trait.
  */
 #[Layout('layouts.admin.app')]
 class Show extends BaseShow
@@ -30,6 +33,26 @@ class Show extends BaseShow
     use HandlesGuestRowActions;
     use HasShowTabs;
     use LogsAdminActivity;
+
+    // Convert/merge are only offered from this profile page (not the Guests
+    // index row actions), so — unlike ban/delete/restore — they live here
+    // directly rather than in the shared HandlesGuestRowActions trait.
+
+    public ?int $convertingId = null;
+
+    public string $convertEmail = '';
+
+    public string $convertName = '';
+
+    public bool $convertMarkEmailVerified = false;
+
+    public ?int $mergingId = null;
+
+    public ?int $mergeDestinationId = null;
+
+    public string $mergeSearch = '';
+
+    public string $mergeReason = '';
 
     public function mount(User $user): void
     {
@@ -109,6 +132,20 @@ class Show extends BaseShow
         return $this->redirect(route('admin.guests.index'));
     }
 
+    public function openConvertDialog(int $userId): void
+    {
+        $this->authorize('users.convert');
+
+        $guest = User::query()->guests()->withTrashed()->findOrFail($userId);
+        $this->assertLifecycleState($guest, ['active']);
+
+        $this->convertingId = $userId;
+        $this->convertEmail = $guest->email;
+        $this->convertName = $guest->name;
+        $this->convertMarkEmailVerified = false;
+        $this->dispatch('open-dialog-convert-user');
+    }
+
     /**
      * The record stops being a guest on conversion, so — unlike the index —
      * the profile has nowhere to stay and redirects to the new app user's
@@ -117,7 +154,7 @@ class Show extends BaseShow
      */
     public function confirmConvert(GuestConversionService $conversions)
     {
-        $this->authorize('guests.convert');
+        $this->authorize('users.convert');
 
         $guest = User::query()->guests()->withTrashed()->findOrFail($this->convertingId);
         $this->assertLifecycleState($guest, ['active']);
@@ -127,11 +164,80 @@ class Show extends BaseShow
         ]);
 
         $name = $guest->name;
-        $conversions->convertByAdmin($guest, $this->convertEmail, trim($this->convertName) ?: null);
+        $conversions->convertByAdmin($guest, $this->convertEmail, trim($this->convertName) ?: null, $this->convertMarkEmailVerified);
 
         session()->flash('toast', ['type' => 'success', 'title' => "{$name} has been converted to an app user."]);
 
         return $this->redirect(route('admin.users.show', $guest));
+    }
+
+    public function openMergeDialog(int $userId): void
+    {
+        $this->authorize('users.merge');
+
+        $guest = User::query()->guests()->withTrashed()->findOrFail($userId);
+        $this->assertLifecycleState($guest, ['active']);
+
+        $this->mergingId = $userId;
+        $this->mergeDestinationId = null;
+        $this->mergeSearch = '';
+        $this->mergeReason = '';
+        $this->dispatch('open-dialog-merge-guest');
+    }
+
+    public function selectMergeDestination(int $userId): void
+    {
+        $this->mergeDestinationId = $userId;
+        $this->mergeSearch = '';
+    }
+
+    public function clearMergeDestination(): void
+    {
+        $this->mergeDestinationId = null;
+    }
+
+    /** @return Collection<int, User> */
+    public function mergeCandidates(): Collection
+    {
+        $term = trim($this->mergeSearch);
+
+        if ($term === '') {
+            return collect();
+        }
+
+        return User::query()
+            ->appUsers()
+            ->where(fn ($q) => $q->where('name', 'like', "%{$term}%")->orWhere('email', 'like', "%{$term}%"))
+            ->limit(8)
+            ->get();
+    }
+
+    /**
+     * The guest row is force-deleted on merge, so — same "nowhere to stay"
+     * reasoning as {@see confirmConvert()} — the profile redirects to the
+     * surviving destination account's page instead. The merge itself (and
+     * its audit entry) still runs through {@see GuestConversionService}.
+     */
+    public function confirmMerge(GuestConversionService $conversions)
+    {
+        $this->authorize('users.merge');
+
+        $guest = User::query()->guests()->withTrashed()->findOrFail($this->mergingId);
+        $this->assertLifecycleState($guest, ['active']);
+
+        $this->validate([
+            'mergeDestinationId' => ['required', 'integer'],
+            'mergeReason' => ['required', 'string'],
+        ]);
+
+        $destination = User::query()->appUsers()->findOrFail($this->mergeDestinationId);
+        $guestName = $guest->name;
+
+        $conversions->mergeByAdmin($guest, $destination, $this->mergeReason);
+
+        session()->flash('toast', ['type' => 'success', 'title' => "{$guestName} has been merged into {$destination->name}."]);
+
+        return $this->redirect(route('admin.users.show', $destination));
     }
 
     /**
