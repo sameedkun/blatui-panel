@@ -6,7 +6,7 @@
 documentation, not a one-time snapshot. Whenever a change you make would make that file stale,
 update it in the same session (small, targeted edits — don't regenerate it wholesale):
 
-- New or removed Livewire module (e.g. a new `Management/*` or `System/*` area), route group, or
+- New or removed Livewire module (e.g. a new `Management/*` or `Administration/*` area), route group, or
   permission-vocabulary action in `config/panel.php`.
 - New or removed enum case in `app/Enum/*` (`UserType`, `Activity{LogName,Module,Action,Context}`).
 - New or changed account-lifecycle service in `app/Services/`, or a new shared trait in

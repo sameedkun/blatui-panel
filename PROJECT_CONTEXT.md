@@ -202,9 +202,9 @@ app/
       Account/Index.php                     self-service account page
       Management/Users/                     Index, Show, Form + Concerns/HandlesUserRowActions
       Management/Guests/                    Index, Show + Concerns/HandlesGuestRowActions
-      System/Staff/                         Index, Form (staff CRUD + role assignment)
-      System/Roles/                         Index, Form (role/permission-matrix CRUD)
-      System/ActivityLogs/Index.php         read-only audit viewer
+      Administration/Staff/                         Index, Form (staff CRUD + role assignment)
+      Administration/Roles/                         Index, Form (role/permission-matrix CRUD)
+      Administration/ActivityLogs/Index.php         read-only audit viewer
   Models/User.php
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
                                              production password/destructive-command policy
