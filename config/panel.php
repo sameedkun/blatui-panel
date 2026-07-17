@@ -108,7 +108,7 @@ return [
     | Permissions are auto-generated as: {module}.{action}
     |
     | Module groups are used to organise the permission matrix UI:
-    |   - system
+    |   - administration
     |   - infrastructure
     |   - app
     |   - users
@@ -127,45 +127,53 @@ return [
     */
     'modules' => [
 
-        // --- System ---
+        // --- Dashboard ---
         'dashboard' => [
             'label' => 'Dashboard',
-            'group' => 'system',
             'actions' => ['view'],
         ],
 
-        // --- Users ---
+        // --- Management ---
         'users' => [
             'label' => 'Users',
-            'group' => 'users',
+            'group' => 'management',
             'actions' => ['view', 'create', 'edit', 'delete', 'restore', 'force-delete', 'ban', 'unban', 'export', 'manage'],
             'icon' => 'users',
         ],
         'guests' => [
             'label' => 'Guests',
-            'group' => 'users',
+            'group' => 'management',
             'actions' => ['view', 'delete', 'restore', 'force-delete', 'ban', 'unban', 'export', 'manage', 'convert', 'merge'],
             'icon' => 'user-friends',
         ],
 
-        // --- System ---
+        // --- Administration ---
         'staff' => [
             'label' => 'Staff',
-            'group' => 'system',
+            'group' => 'administration',
             'actions' => ['view', 'create', 'edit', 'delete', 'restore', 'force-delete', 'ban', 'unban', 'export', 'manage'],
             'icon' => 'shield-user',
         ],
         'roles' => [
             'label' => 'Roles',
-            'group' => 'system',
+            'group' => 'administration',
             'actions' => ['view', 'create', 'edit', 'delete'],
             'icon' => 'key',
         ],
         'activity_logs' => [
             'label' => 'Activity Logs',
-            'group' => 'system',
+            'group' => 'administration',
             'actions' => ['view', 'export'],
             'icon' => 'clipboard-list',
+        ],
+
+        'settings' => [
+            'label' => 'Settings',
+            'group' => 'settings',
+            'actions' => [
+                'mail' => ['view', 'edit'],
+            ],
+            'icon' => 'gear',
         ],
 
     ],
@@ -180,7 +188,8 @@ return [
     |
     */
     'groups' => [
-        'system' => 'System',
+        'administration' => 'Administration',
+        'management' => 'Management',
         'infrastructure' => 'Infrastructure',
         'users' => 'Users',
         'billing' => 'Plans & Billing',

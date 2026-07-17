@@ -94,11 +94,27 @@ class RolesAndPermissionsSeeder extends Seeder
         foreach (Config::get('panel.modules', []) as $module => $config) {
             $actions = $config['actions'] ?? $config;
 
-            foreach ($actions as $action) {
-                $permissions[] = "{$module}.{$action}";
-            }
+            $permissions = array_merge($permissions, $this->parseActions($module, $actions));
         }
 
         return array_unique($permissions);
+    }
+
+    /**
+     * Recursively parse actions list to support nested modules/actions.
+     */
+    protected function parseActions(string $prefix, array $actions): array
+    {
+        $permissions = [];
+
+        foreach ($actions as $key => $value) {
+            if (is_array($value)) {
+                $permissions = array_merge($permissions, $this->parseActions("{$prefix}.{$key}", $value));
+            } else {
+                $permissions[] = "{$prefix}.{$value}";
+            }
+        }
+
+        return $permissions;
     }
 }
