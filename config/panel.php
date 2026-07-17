@@ -138,13 +138,13 @@ return [
         'users' => [
             'label' => 'Users',
             'group' => 'users',
-            'actions' => ['view', 'create', 'edit', 'delete', 'restore', 'force-delete', 'ban', 'unban', 'export', 'manage', 'convert', 'merge'],
+            'actions' => ['view', 'create', 'edit', 'delete', 'restore', 'force-delete', 'ban', 'unban', 'export', 'manage'],
             'icon' => 'users',
         ],
         'guests' => [
             'label' => 'Guests',
             'group' => 'users',
-            'actions' => ['view', 'delete', 'restore', 'force-delete', 'ban', 'unban', 'export', 'manage'],
+            'actions' => ['view', 'delete', 'restore', 'force-delete', 'ban', 'unban', 'export', 'manage', 'convert', 'merge'],
             'icon' => 'user-friends',
         ],
 
