@@ -82,7 +82,7 @@
     @endif
 
     {{-- In-place detail dialog — same partial the Activity Logs viewer uses --}}
-    @include('livewire.admin.system.activity-logs.partials.detail-dialog', [
+    @include('livewire.admin.administration.activity-logs.partials.detail-dialog', [
         'activity' => $selectedActivity,
         'dialogId' => 'record-activity-detail',
         'closeMethod' => 'clearSelectedActivityDetail',

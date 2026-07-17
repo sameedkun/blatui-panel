@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Admin\System\Roles;
+namespace App\Livewire\Admin\Administration\Roles;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
@@ -149,7 +149,7 @@ class Form extends BaseForm
 
     public function render(): View
     {
-        return view('livewire.admin.system.roles.form', [
+        return view('livewire.admin.administration.roles.form', [
             'panelAccessOptions' => $this->panelAccessOptions(),
             'moduleGroups' => $this->moduleGroups(),
             'allPermissionNames' => Permission::where('guard_name', config('panel.guard'))->pluck('name')->all(),

@@ -149,6 +149,6 @@
     <x-admin.pagination :paginator="$roles" />
 
     {{-- ── Confirmation dialogs ──────────────────────────────────────────── --}}
-    @include('livewire.admin.system.roles.partials.dialogs')
+    @include('livewire.admin.administration.roles.partials.dialogs')
 
 </div>

@@ -9,7 +9,7 @@ use Spatie\Activitylog\Models\Activity;
 /**
  * In-place "view in detail" modal for one activity row on a record's Activity
  * tab — renders the same detail dialog as the Activity Logs viewer (shared via
- * `livewire.admin.system.activity-logs.partials.detail-dialog`), without
+ * `livewire.admin.administration.activity-logs.partials.detail-dialog`), without
  * navigating away from the profile.
  *
  * Requires the using component to expose a `$record` property (i.e. a

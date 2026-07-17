@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Admin\System\Staff;
+namespace App\Livewire\Admin\Administration\Staff;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
@@ -224,7 +224,7 @@ class Form extends BaseForm
 
     public function render(): View
     {
-        return view('livewire.admin.system.staff.form', [
+        return view('livewire.admin.administration.staff.form', [
             'roleOptions' => $this->roleOptions(),
             'groupedPermissions' => $this->groupedSelectedPermissions(),
         ]);

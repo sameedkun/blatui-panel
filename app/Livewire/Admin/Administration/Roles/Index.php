@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Admin\System\Roles;
+namespace App\Livewire\Admin\Administration\Roles;
 
 use App\Livewire\Admin\BaseIndex;
 use Illuminate\Database\Eloquent\Builder;
@@ -102,7 +102,7 @@ class Index extends BaseIndex
     {
         $roles = $this->getRecords();
 
-        return view('livewire.admin.system.roles.index', [
+        return view('livewire.admin.administration.roles.index', [
             'roles' => $roles,
             'stats' => $this->resolveStats(),
             'filterBarConfig' => $this->filterBarConfig(),

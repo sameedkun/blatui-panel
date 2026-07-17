@@ -221,7 +221,7 @@
     <x-admin.pagination :paginator="$activities" />
 
     {{-- ── Deep-linked detail modal ─────────────────────────────────────── --}}
-    @include('livewire.admin.system.activity-logs.partials.detail-dialog', [
+    @include('livewire.admin.administration.activity-logs.partials.detail-dialog', [
         'activity' => $selectedActivity,
         'dialogId' => 'activity-detail',
         'closeMethod' => 'clearSelected',

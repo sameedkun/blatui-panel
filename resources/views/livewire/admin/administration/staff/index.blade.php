@@ -283,6 +283,6 @@
     @endif
 
     {{-- ── Confirmation dialogs ──────────────────────────────────────────── --}}
-    @include('livewire.admin.system.staff.partials.dialogs')
+    @include('livewire.admin.administration.staff.partials.dialogs')
 
 </div>

@@ -7,7 +7,7 @@ use App\Enum\ActivityContext;
 use App\Enum\ActivityLogName;
 use App\Enum\ActivityModule;
 use App\Jobs\ExportActivityLog;
-use App\Livewire\Admin\System\ActivityLogs\Index;
+use App\Livewire\Admin\Administration\ActivityLogs\Index;
 use App\Models\User;
 use App\Support\ActivityLogger;
 use Illuminate\Foundation\Testing\RefreshDatabase;

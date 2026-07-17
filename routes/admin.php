@@ -7,11 +7,11 @@ use App\Livewire\Admin\Management\Guests\Show as GuestsShow;
 use App\Livewire\Admin\Management\Users\Form as UsersForm;
 use App\Livewire\Admin\Management\Users\Index as UsersIndex;
 use App\Livewire\Admin\Management\Users\Show as UsersShow;
-use App\Livewire\Admin\System\ActivityLogs\Index as ActivityLogsIndex;
-use App\Livewire\Admin\System\Roles\Form as RolesForm;
-use App\Livewire\Admin\System\Roles\Index as RolesIndex;
-use App\Livewire\Admin\System\Staff\Form as StaffForm;
-use App\Livewire\Admin\System\Staff\Index as StaffIndex;
+use App\Livewire\Admin\Administration\ActivityLogs\Index as ActivityLogsIndex;
+use App\Livewire\Admin\Administration\Roles\Form as RolesForm;
+use App\Livewire\Admin\Administration\Roles\Index as RolesIndex;
+use App\Livewire\Admin\Administration\Staff\Form as StaffForm;
+use App\Livewire\Admin\Administration\Staff\Index as StaffIndex;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Support\Facades\Route;
 

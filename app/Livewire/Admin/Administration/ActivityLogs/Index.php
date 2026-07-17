@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Admin\System\ActivityLogs;
+namespace App\Livewire\Admin\Administration\ActivityLogs;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityContext;
@@ -385,7 +385,7 @@ class Index extends BaseIndex
 
         $breakdown = $this->moduleBreakdown();
 
-        return view('livewire.admin.system.activity-logs.index', [
+        return view('livewire.admin.administration.activity-logs.index', [
             'activities' => $activities,
             'selectedActivity' => $selectedActivity,
             'filterBarConfig' => $this->filterBarConfig(),

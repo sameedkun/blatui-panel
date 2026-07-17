@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Admin\System\Staff;
+namespace App\Livewire\Admin\Administration\Staff;
 
 use App\Livewire\Admin\BaseIndex;
 use App\Models\User;
@@ -436,7 +436,7 @@ class Index extends BaseIndex
     {
         $staff = $this->getRecords();
 
-        return view('livewire.admin.system.staff.index', [
+        return view('livewire.admin.administration.staff.index', [
             'staff' => $staff,
             'pageIds' => $staff->pluck('id')->map(fn ($id) => (string) $id)->toArray(),
             'stats' => $this->resolveStats(),
