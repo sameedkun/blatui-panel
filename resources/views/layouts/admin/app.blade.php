@@ -41,9 +41,13 @@
                     </x-ui.button>
 
                     {{-- Settings --}}
-                    <x-ui.button variant="ghost" size="icon" aria-label="Settings">
-                        <x-lucide-settings class="size-4" aria-hidden="true" />
-                    </x-ui.button>
+                    @can('settings.view')
+                        <a href="{{ route('admin.settings.general') }}" aria-label="Settings" wire:navigate>
+                            <x-ui.button variant="ghost" size="icon" aria-label="Settings">
+                                <x-lucide-settings class="size-4" aria-hidden="true" />
+                            </x-ui.button>
+                        </a>
+                    @endcan
 
                     {{-- User avatar (desktop shortcut to the account page) --}}
                     <a href="{{ route('admin.account') }}" aria-label="My account" wire:navigate>

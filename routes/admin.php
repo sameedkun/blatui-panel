@@ -1,17 +1,20 @@
 <?php
 
 use App\Livewire\Admin\Account\Index as AccountIndex;
+use App\Livewire\Admin\Administration\ActivityLogs\Index as ActivityLogsIndex;
+use App\Livewire\Admin\Administration\Roles\Form as RolesForm;
+use App\Livewire\Admin\Administration\Roles\Index as RolesIndex;
+use App\Livewire\Admin\Administration\Staff\Form as StaffForm;
+use App\Livewire\Admin\Administration\Staff\Index as StaffIndex;
 use App\Livewire\Admin\Dashboard;
 use App\Livewire\Admin\Management\Guests\Index as GuestsIndex;
 use App\Livewire\Admin\Management\Guests\Show as GuestsShow;
 use App\Livewire\Admin\Management\Users\Form as UsersForm;
 use App\Livewire\Admin\Management\Users\Index as UsersIndex;
 use App\Livewire\Admin\Management\Users\Show as UsersShow;
-use App\Livewire\Admin\Administration\ActivityLogs\Index as ActivityLogsIndex;
-use App\Livewire\Admin\Administration\Roles\Form as RolesForm;
-use App\Livewire\Admin\Administration\Roles\Index as RolesIndex;
-use App\Livewire\Admin\Administration\Staff\Form as StaffForm;
-use App\Livewire\Admin\Administration\Staff\Index as StaffIndex;
+use App\Livewire\Admin\Settings\General;
+use App\Livewire\Admin\Settings\Mail;
+use App\Livewire\Admin\Settings\Policies;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Support\Facades\Route;
 
@@ -53,6 +56,13 @@ Route::middleware(['auth', 'panel', AuthenticateSession::class])->name('admin.')
     // ── Activity Logs (read-only audit trail) ──────────────────────────────
     Route::prefix('activity-logs')->name('activity-logs.')->middleware('permission:activity_logs.view')->group(function () {
         Route::get('/', ActivityLogsIndex::class)->name('index');
+    });
+
+    // ── Settings ──────────────────────────────────────────────────────────
+    Route::prefix('settings')->name('settings.')->middleware('permission:settings.view')->group(function () {
+        Route::get('/general', General::class)->name('general');
+        Route::get('/mail', Mail::class)->name('mail')->middleware('permission:settings.mail.view');
+        Route::get('/policies', Policies::class)->name('policies')->middleware('permission:settings.policies.view');
     });
 
     // ── My Account (self-service; every staff member, no extra permission) ──

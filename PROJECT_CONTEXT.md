@@ -191,7 +191,7 @@ logged for auth or account activity.
 
 ```
 app/
-  Enum/            UserType, Activity{LogName,Module,Action,Context}
+  Enum/            UserType, Activity{LogName,Module,Action,Context}, MailPurpose
   Http/Middleware/ EnsurePanelAccess (alias: panel)
   Jobs/            PurgeExpiredAccounts, ExportActivityLog
   Listeners/       AuthActivityListener
@@ -205,7 +205,8 @@ app/
       Administration/Staff/                         Index, Form (staff CRUD + role assignment)
       Administration/Roles/                         Index, Form (role/permission-matrix CRUD)
       Administration/ActivityLogs/Index.php         read-only audit viewer
-  Models/User.php
+      Settings/                             BaseSettings, Index, General, Mail, Policies
+  Models/          User.php, EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
                                              production password/destructive-command policy
   Services/        AccountDeletionService, AccountMergeService, GuestConversionService
@@ -213,8 +214,9 @@ app/
 config/panel.php    RBAC modules/actions, grace period, export threshold, seeded admin creds
 database/
   migrations/       users, permission_tables (Spatie), activity_log (+ 3 hand-added indexes),
-                     cache, jobs
-  seeders/          DatabaseSeeder, RolesAndPermissionsSeeder (idempotent), UserSeeder
+                     cache, jobs, email_domains, email_senders, smtp_settings, policies_tables
+  seeders/          DatabaseSeeder, RolesAndPermissionsSeeder (idempotent), UserSeeder,
+                     EmailSendersSeeder (idempotent)
 resources/
   views/components/ui/       BlatUI copy-paste components (x-ui.*) — see CLAUDE.md BlatUI section
   views/components/admin/    panel-specific composites: filter-bar, page-header, pagination,
@@ -224,7 +226,7 @@ resources/
   css/blatui.css             design tokens (CSS vars on :root/.dark/[data-*])
 tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogTest,
                      ActivityLogsViewerTest, UserShowTest, GuestsIndexTest, GuestShowTest,
-                     GuestConversionServiceTest
+                     GuestConversionServiceTest, EmailSenderResolutionTest, SettingsMailTest
 ```
 
 ## Known rough edges / deferred work (don't be surprised by these)
@@ -243,6 +245,22 @@ tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogT
   perform the action — wiring points for when Laravel's real verification/password-broker flows
   are integrated.
 - Staff module has no `show` route/page and no `delete` route — staff are only listed/created/edited.
+- Mail-sending data layer (`EmailDomain`, `EmailSender`, `SmtpSetting` models; `MailPurpose` enum —
+  `Default`/`Auth`/`Notifications`/`Support`/`Billing`/`Marketing`; `EmailSendersSeeder` seeds one
+  `EmailSender` row per purpose) now has a real admin page: `admin.settings.mail`
+  (`App\Livewire\Admin\Settings\Mail`, part of the `Settings/{BaseSettings,Index,General,Mail,Policies}`
+  hub — a tabbed settings shell with its own `#[Layout('livewire.admin.settings.index')]`). The page reads
+  `config('mail.default')` (i.e. `MAIL_MAILER` from `.env`, still not admin-editable) and shows either the
+  SMTP form or the Resend domains/purposes manager accordingly. `General` is still a stub
+  (`saveSettings()` no-ops) — `Mail` and `Policies` (with versioning and user acceptance helpers) are wired to real persistence.
+  - `config('mail.default')` is still **not** consulted by Laravel's actual mail transport — no
+    `AppServiceProvider` runtime override exists yet, so `EmailSender::resolve(MailPurpose)` /
+    `SmtpSetting::current()` are populated and admin-editable but nothing reads them when mail is
+    actually sent. That's the next piece if/when real Mailables are added.
+  - Fixing this page also required adding a `'view'` base action to the `settings` module in
+    `config/panel.php` (generating `settings.view`) — the pre-existing `routes/admin.php` Settings group
+    required it at the group level but it had never been declared, which would have 403'd every non-super-admin
+    regardless of their `settings.mail.*` grants.
 
 ## Related memory files
 

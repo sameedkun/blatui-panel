@@ -169,3 +169,9 @@
   --sidebar-border: oklch(100% 0 0/.1);
   --sidebar-ring: oklch(55.1% .027 264.364);
 }
+
+select option {
+  background-color: var(--card);
+  color: var(--foreground);
+}
+

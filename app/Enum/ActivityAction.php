@@ -25,4 +25,5 @@ enum ActivityAction: string
     case Purged = 'purged';
     case Converted = 'converted';
     case Merged = 'merged';
+    case Sent = 'sent';
 }

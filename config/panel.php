@@ -171,7 +171,9 @@ return [
             'label' => 'Settings',
             'group' => 'settings',
             'actions' => [
+                'view',
                 'mail' => ['view', 'edit'],
+                'policies' => ['view', 'edit'],
             ],
             'icon' => 'gear',
         ],

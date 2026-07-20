@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -230,5 +231,62 @@ class User extends Authenticatable
             $this->isPendingDeletion() => 'pending',
             default => 'active',
         };
+    }
+
+    // -------------------------------------------------------------------------
+    // Policy Acceptances
+    // -------------------------------------------------------------------------
+
+    /**
+     * Get the policy acceptances for the user.
+     *
+     * @return HasMany<PolicyAcceptance, $this>
+     */
+    public function policyAcceptances(): HasMany
+    {
+        return $this->hasMany(PolicyAcceptance::class);
+    }
+
+    /**
+     * Record that the user has accepted a policy or a specific version of it.
+     */
+    public function acceptPolicy(PolicyVersion|Policy $policyOrVersion): PolicyAcceptance
+    {
+        $version = $policyOrVersion instanceof Policy
+            ? $policyOrVersion->activeVersion()->first()
+            : $policyOrVersion;
+
+        if (! $version) {
+            throw new \InvalidArgumentException('No active version found for the given policy.');
+        }
+
+        return $this->policyAcceptances()->firstOrCreate([
+            'policy_version_id' => $version->id,
+        ], [
+            'accepted_at' => now(),
+        ]);
+    }
+
+    /**
+     * Check if the user has accepted the current active version of a policy.
+     */
+    public function hasAcceptedPolicy(Policy|string $policy): bool
+    {
+        $policyModel = $policy instanceof Policy
+            ? $policy
+            : Policy::where('key', $policy)->first();
+
+        if (! $policyModel) {
+            return false;
+        }
+
+        $activeVersion = $policyModel->activeVersion()->first();
+        if (! $activeVersion) {
+            return false;
+        }
+
+        return $this->policyAcceptances()
+            ->where('policy_version_id', $activeVersion->id)
+            ->exists();
     }
 }

@@ -176,7 +176,12 @@
 
                         {{-- Module --}}
                         <td class="hidden px-4 py-3 md:table-cell">
-                            <span class="text-muted-foreground">{{ Str::headline($props['module'] ?? '—') }}</span>
+                            <span class="text-muted-foreground">
+                                {{ Str::headline($props['module'] ?? '—') }}
+                                @if (! empty($props['area']))
+                                    <span class="text-xs">· {{ Str::headline($props['area']) }}</span>
+                                @endif
+                            </span>
                         </td>
 
                         {{-- Subject --}}

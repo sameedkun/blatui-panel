@@ -86,6 +86,15 @@
                         </x-ui.sidebar-menu-item>
                     @endcan
 
+                    @can('settings.view')
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.settings.general') }}" :isActive="request()->routeIs('admin.settings.*')">
+                                <x-lucide-settings />
+                                <span>Settings</span>
+                            </x-ui.sidebar-menu-button>
+                        </x-ui.sidebar-menu-item>
+                    @endcan
+
                 </x-ui.sidebar-menu>
             @endcanany
         </x-ui.sidebar-group>
@@ -141,11 +150,12 @@
                             <x-lucide-user class="size-4" />
                             My Account
                         </x-ui.dropdown-menu-item>
-                        <x-ui.dropdown-menu-item
-                            href="{{ Route::has('settings.account') ? route('settings.account') : '#' }}">
-                            <x-lucide-settings class="size-4" />
-                            Settings
-                        </x-ui.dropdown-menu-item>
+                        @can('settings.view')
+                            <x-ui.dropdown-menu-item href="{{ route('admin.settings.general') }}">
+                                <x-lucide-settings class="size-4" />
+                                Settings
+                            </x-ui.dropdown-menu-item>
+                        @endcan
                         <x-ui.dropdown-menu-separator />
                         <x-ui.dropdown-menu-item
                             href="{{ route('logout') }}"

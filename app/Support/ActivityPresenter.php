@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enum\PolicyType;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -57,7 +58,7 @@ class ActivityPresenter
         return [
             'icon' => self::icon($kind),
             'colorClass' => self::colorClass($kind),
-            'title' => self::title($kind),
+            'title' => self::title($kind, $properties),
             'timestamp' => self::timestamp($activity->created_at),
             'rows' => self::rows($kind, $activity, $properties, $subject),
         ];
@@ -69,10 +70,41 @@ class ActivityPresenter
      * collapses that into a distinct display "kind" so a password-only update
      * reads as "Password changed" rather than an empty "Profile updated".
      *
+     * Every Settings page (Mail, Policies, …) logs everything under one module
+     * ("setting") regardless of which section changed (SMTP, a domain, a
+     * purpose sender, a test send, a policy document) — `properties.area` is
+     * the only thing that tells those apart, so it's folded into the kind
+     * here rather than left for every other method to re-derive.
+     *
+     * Policy areas are `policy_{PolicyType::value}` (e.g. `policy_privacy`)
+     * and all collapse into one `setting_policy_updated` kind — adding a new
+     * {@see PolicyType} case needs no change here; {@see title()} derives the
+     * specific "X Updated" wording from the enum at render time.
+     *
      * @param  array<string, mixed>  $properties
      */
     protected static function kind(string $event, array $properties): string
     {
+        if (($properties['module'] ?? null) === 'setting') {
+            $area = $properties['area'] ?? null;
+
+            if (is_string($area) && str_starts_with($area, 'policy_')) {
+                return 'setting_policy_updated';
+            }
+
+            return match ($area) {
+                'smtp' => 'setting_smtp',
+                'email_domain' => match ($event) {
+                    'created' => 'setting_domain_created',
+                    'deleted' => 'setting_domain_deleted',
+                    default => 'setting_domain_updated',
+                },
+                'email_sender' => 'setting_sender_updated',
+                'test_email' => 'setting_test_email',
+                default => $event,
+            };
+        }
+
         if ($event === 'updated' && empty($properties['attributes']) && ($properties['password_changed'] ?? false)) {
             return 'password_changed';
         }
@@ -98,6 +130,11 @@ class ActivityPresenter
             'deletion_cancelled' => 'circle-check',
             'converted' => 'repeat',
             'merged' => 'git-merge',
+            'setting_smtp' => 'server',
+            'setting_domain_created', 'setting_domain_updated', 'setting_domain_deleted' => 'globe',
+            'setting_sender_updated' => 'at-sign',
+            'setting_test_email' => 'send',
+            'setting_policy_updated' => 'file-text',
             default => 'activity',
         };
     }
@@ -116,16 +153,25 @@ class ActivityPresenter
     protected static function tone(string $kind): string
     {
         return match ($kind) {
-            'created', 'login', 'unbanned', 'restored', 'deletion_cancelled' => 'success',
-            'updated', 'password_changed', 'password_reset', 'assigned', 'converted', 'merged' => 'info',
+            'created', 'login', 'unbanned', 'restored', 'deletion_cancelled', 'setting_domain_created' => 'success',
+            'updated', 'password_changed', 'password_reset', 'assigned', 'converted', 'merged',
+            'setting_smtp', 'setting_domain_updated', 'setting_sender_updated', 'setting_test_email',
+            'setting_policy_updated' => 'info',
             'failed', 'deletion_requested' => 'warning',
-            'deleted', 'force_deleted', 'purged', 'banned' => 'danger',
+            'deleted', 'force_deleted', 'purged', 'banned', 'setting_domain_deleted' => 'danger',
             default => 'muted',
         };
     }
 
-    protected static function title(string $kind): string
+    /**
+     * @param  array<string, mixed>  $properties
+     */
+    protected static function title(string $kind, array $properties = []): string
     {
+        if ($kind === 'setting_policy_updated') {
+            return self::policyLabel($properties).' Updated';
+        }
+
         return match ($kind) {
             'created' => 'Account Created',
             'updated' => 'Profile Updated',
@@ -143,8 +189,30 @@ class ActivityPresenter
             'deletion_cancelled' => 'Deletion Cancelled',
             'converted' => 'Converted To App User',
             'merged' => 'Merged Into Another Account',
+            'setting_smtp' => 'SMTP Settings Updated',
+            'setting_domain_created' => 'Sending Domain Added',
+            'setting_domain_updated' => 'Sending Domain Updated',
+            'setting_domain_deleted' => 'Sending Domain Removed',
+            'setting_sender_updated' => 'Mail Purpose Updated',
+            'setting_test_email' => 'Test Email Sent',
             default => Str::headline($kind),
         };
+    }
+
+    /**
+     * Derives the human label for a `policy_{PolicyType::value}` area from
+     * the enum itself, falling back to a headline of the raw slug for an
+     * area that doesn't (or no longer) map to a case — old log rows must
+     * keep rendering something sensible even if a policy type is retired.
+     *
+     * @param  array<string, mixed>  $properties
+     */
+    protected static function policyLabel(array $properties): string
+    {
+        $area = (string) ($properties['area'] ?? '');
+        $value = Str::after($area, 'policy_');
+
+        return PolicyType::tryFrom($value)?->label() ?? Str::headline($value);
     }
 
     /** "Today 4:13 PM" / "Yesterday" / "3 days ago", with the exact datetime in a tooltip. */
@@ -198,6 +266,18 @@ class ActivityPresenter
             'updated' => [
                 self::row('Changed', self::changedFields($properties)),
                 self::row('Password', ($properties['password_changed'] ?? false) ? 'Changed' : null),
+            ],
+            'setting_domain_created', 'setting_domain_updated', 'setting_domain_deleted' => [
+                self::row('Domain', $properties['domain'] ?? null),
+            ],
+            'setting_sender_updated' => [
+                self::row('Purpose', isset($properties['purpose']) ? Str::headline((string) $properties['purpose']) : null),
+            ],
+            'setting_test_email' => [
+                self::row('Sent to', $properties['to'] ?? null),
+            ],
+            'setting_policy_updated' => [
+                self::row('Version', $properties['version'] ?? null),
             ],
             default => [],
         }];
