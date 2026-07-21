@@ -128,12 +128,16 @@
 
                         {{-- Registered --}}
                         <td class="hidden px-4 py-3 text-xs text-muted-foreground md:table-cell">
-                            {{ $user->registration_date?->format('M d, Y') ?? '-' }}
+                            <x-ui.local-time :value="$user->registration_date" format="MMM D, YYYY" />
                         </td>
 
                         {{-- Last login --}}
                         <td class="hidden px-4 py-3 text-xs text-muted-foreground xl:table-cell">
-                            {{ $user->last_login?->diffForHumans() ?? 'Never' }}
+                            @if ($user->last_login)
+                                <x-ui.local-time :value="$user->last_login" show-diff="true" />
+                            @else
+                                Never
+                            @endif
                         </td>
 
                         {{-- Row actions --}}

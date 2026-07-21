@@ -172,8 +172,13 @@ return [
             'group' => 'settings',
             'actions' => [
                 'view',
+            ],
+            'children' => [
+                'general' => ['view', 'edit'],
                 'mail' => ['view', 'edit'],
                 'policies' => ['view', 'edit'],
+                'storage' => ['view', 'edit'],
+                'authentication' => ['view', 'edit'],
             ],
             'icon' => 'gear',
         ],

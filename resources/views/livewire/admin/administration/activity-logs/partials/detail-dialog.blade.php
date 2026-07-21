@@ -67,8 +67,7 @@
                     <span class="text-muted-foreground">{{ Str::headline($sProps['module'] ?? '') }}</span>
                 </x-ui.dialog-title>
                 <x-ui.dialog-description>
-                    {{ $activity->created_at?->toDayDateTimeString() }}
-                    ({{ $activity->created_at?->diffForHumans() }})
+                    <x-ui.local-time :value="$activity->created_at" show-diff="true" />
                 </x-ui.dialog-description>
             </x-ui.dialog-header>
 

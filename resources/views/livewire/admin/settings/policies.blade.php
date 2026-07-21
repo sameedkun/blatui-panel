@@ -81,7 +81,7 @@
                                     @if ($version->is_active)
                                         <x-ui.badge variant="outline">Current</x-ui.badge>
                                     @endif
-                                    <span class="text-muted-foreground">{{ $version->published_at?->format('M j, Y g:i A') }}</span>
+                                    <span class="text-muted-foreground"><x-ui.local-time :value="$version->published_at" /></span>
                                 </div>
                                 <x-ui.button variant="ghost" size="sm" wire:click="viewVersion({{ $version->id }})">
                                     <x-lucide-eye class="size-4" />

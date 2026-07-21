@@ -215,18 +215,10 @@ class ActivityPresenter
         return PolicyType::tryFrom($value)?->label() ?? Str::headline($value);
     }
 
-    /** "Today 4:13 PM" / "Yesterday" / "3 days ago", with the exact datetime in a tooltip. */
+    /** Raw ISO 8601 string representing the datetime, converted client-side. */
     protected static function timestamp(?CarbonInterface $date): string
     {
-        if (! $date) {
-            return '—';
-        }
-
-        return match (true) {
-            $date->isToday() => 'Today '.$date->format('g:i A'),
-            $date->isYesterday() => 'Yesterday',
-            default => $date->diffForHumans(),
-        };
+        return $date ? $date->toIso8601String() : '—';
     }
 
     /**

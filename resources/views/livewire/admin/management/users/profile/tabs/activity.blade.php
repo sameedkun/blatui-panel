@@ -38,9 +38,7 @@
                     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
                         <p class="text-sm font-medium">{{ $item['title'] }}</p>
                         <span class="flex shrink-0 items-center gap-1.5">
-                            <x-admin.tooltip :text="$activity->created_at?->toDayDateTimeString() ?? ''">
-                                <span class="text-xs text-muted-foreground">{{ $item['timestamp'] }}</span>
-                            </x-admin.tooltip>
+                            <x-ui.local-time :value="$item['timestamp']" format="smart" class="text-xs text-muted-foreground" />
                             <x-lucide-chevron-right class="size-4 text-muted-foreground/40 group-hover:text-muted-foreground" />
                         </span>
                     </div>

@@ -54,7 +54,7 @@
                 </x-ui.sidebar-menu>
             @endcanany
 
-            @canany(['staff.view', 'roles.view', 'activity_logs.view'])
+            @if (auth()->user()->canAny(['staff.view', 'roles.view', 'activity_logs.view']) || auth()->user()->canAccessModule('settings'))
                 <x-ui.sidebar-group-label>System</x-ui.sidebar-group-label>
 
                 <x-ui.sidebar-menu>
@@ -86,17 +86,17 @@
                         </x-ui.sidebar-menu-item>
                     @endcan
 
-                    @can('settings.view')
+                    @if (auth()->user()->canAccessModule('settings'))
                         <x-ui.sidebar-menu-item>
-                            <x-ui.sidebar-menu-button href="{{ route('admin.settings.general') }}" :isActive="request()->routeIs('admin.settings.*')">
+                            <x-ui.sidebar-menu-button href="{{ route('admin.settings.index') }}" :isActive="request()->routeIs('admin.settings.*')">
                                 <x-lucide-settings />
                                 <span>Settings</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
-                    @endcan
+                    @endif
 
                 </x-ui.sidebar-menu>
-            @endcanany
+            @endif
         </x-ui.sidebar-group>
 
     </x-ui.sidebar-content>

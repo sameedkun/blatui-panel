@@ -33,8 +33,25 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureSuperAdmin(): void
     {
-        Gate::before(function ($user) {
-            return $user->hasRole(config('panel.super_admin_role')) ? true : null;
+        Gate::before(function ($user, $ability) {
+            // 1. Super admin passes everything
+            if ($user->hasRole(config('panel.super_admin_role'))) {
+                return true;
+            }
+
+            // 2. Module View Inheritance:
+            // If checking '{module}.{child}.view' (e.g. settings.mail.view)
+            // and the user has the master '{module}.view' (e.g. settings.view), return true.
+            $parts = explode('.', $ability);
+            if (count($parts) === 3 && end($parts) === 'view') {
+                $module = $parts[0];
+                $userPermissions = $user->getAllPermissions()->pluck('name');
+                if ($userPermissions->contains("{$module}.view")) {
+                    return true;
+                }
+            }
+
+            return null;
         });
     }
 

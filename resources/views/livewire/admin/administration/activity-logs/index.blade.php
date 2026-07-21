@@ -137,9 +137,7 @@
 
                         {{-- When --}}
                         <td class="px-4 py-3 whitespace-nowrap">
-                            <x-admin.tooltip :text="$activity->created_at?->toDayDateTimeString() ?? ''">
-                                <span class="text-muted-foreground">{{ $activity->created_at?->diffForHumans() ?? '—' }}</span>
-                            </x-admin.tooltip>
+                            <x-ui.local-time :value="$activity->created_at" show-diff="true" class="text-muted-foreground" />
                         </td>
 
                         {{-- Causer --}}

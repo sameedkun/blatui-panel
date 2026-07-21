@@ -112,6 +112,44 @@ class Form extends BaseForm
     }
 
     /**
+     * Recursively flatten actions into permission name => label map.
+     */
+    protected function flattenActions(string $prefix, array $actions): array
+    {
+        $result = [];
+
+        foreach ($actions as $key => $value) {
+            if (is_array($value)) {
+                $subPrefix = "{$prefix}.{$key}";
+                foreach ($value as $subAction) {
+                    $permission = "{$subPrefix}.{$subAction}";
+                    $result[$permission] = $this->getPermissionLabel($permission);
+                }
+            } else {
+                $permission = "{$prefix}.{$value}";
+                $result[$permission] = $this->getPermissionLabel($permission);
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Generate user-friendly descriptive labels for permissions.
+     */
+    protected function getPermissionLabel(string $permission): string
+    {
+        $parts = explode('.', $permission);
+        if (count($parts) >= 3) {
+            array_shift($parts); // Remove the module prefix (e.g. 'settings')
+
+            return collect($parts)->map(fn ($p) => Str::headline($p))->implode(' ');
+        }
+
+        return Str::headline(end($parts));
+    }
+
+    /**
      * Modules grouped by their config('panel.groups') category, in that
      * category's declared order. Each module carries its label and an
      * [permission-name => action-label] map for the checkboxes.
@@ -127,13 +165,20 @@ class Form extends BaseForm
             ->map(function (array $module, string $key): array {
                 $actions = $module['actions'] ?? [];
 
+                $permissions = $this->flattenActions($key, $actions);
+
+                if (isset($module['children']) && is_array($module['children'])) {
+                    foreach ($module['children'] as $child => $childActions) {
+                        $childPermissions = $this->flattenActions("{$key}.{$child}", $childActions);
+                        $permissions = array_merge($permissions, $childPermissions);
+                    }
+                }
+
                 return [
                     'key' => $key,
                     'label' => $module['label'] ?? Str::headline($key),
                     'group' => $module['group'] ?? 'system',
-                    'permissions' => collect($actions)->mapWithKeys(
-                        fn (string $action): array => ["{$key}.{$action}" => Str::headline($action)],
-                    ),
+                    'permissions' => collect($permissions),
                 ];
             })
             ->groupBy('group')

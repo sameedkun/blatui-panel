@@ -9,9 +9,9 @@
     ];
 
     $dates = [
-        ['label' => 'Registration date', 'value' => $record->registration_date?->format('M d, Y H:i') ?? '—'],
-        ['label' => 'Last login', 'value' => $record->last_login?->diffForHumans() ?? 'Never'],
-        ['label' => 'Created at', 'value' => $record->created_at?->format('M d, Y H:i') ?? '—'],
+        ['label' => 'Registration date', 'value' => $record->registration_date],
+        ['label' => 'Last login', 'value' => $record->last_login, 'diff' => true, 'fallback' => 'Never'],
+        ['label' => 'Created at', 'value' => $record->created_at],
     ];
 
     $bool = fn (bool $v): string => $v ? 'Yes' : 'No';
@@ -36,7 +36,13 @@
                     <div>
                         <dt class="text-xs text-muted-foreground">{{ $row['label'] }}</dt>
                         <dd class="mt-0.5 text-sm {{ ! empty($row['mono']) ? 'font-mono text-xs break-all' : '' }}">
-                            {{ $row['value'] }}
+                            @if ($row['value'] instanceof \Carbon\CarbonInterface)
+                                <x-ui.local-time :value="$row['value']" :show-diff="$row['diff'] ?? false" />
+                            @elseif ($row['value'] === null)
+                                {{ $row['fallback'] ?? '—' }}
+                            @else
+                                {{ $row['value'] }}
+                            @endif
                         </dd>
                     </div>
                 @endforeach

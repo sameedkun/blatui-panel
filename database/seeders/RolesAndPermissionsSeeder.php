@@ -92,9 +92,15 @@ class RolesAndPermissionsSeeder extends Seeder
         }
 
         foreach (Config::get('panel.modules', []) as $module => $config) {
-            $actions = $config['actions'] ?? $config;
+            $actions = $config['actions'] ?? [];
 
             $permissions = array_merge($permissions, $this->parseActions($module, $actions));
+
+            if (isset($config['children']) && is_array($config['children'])) {
+                foreach ($config['children'] as $child => $childActions) {
+                    $permissions = array_merge($permissions, $this->parseActions("{$module}.{$child}", $childActions));
+                }
+            }
         }
 
         return array_unique($permissions);

@@ -85,7 +85,7 @@
 
                         {{-- Created --}}
                         <td class="hidden px-4 py-3 text-xs text-muted-foreground md:table-cell">
-                            {{ $role->created_at?->format('M d, Y') ?? '-' }}
+                            <x-ui.local-time :value="$role->created_at" format="MMM D, YYYY" />
                         </td>
 
                         {{-- Row actions --}}

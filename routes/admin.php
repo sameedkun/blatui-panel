@@ -59,8 +59,18 @@ Route::middleware(['auth', 'panel', AuthenticateSession::class])->name('admin.')
     });
 
     // ── Settings ──────────────────────────────────────────────────────────
-    Route::prefix('settings')->name('settings.')->middleware('permission:settings.view')->group(function () {
-        Route::get('/general', General::class)->name('general');
+    Route::prefix('settings')->name('settings.')->group(function () {
+        Route::get('/', function () {
+            $user = request()->user();
+            foreach (array_keys(config('panel.modules.settings.children', [])) as $child) {
+                if ($user->can("settings.{$child}.view")) {
+                    return redirect()->route("admin.settings.{$child}");
+                }
+            }
+            abort(403);
+        })->name('index');
+
+        Route::get('/general', General::class)->name('general')->middleware('permission:settings.general.view');
         Route::get('/mail', Mail::class)->name('mail')->middleware('permission:settings.mail.view');
         Route::get('/policies', Policies::class)->name('policies')->middleware('permission:settings.policies.view');
     });

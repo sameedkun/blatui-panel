@@ -110,7 +110,7 @@
                             </div>
                             <div class="flex justify-between border-b border-border/50 pb-2">
                                 <dt class="text-sm text-muted-foreground">Registered On</dt>
-                                <dd class="text-sm font-medium text-foreground">{{ $user->registration_date?->format('M d, Y') ?? '—' }}</dd>
+                                <dd class="text-sm font-medium text-foreground"><x-ui.local-time :value="$user->registration_date" format="MMM D, YYYY" /></dd>
                             </div>
                             <div class="flex justify-between">
                                 <dt class="text-sm text-muted-foreground">Email Status</dt>

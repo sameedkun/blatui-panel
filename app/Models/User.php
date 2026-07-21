@@ -289,4 +289,26 @@ class User extends Authenticatable
             ->where('policy_version_id', $activeVersion->id)
             ->exists();
     }
+
+    /**
+     * Check if the user has access to a module or any of its children.
+     */
+    public function canAccessModule(string $module): bool
+    {
+        $permissions = $this->getAllPermissions()->pluck('name');
+
+        if ($permissions->contains("{$module}.view")) {
+            return true;
+        }
+
+        foreach (
+            array_keys(config("panel.modules.{$module}.children", [])) as $child
+        ) {
+            if ($permissions->contains("{$module}.{$child}.view")) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
