@@ -51,12 +51,13 @@ Key state, all first-class on the model:
 ## Authorization: permissions, not roles, everywhere
 
 `config/panel.php` is the single source of truth for the whole RBAC surface:
-- `modules` — each entry (`users`, `guests`, `staff`, `roles`, `activity_logs`, `dashboard`)
+- `modules` — each entry (`users`, `guests`, `staff`, `roles`, `activity_logs`, `dashboard`, `settings`)
   declares its allowed `actions` from a fixed `action_vocabulary` (`view`, `create`, `edit`,
   `delete`, `restore`, `force-delete`, `ban`, `unban`, `export`, `import`, `manage`, `access`,
-  `reply`, `assign`, `convert`, `merge`). Permissions are generated as `{module}.{action}`.
+  `reply`, `assign`, `convert`, `merge`), plus optional `children` sub-modules (`general`, `mail`, `policies`, `storage`, `authentication`). Permissions are generated as `{module}.{action}` or `{module}.{child}.{action}`.
+- `User::canAccessModule($module)` inspects whether a user has `{module}.view` or any child `{module}.{child}.view` permission, powering module navigation.
 - `super_admin_role` (`'super-admin'`) bypasses every check via `Gate::before` in
-  `AppServiceProvider::configureSuperAdmin()` — never hard-code a super-admin exception elsewhere.
+  `AppServiceProvider::configureSuperAdmin()` — which also handles module view permission inheritance (`{module}.view` grants view rights to all `{module}.{child}.view` permissions without granting edit rights).
 - `protected_roles` (`super-admin`, `admin`) and `protected_permissions`
   (`panel.access-admin`) can't be deleted/renamed from the panel UI.
 - `access` maps a panel identifier to its gating permission (`admin` → `panel.access-admin`).
@@ -206,12 +207,12 @@ app/
       Administration/Roles/                         Index, Form (role/permission-matrix CRUD)
       Administration/ActivityLogs/Index.php         read-only audit viewer
       Settings/                             BaseSettings, Index, General, Mail, Policies
-  Models/          User.php, EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php
+  Models/          User.php (canAccessModule helper), EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
-                                             production password/destructive-command policy
+                                             module view permission inheritance policy
   Services/        AccountDeletionService, AccountMergeService, GuestConversionService
   Support/         ActivityLogger, ActivityLogQuery
-config/panel.php    RBAC modules/actions, grace period, export threshold, seeded admin creds
+config/panel.php    RBAC modules/actions/children, grace period, export threshold, seeded admin creds
 database/
   migrations/       users, permission_tables (Spatie), activity_log (+ 3 hand-added indexes),
                      cache, jobs, email_domains, email_senders, smtp_settings, policies_tables
