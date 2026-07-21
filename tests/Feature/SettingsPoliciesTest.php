@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enum\PolicyType;
 use App\Livewire\Admin\Settings\Policies as PoliciesComponent;
 use App\Models\Policy;
 use App\Models\User;
@@ -108,6 +109,65 @@ class SettingsPoliciesTest extends TestCase
         // Check old version marked inactive
         $this->assertFalse($oldVersion->fresh()->is_active);
         $this->assertEquals(2, $privacyPolicy->versions()->count());
+    }
+
+    /**
+     * A {@see PolicyType} case with no content written yet (e.g. one
+     * just added to the enum) must not block saving the rest of the form, and
+     * must not get a garbage empty version published behind the scenes.
+     */
+    public function test_saving_does_not_publish_an_empty_version_for_an_unauthored_policy_type(): void
+    {
+        $this->seed(PoliciesSeeder::class);
+        $this->actingAs($this->staffWith(['settings.view', 'settings.policies.view', 'settings.policies.edit']));
+
+        // Mounting firstOrCreate()s a Policy row per PolicyType case; any case the
+        // seeder didn't publish content for is what this test is guarding.
+        Livewire::test(PoliciesComponent::class);
+        $unauthoredKeys = Policy::query()->whereDoesntHave('versions')->pluck('key')->all();
+        $this->assertNotEmpty($unauthoredKeys, 'Expected at least one PolicyType case the seeder leaves unpublished.');
+
+        Livewire::test(PoliciesComponent::class)
+            ->set('policies.privacy.version', '1.1')
+            ->set('policies.privacy.content', 'Brand new privacy policy content.')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        foreach ($unauthoredKeys as $key) {
+            $this->assertSame(0, Policy::where('key', $key)->first()->versions()->count());
+        }
+    }
+
+    public function test_version_history_lists_every_saved_version_newest_first(): void
+    {
+        $this->seed(PoliciesSeeder::class);
+        $this->actingAs($this->staffWith(['settings.view', 'settings.policies.view', 'settings.policies.edit']));
+
+        Livewire::test(PoliciesComponent::class)
+            ->set('policies.privacy.version', '1.1')
+            ->set('policies.privacy.content', 'Second privacy version.')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $privacy = Policy::where('key', 'privacy')->first();
+        $this->assertSame(2, $privacy->versions()->count());
+
+        $ordered = $privacy->versions()->orderByDesc('published_at')->orderByDesc('id')->pluck('version')->all();
+        $this->assertSame(['1.1', '1.0'], $ordered);
+    }
+
+    public function test_viewing_a_version_loads_its_full_content_into_the_dialog(): void
+    {
+        $this->seed(PoliciesSeeder::class);
+        $this->actingAs($this->staffWith(['settings.view', 'settings.policies.view', 'settings.policies.edit']));
+
+        $version = Policy::where('key', 'privacy')->first()->activeVersion()->first();
+
+        Livewire::test(PoliciesComponent::class)
+            ->call('viewVersion', $version->id)
+            ->assertSet('viewingVersionId', $version->id)
+            ->assertDispatched('open-dialog-policy-version')
+            ->assertSee($version->content);
     }
 
     public function test_user_model_acceptance_helpers(): void

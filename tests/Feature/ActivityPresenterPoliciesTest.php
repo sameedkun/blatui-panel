@@ -110,15 +110,18 @@ class ActivityPresenterPoliciesTest extends TestCase
     {
         $this->actingAsSuperAdmin();
 
+        // "cookies" deliberately isn't (and may never become) a PolicyType
+        // case — this is the fallback path for a log row whose area doesn't
+        // map to a known enum value.
         ActivityLogger::log(ActivityModule::Setting, ActivityAction::Updated, null, [
-            'area' => 'policy_refund',
+            'area' => 'policy_cookies',
             'version' => '1.0',
         ]);
 
         $activity = Activity::where('event', 'updated')->latest('id')->firstOrFail();
         $presented = ActivityPresenter::present($activity);
 
-        $this->assertSame('Refund Updated', $presented['title']);
+        $this->assertSame('Cookies Updated', $presented['title']);
         $this->assertSame('1.0', $this->findRow($presented['rows'], 'Version')['value'] ?? null);
     }
 }
