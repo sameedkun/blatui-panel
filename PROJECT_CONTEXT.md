@@ -61,6 +61,7 @@ Key state, all first-class on the model:
 - `protected_roles` (`super-admin`, `admin`) and `protected_permissions`
   (`panel.access-admin`) can't be deleted/renamed from the panel UI.
 - `access` maps a panel identifier to its gating permission (`admin` → `panel.access-admin`).
+- `features` — plan/subscription feature flags (`device_limit`, `ad_free`) with names, types, and defaults.
 - `admin_excluded_permissions` — permissions the seeded `admin` role does *not* get (destructive
   system-level actions reserved for super-admin).
 - `RolesAndPermissionsSeeder` is **idempotent and safe to re-run in production**: it
@@ -169,6 +170,34 @@ what the admin was looking at on screen. `App\Listeners\AuthActivityListener` au
 login/failed-login (rate-limited)/password-reset via Laravel's event discovery — guests are never
 logged for auth or account activity.
 
+## Plans & Subscriptions data model
+
+Data layer only so far — **no admin UI, no seeder, no service wiring yet** (see rough edges
+below). Five new tables/models under `app/Models/`:
+- **`Plan`** (`#[Sluggable(from: 'name', to: 'slug')]`, soft-deletable) — `name`, `slug`,
+  `description`, `features` (`array` cast), `is_active`, `is_best_deal`, `sort_order`. Has many
+  `prices()` (`PlanPrice`) and `subscriptions()`.
+- **`PlanPrice`** (soft-deletable) — belongs to `Plan`; `amount`/`compare_at_amount` (`decimal:2`),
+  `currency`, `billing_period`+`billing_interval`, `trial_period`+`trial_interval`,
+  `grace_period`+`grace_interval` (the three `*_interval` columns all cast to
+  `App\Enum\BillingInterval`). Has many `providers()` (`PlanPriceProvider`) and `subscriptions()`.
+- **`PlanPriceProvider`** — belongs to `PlanPrice` via `planPrice()`; maps a price to an external
+  provider price/product id (`provider` cast to `App\Enum\PaymentProvider`, `external_id`). Unique
+  on `(plan_price_id, provider)`.
+- **`Subscription`** — belongs to `User`, `Plan`, `PlanPrice` (`planPrice()`), and optionally a
+  `previousSubscription()` (self-referencing, for upgrade/downgrade chains). `status` casts to
+  `App\Enum\SubscriptionStatus`, `cancelled_by` to `App\Enum\CancelledBy`, `provider` to
+  `PaymentProvider`. `isActive(): bool` checks status is one of Trialing/Active/Grace and
+  `ends_at` hasn't passed. Has many `receipts()`.
+- **`SubscriptionReceipt`** — belongs to `Subscription`; one row per provider webhook/event
+  (`type` cast to `App\Enum\ReceiptType`: Initial/Renewal/Restore/Refund/Cancellation).
+
+`User::subscriptions(): HasMany<Subscription>` added alongside `policyAcceptances()`
+(`app/Models/User.php`). All five models + factories exist; migrations are
+`2026_07_22_000000_create_plans_tables.php` and `..._000001_create_subscriptions_tables.php`.
+Per this codebase's hard convention, none of the "enum-like" columns above are native DB
+`enum()` columns — they're all `string` + a PHP backed-enum cast.
+
 ## Routes
 
 - `routes/web.php` requires `auth.php` then `admin.php`.
@@ -217,7 +246,8 @@ logged for auth or account activity.
 
 ```
 app/
-  Enum/            UserType, Activity{LogName,Module,Action,Context}, MailPurpose
+  Enum/            UserType, Activity{LogName,Module,Action,Context}, MailPurpose,
+                   BillingInterval, PaymentProvider, SubscriptionStatus, CancelledBy, ReceiptType
   Http/Middleware/ EnsurePanelAccess (alias: panel)
   Jobs/            PurgeExpiredAccounts, ExportActivityLog
   Listeners/       AuthActivityListener
@@ -234,7 +264,8 @@ app/
       Settings/                             BaseSettings, Index, General, Mail, Policies
   Mail/            Concerns/HasMailPurpose.php (trait for purpose-based mailables),
                    Auth/VerifyEmailMail.php, Auth/ResetPasswordMail.php
-  Models/          User.php (canAccessModule helper), EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php
+  Models/          User.php (canAccessModule helper), EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php,
+                   Plan.php, PlanPrice.php, PlanPriceProvider.php, Subscription.php, SubscriptionReceipt.php
   Notifications/   Auth/VerifyEmailNotification.php, Auth/ResetPasswordNotification.php
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
                                              module view permission inheritance policy
@@ -243,9 +274,12 @@ app/
 config/panel.php    RBAC modules/actions/children, grace period, export threshold, seeded admin creds
 database/
   migrations/       users, permission_tables (Spatie), activity_log (+ 3 hand-added indexes),
-                     cache, jobs, email_domains, email_senders, smtp_settings, policies_tables
+                     cache, jobs, email_domains, email_senders, smtp_settings, policies_tables,
+                     plans_tables (plans/plan_prices/plan_price_providers),
+                     subscriptions_tables (subscriptions/subscription_receipts)
   seeders/          DatabaseSeeder, RolesAndPermissionsSeeder (idempotent), UserSeeder,
                      EmailSendersSeeder (idempotent)
+  factories/         one per model, incl. Plan/PlanPrice/PlanPriceProvider/Subscription/SubscriptionReceipt
 resources/
   views/components/ui/       BlatUI copy-paste components (x-ui.*) — see CLAUDE.md BlatUI section
   views/components/admin/    panel-specific composites: filter-bar, page-header, pagination,
@@ -269,7 +303,11 @@ tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogT
 - Several TODOs mark intentionally-deferred wiring: email verification notifications on guest
   conversion, password-reset-link dispatch on admin-initiated conversion, and
   `AccountMergeService::migrateRelatedData()` / `AccountDeletionService::deleteRelatedData()` for
-  `subscriptions`/`devices` tables that don't exist in the schema yet.
+  `subscriptions`/`devices` tables. The `subscriptions` table now exists (see "Plans &
+  Subscriptions data model" above), but these two methods haven't been revisited yet — the
+  deletion-service cleanup still works (it's a guarded `Schema::hasTable()` check that now passes
+  for `subscriptions` but still no-ops for `devices`), while the merge-service reassignment is
+  still an unimplemented stub either way.
 - `Users/Show.php` has three scaffolded-but-inert actions (`verifyEmailManually`,
   `resendVerificationEmail`, `sendPasswordResetLink`) that toast "not yet available" rather than
   perform the action — wiring points for when Laravel's real verification/password-broker flows

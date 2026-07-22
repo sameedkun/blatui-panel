@@ -270,4 +270,25 @@ return [
     'frontend_url' => env('FRONTEND_URL', env('APP_URL')),
     'auth_url_mode' => env('AUTH_URL_MODE', 'auto'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Application Features
+    |--------------------------------------------------------------------------
+    |
+    | Defines available plan/subscription feature flags, types, and default values.
+    |
+    */
+    'features' => [
+        'device_limit' => [
+            'name' => 'Device Limit',
+            'type' => 'integer',
+            'default' => 1,
+        ],
+        'ad_free' => [
+            'name' => 'Ad Free',
+            'type' => 'boolean',
+            'default' => false,
+        ],
+    ],
+
 ];

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enum\UserType;
 use App\Notifications\Auth\ResetPasswordNotification;
 use App\Notifications\Auth\VerifyEmailNotification;
+use App\Traits\HasSubscriptions;
 use Carbon\CarbonInterface;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -47,7 +48,7 @@ use Spatie\Sluggable\Attributes\Sluggable;
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
-    use CausesActivity, HasFactory, HasRoles, Notifiable, SoftDeletes;
+    use CausesActivity, HasFactory, HasRoles, Notifiable, SoftDeletes, HasSubscriptions;
 
     /**
      * Get the attributes that should be cast.
