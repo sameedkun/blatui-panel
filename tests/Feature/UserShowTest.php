@@ -5,7 +5,10 @@ namespace Tests\Feature;
 use App\Livewire\Admin\Management\Users\Index as UsersIndex;
 use App\Livewire\Admin\Management\Users\Show;
 use App\Models\User;
+use App\Notifications\Auth\ResetPasswordNotification;
+use App\Notifications\Auth\VerifyEmailNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
@@ -179,17 +182,58 @@ class UserShowTest extends TestCase
         $this->assertDatabaseMissing('users', ['id' => $user->id]);
     }
 
-    public function test_scaffolded_credential_actions_toast_not_yet_available_instead_of_silently_doing_nothing(): void
+    public function test_verify_email_manually_marks_the_email_verified(): void
     {
-        $this->actingAsSuperAdmin();
+        $admin = $this->actingAsSuperAdmin();
         $user = User::factory()->app()->create(['email_verified_at' => null]);
 
         Livewire::test(Show::class, ['user' => $user])
             ->call('verifyEmailManually')
-            ->assertDispatched('toast', type: 'info')
-            ->call('resendVerificationEmail')
-            ->assertDispatched('toast', type: 'info')
-            ->call('sendPasswordResetLink')
+            ->assertDispatched('toast', type: 'success');
+
+        $this->assertNotNull($user->fresh()->email_verified_at);
+
+        // Exactly one audit row — logged centrally by AuthActivityListener::handleVerified()
+        // off the Verified event, not duplicated by an explicit call here too.
+        $activity = Activity::where('event', 'verified')->where('subject_id', $user->id)->get();
+        $this->assertCount(1, $activity);
+        $this->assertSame($admin->id, $activity->first()->causer_id);
+        $this->assertSame('admin', $activity->first()->properties['initiated_by']);
+    }
+
+    public function test_verify_email_manually_is_a_no_op_when_already_verified(): void
+    {
+        $this->actingAsSuperAdmin();
+        $user = User::factory()->app()->create(['email_verified_at' => now()]);
+
+        Livewire::test(Show::class, ['user' => $user])
+            ->call('verifyEmailManually')
             ->assertDispatched('toast', type: 'info');
+    }
+
+    public function test_resend_verification_email_sends_the_notification(): void
+    {
+        Notification::fake();
+        $this->actingAsSuperAdmin();
+        $user = User::factory()->app()->create(['email_verified_at' => null]);
+
+        Livewire::test(Show::class, ['user' => $user])
+            ->call('resendVerificationEmail')
+            ->assertDispatched('toast', type: 'success');
+
+        Notification::assertSentTo($user, VerifyEmailNotification::class);
+    }
+
+    public function test_send_password_reset_link_dispatches_the_notification(): void
+    {
+        Notification::fake();
+        $this->actingAsSuperAdmin();
+        $user = User::factory()->app()->create();
+
+        Livewire::test(Show::class, ['user' => $user])
+            ->call('sendPasswordResetLink')
+            ->assertDispatched('toast', type: 'success');
+
+        Notification::assertSentTo($user, ResetPasswordNotification::class);
     }
 }

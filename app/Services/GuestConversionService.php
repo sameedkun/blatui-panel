@@ -8,6 +8,7 @@ use App\Enum\UserType;
 use App\Models\User;
 use App\Support\ActivityLogger;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -38,10 +39,9 @@ class GuestConversionService
 
         $this->convert($guest, $email, $name, Hash::make(Str::random(64)), 'admin', $markEmailVerified);
 
-        // TODO: Password::sendResetLink(['email' => $guest->email]) — deferred
-        // until a self-service auth surface with a password.reset route exists.
         // Always sent regardless of $markEmailVerified — the admin never sets
         // (or sees) the real password either way.
+        Password::sendResetLink(['email' => $guest->email]);
 
         return $guest->fresh();
     }
@@ -129,8 +129,9 @@ class GuestConversionService
             'email_verified_by_admin' => $markEmailVerified,
         ]);
 
-        // TODO: when $markEmailVerified is false, $guest->sendEmailVerificationNotification()
-        // — deferred until User implements MustVerifyEmail and a verification.verify route exists.
+        if (! $markEmailVerified) {
+            $guest->sendEmailVerificationNotification();
+        }
     }
 
     private function assertGuestUser(User $guest): void

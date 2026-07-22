@@ -20,6 +20,7 @@ enum ActivityAction: string
     case Login = 'login';
     case Failed = 'failed';
     case PasswordReset = 'password_reset';
+    case Verified = 'verified';
     case DeletionRequested = 'deletion_requested';
     case DeletionCancelled = 'deletion_cancelled';
     case Purged = 'purged';

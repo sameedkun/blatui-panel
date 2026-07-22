@@ -80,8 +80,20 @@
                         <x-ui.checkbox id="force-reset" wire:model="forcePasswordReset" class="mt-0.5" />
                         <div>
                             <x-ui.label for="force-reset" class="cursor-pointer">Force password reset</x-ui.label>
-                            <p class="text-xs text-muted-foreground">User will be prompted to set a new password on next
-                                login.</p>
+                            <p class="text-xs text-muted-foreground">Emails the user a password reset link they'll need
+                                to use to set a new password.</p>
+                        </div>
+                    </div>
+                @endif
+
+                {{-- Edit-only: auto-verify a changed email --}}
+                @if ($isEditing && $emailChanged)
+                    <div class="flex items-start gap-2">
+                        <x-ui.checkbox id="auto-verify-changed-email" wire:model="autoVerifyChangedEmail" class="mt-0.5" />
+                        <div>
+                            <x-ui.label for="auto-verify-changed-email" class="cursor-pointer">Auto-verify new email</x-ui.label>
+                            <p class="text-xs text-muted-foreground">Skip the verification email and mark the new
+                                address as verified immediately.</p>
                         </div>
                     </div>
                 @endif

@@ -10,9 +10,10 @@ use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\Rules\Password as RulesPassword;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
@@ -45,6 +46,9 @@ class Form extends BaseForm
 
     /** Whether the email was changed on edit — triggers the verify prompt. */
     public bool $emailChanged = false;
+
+    /** Edit-only: skip the verification email and mark the new address verified immediately. */
+    public bool $autoVerifyChangedEmail = false;
 
     protected function indexRoute(): string
     {
@@ -82,7 +86,7 @@ class Form extends BaseForm
 
             'password' => [
                 $this->isEditing ? 'nullable' : 'required',
-                Password::defaults(),
+                RulesPassword::defaults(),
             ],
 
             'roles' => ['required', 'array', 'min:1'],
@@ -141,6 +145,10 @@ class Form extends BaseForm
         if ($this->isEditing) {
             $user = User::find($this->userId);
             $this->emailChanged = $user && $user->email !== $value;
+
+            if (! $this->emailChanged) {
+                $this->autoVerifyChangedEmail = false;
+            }
         }
     }
 
@@ -173,7 +181,7 @@ class Form extends BaseForm
             }
 
             if ($this->emailChanged) {
-                $data['email_verified_at'] = null;
+                $data['email_verified_at'] = $this->autoVerifyChangedEmail ? now() : null;
             }
 
             if ($this->forcePasswordReset) {
@@ -197,6 +205,14 @@ class Form extends BaseForm
                     $changes + (filled($this->password) ? ['password_changed' => true] : []));
             }
 
+            if ($this->emailChanged && ! $this->autoVerifyChangedEmail) {
+                $user->sendEmailVerificationNotification();
+            }
+
+            if ($this->forcePasswordReset) {
+                Password::sendResetLink(['email' => $user->email]);
+            }
+
             return $this->redirectWithSuccess("{$user->name} updated successfully.");
         }
 
@@ -218,6 +234,10 @@ class Form extends BaseForm
                 'roles' => $this->roles,
             ],
         ]);
+
+        if ($this->sendVerificationEmail) {
+            $user->sendEmailVerificationNotification();
+        }
 
         return $this->redirectWithSuccess("{$user->name} created successfully.");
     }

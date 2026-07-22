@@ -172,7 +172,32 @@ logged for auth or account activity.
 ## Routes
 
 - `routes/web.php` requires `auth.php` then `admin.php`.
-- `routes/auth.php` — `GET /login` (guest-only), `GET /logout`.
+- `routes/auth.php` — `GET /login` (guest-only), `GET /logout`; plus two self-service pages:
+  `GET /verify-email/{id}/{hash}` (`verification.verify`, `auth+signed+throttle:6,1` — staff clicking
+  the emailed link verifies in place) and `GET /reset-password/{token}` (`password.reset`,
+  guest-only — sets a new password given a valid broker token; there's no "request a link" page,
+  a reset link is only ever sent by the system, e.g. via `Password::sendResetLink()`). These are
+  the exact route names `App\Services\Auth\UrlResolver` looks for when building notification URLs,
+  and satisfy the preconditions the `GuestConversionService` TODOs were waiting on (see rough edges
+  below).
+- **`App\Services\Auth\UrlResolver`** builds both URLs and auto-detects panel vs frontend from
+  `panel.auth_url_mode` (`env('AUTH_URL_MODE')`, default `'auto'`): `'panel'`/`'frontend'` force a
+  side, `'auto'` sends staff to the panel and everyone else to the frontend
+  (`panel.frontend_url` / `env('FRONTEND_URL')`, falls back to `APP_URL`). Verification always goes
+  through a real `URL::temporarySignedRoute()` — never a hand-rolled HMAC — against
+  `verification.verify` (panel) or `api.verification.verify` (frontend/API, once that route exists;
+  falls back to the panel route via `Route::has()` until then, since the API surface isn't built
+  yet). The frontend/API signed route is generated against `panel.frontend_url` rather than the
+  panel's own `APP_URL` — `URL::temporarySignedRoute()` alone always signs against the app's own
+  root, so `UrlResolver::signedRouteOn()` temporarily overrides both host and scheme via
+  `URL::useOrigin()` + `URL::forceScheme()` for that one call (restored in a `finally` block) —
+  otherwise a `quixure.com` link would get built as if it lived on `panel.quixure.com`. Password
+  reset needs no signed route (the broker token is already the credential); the
+  frontend variant is a plain link to `{frontend_url}/reset-password?...` for an SPA page to render.
+  In both cases the `email` query param is `Crypt::encryptString()`d rather than plain-text — the
+  panel's `PasswordReset` Livewire component decrypts it in `mount()`, and any future API endpoint
+  must do the same. Neither notification (`VerifyEmailNotification`/`ResetPasswordNotification`)
+  makes the panel-vs-frontend choice itself — that logic lives solely in `UrlResolver`.
 - `routes/admin.php` — everything under `auth + panel + AuthenticateSession` middleware, name
   prefix `admin.`: `dashboard`, `users.*` (index/create/edit/show, `withTrashed()` on show),
   `guests.*` (index/show only — no create/edit, guests aren't created via the panel), `staff.*`
@@ -197,7 +222,7 @@ app/
   Jobs/            PurgeExpiredAccounts, ExportActivityLog
   Listeners/       AuthActivityListener
   Livewire/
-    Auth/          Login, Logout
+    Auth/          Login, Logout, VerifyEmail, PasswordReset (reset-with-token form only)
     Admin/         BaseIndex, BaseForm, BaseShow + Concerns/ (shared traits)
       Dashboard.php
       Account/Index.php                     self-service account page
@@ -207,10 +232,13 @@ app/
       Administration/Roles/                         Index, Form (role/permission-matrix CRUD)
       Administration/ActivityLogs/Index.php         read-only audit viewer
       Settings/                             BaseSettings, Index, General, Mail, Policies
+  Mail/            Concerns/HasMailPurpose.php (trait for purpose-based mailables),
+                   Auth/VerifyEmailMail.php, Auth/ResetPasswordMail.php
   Models/          User.php (canAccessModule helper), EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php
+  Notifications/   Auth/VerifyEmailNotification.php, Auth/ResetPasswordNotification.php
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
                                              module view permission inheritance policy
-  Services/        AccountDeletionService, AccountMergeService, GuestConversionService
+  Services/        AccountDeletionService, AccountMergeService, GuestConversionService, MailConfigurator, Auth/UrlResolver
   Support/         ActivityLogger, ActivityLogQuery
 config/panel.php    RBAC modules/actions/children, grace period, export threshold, seeded admin creds
 database/
@@ -227,7 +255,8 @@ resources/
   css/blatui.css             design tokens (CSS vars on :root/.dark/[data-*])
 tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogTest,
                      ActivityLogsViewerTest, UserShowTest, GuestsIndexTest, GuestShowTest,
-                     GuestConversionServiceTest, EmailSenderResolutionTest, SettingsMailTest
+                     GuestConversionServiceTest, EmailSenderResolutionTest, SettingsMailTest,
+                     MailConfiguratorTest, UrlResolverTest, VerifyEmailTest, PasswordResetTest
 ```
 
 ## Known rough edges / deferred work (don't be surprised by these)

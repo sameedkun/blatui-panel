@@ -177,8 +177,6 @@ return [
                 'general' => ['view', 'edit'],
                 'mail' => ['view', 'edit'],
                 'policies' => ['view', 'edit'],
-                'storage' => ['view', 'edit'],
-                'authentication' => ['view', 'edit'],
             ],
             'icon' => 'gear',
         ],
@@ -198,11 +196,8 @@ return [
         'administration' => 'Administration',
         'management' => 'Management',
         'infrastructure' => 'Infrastructure',
-        'users' => 'Users',
-        'billing' => 'Plans & Billing',
-        'app' => 'App Management',
+        'app' => 'Application',
         'support' => 'Support',
-        'content' => 'Content',
         'settings' => 'Settings',
     ],
 
@@ -261,5 +256,18 @@ return [
         'email' => env('ADMIN_EMAIL'),
         'password' => env('ADMIN_PASSWORD'),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Auth & Frontend URLs
+    |--------------------------------------------------------------------------
+    |
+    | Base URL for public frontend app (e.g. https://domain.com) and mode for
+    | resolving authentication URLs (verification, password reset).
+    | Modes: 'auto' (type-based: staff -> panel, app -> frontend), 'panel', 'frontend'.
+    |
+    */
+    'frontend_url' => env('FRONTEND_URL', env('APP_URL')),
+    'auth_url_mode' => env('AUTH_URL_MODE', 'auto'),
 
 ];

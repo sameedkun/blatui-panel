@@ -3,8 +3,11 @@
 namespace App\Models;
 
 use App\Enum\UserType;
+use App\Notifications\Auth\ResetPasswordNotification;
+use App\Notifications\Auth\VerifyEmailNotification;
 use Carbon\CarbonInterface;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Builder;
@@ -41,7 +44,7 @@ use Spatie\Sluggable\Attributes\Sluggable;
     'email_verified_at',
 ])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use CausesActivity, HasFactory, HasRoles, Notifiable, SoftDeletes;
@@ -310,5 +313,25 @@ class User extends Authenticatable
         }
 
         return false;
+    }
+
+    // -------------------------------------------------------------------------
+    // Auth Notifications (Purpose-Aware & Queued)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Send the email verification notification using MailPurpose::Auth sender identity.
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new VerifyEmailNotification);
+    }
+
+    /**
+     * Send the password reset notification using MailPurpose::Auth sender identity.
+     */
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
     }
 }

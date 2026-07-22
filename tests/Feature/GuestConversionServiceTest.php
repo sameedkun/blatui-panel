@@ -3,9 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Notifications\Auth\ResetPasswordNotification;
+use App\Notifications\Auth\VerifyEmailNotification;
 use App\Services\GuestConversionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use Spatie\Activitylog\Models\Activity;
@@ -120,6 +123,46 @@ class GuestConversionServiceTest extends TestCase
         $this->service()->convertByAdmin($guest, 'new@example.com');
 
         $this->assertNull($guest->fresh()->email_verified_at);
+    }
+
+    public function test_convert_by_self_sends_a_verification_email_for_the_new_address(): void
+    {
+        Notification::fake();
+        $guest = User::factory()->guest()->create(['banned_at' => null]);
+
+        $this->service()->convertBySelf($guest, 'new@example.com', 'a-real-password');
+
+        Notification::assertSentTo($guest, VerifyEmailNotification::class);
+    }
+
+    public function test_convert_by_admin_sends_a_verification_email_when_not_marked_verified(): void
+    {
+        Notification::fake();
+        $guest = User::factory()->guest()->create(['banned_at' => null]);
+
+        $this->service()->convertByAdmin($guest, 'new@example.com');
+
+        Notification::assertSentTo($guest, VerifyEmailNotification::class);
+    }
+
+    public function test_convert_by_admin_sends_no_verification_email_when_marked_verified(): void
+    {
+        Notification::fake();
+        $guest = User::factory()->guest()->create(['banned_at' => null]);
+
+        $this->service()->convertByAdmin($guest, 'new@example.com', null, true);
+
+        Notification::assertNotSentTo($guest, VerifyEmailNotification::class);
+    }
+
+    public function test_convert_by_admin_always_sends_a_password_reset_link_regardless_of_verification(): void
+    {
+        Notification::fake();
+        $guest = User::factory()->guest()->create(['banned_at' => null]);
+
+        $this->service()->convertByAdmin($guest, 'new@example.com', null, true);
+
+        Notification::assertSentTo($guest, ResetPasswordNotification::class);
     }
 
     public function test_merging_a_non_guest_is_rejected(): void

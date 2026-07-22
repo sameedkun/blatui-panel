@@ -12,6 +12,8 @@ use App\Services\AccountDeletionService;
 use App\Support\ActivityLogger;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Livewire\Livewire;
@@ -93,6 +95,55 @@ class ActivityLogTest extends TestCase
         $this->assertSame('authentication', $logins->first()->log_name);
         $this->assertSame('staff', $logins->first()->properties['module']);
         $this->assertSame($staff->id, $logins->first()->causer_id);
+    }
+
+    public function test_self_service_verification_is_logged_with_the_verified_user_as_causer(): void
+    {
+        $user = User::factory()->app()->create(['email_verified_at' => null]);
+
+        event(new Verified($user));
+
+        $activity = Activity::where('event', 'verified')->firstOrFail();
+        $this->assertSame('authentication', $activity->log_name);
+        $this->assertSame('user', $activity->properties['module']);
+        $this->assertSame('self', $activity->properties['initiated_by']);
+        $this->assertSame($user->id, $activity->causer_id);
+        $this->assertSame($user->id, $activity->subject_id);
+    }
+
+    public function test_admin_initiated_verification_is_logged_with_the_admin_as_causer(): void
+    {
+        $admin = $this->actingAsSuperAdmin();
+        $target = User::factory()->app()->create(['email_verified_at' => null]);
+
+        event(new Verified($target));
+
+        $activity = Activity::where('event', 'verified')->firstOrFail();
+        $this->assertSame('admin', $activity->properties['initiated_by']);
+        $this->assertSame($admin->id, $activity->causer_id);
+        $this->assertSame($target->id, $activity->subject_id);
+    }
+
+    public function test_guest_verified_event_is_not_logged(): void
+    {
+        $guest = User::factory()->guest()->create(['email_verified_at' => null]);
+
+        event(new Verified($guest));
+
+        $this->assertSame(0, Activity::where('event', 'verified')->count());
+    }
+
+    public function test_password_reset_event_is_logged_and_bumps_password_changed_at(): void
+    {
+        $user = User::factory()->app()->create(['password_changed_at' => null]);
+
+        event(new PasswordReset($user));
+
+        $activity = Activity::where('event', 'password_reset')->firstOrFail();
+        $this->assertSame('authentication', $activity->log_name);
+        $this->assertSame($user->id, $activity->causer_id);
+
+        $this->assertNotNull($user->fresh()->password_changed_at);
     }
 
     public function test_bulk_ban_collapses_to_one_banned_row_flagged_bulk(): void

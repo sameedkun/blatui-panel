@@ -55,7 +55,7 @@
             @endcanany
 
             @if (auth()->user()->canAny(['staff.view', 'roles.view', 'activity_logs.view']) || auth()->user()->canAccessModule('settings'))
-                <x-ui.sidebar-group-label>System</x-ui.sidebar-group-label>
+                <x-ui.sidebar-group-label>Administration</x-ui.sidebar-group-label>
 
                 <x-ui.sidebar-menu>
 

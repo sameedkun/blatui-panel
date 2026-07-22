@@ -11,7 +11,9 @@ use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Livewire\Admin\Management\Users\Concerns\HandlesUserRowActions;
 use App\Models\User;
 use App\Services\AccountDeletionService;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Password;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\WithPagination;
@@ -133,36 +135,66 @@ class Show extends BaseShow
     }
 
     /**
-     * Scaffolded account actions — wiring points only. Each toasts rather than
-     * silently doing nothing, but does not yet perform the credential action.
-     *
-     * TODO: audit log hook — when built, admin-initiated email verification must
-     * run through Laravel's real verification flow and be logged as a
-     * staff-initiated credential action on this account.
+     * Marks the email verified directly, with no notification sent — mirrors
+     * what the user clicking their own verification link would do. Audit
+     * logging happens centrally in AuthActivityListener::handleVerified(),
+     * triggered by the Verified event fired below.
      */
     public function verifyEmailManually(): void
     {
-        $this->toastInfo('Not yet available', 'Manually verifying an email is not implemented yet.');
+        $this->authorize('users.manage');
+
+        $user = $this->record;
+
+        if ($user->hasVerifiedEmail()) {
+            $this->toastInfo('Already verified', "{$user->name}'s email is already verified.");
+
+            return;
+        }
+
+        $user->markEmailAsVerified();
+
+        event(new Verified($user));
+
+        $this->toastSuccess("{$user->name}'s email has been verified.");
     }
 
-    /**
-     * TODO: audit log hook — when built, this must dispatch through Laravel's
-     * real email-verification notification and be logged as a staff-initiated
-     * credential action on this account.
-     */
     public function resendVerificationEmail(): void
     {
-        $this->toastInfo('Not yet available', 'Resending the verification email is not implemented yet.');
+        $this->authorize('users.manage');
+
+        $user = $this->record;
+
+        if ($user->hasVerifiedEmail()) {
+            $this->toastInfo('Already verified', "{$user->name}'s email is already verified.");
+
+            return;
+        }
+
+        $user->sendEmailVerificationNotification();
+
+        $this->logActivity(ActivityModule::User, ActivityAction::Sent, $user, ['type' => 'email_verification']);
+
+        $this->toastSuccess("Verification email sent to {$user->email}.");
     }
 
-    /**
-     * TODO: audit log hook — when built, this must go through Laravel's real
-     * password-broker flow and be logged as a staff-initiated credential action
-     * on this account.
-     */
     public function sendPasswordResetLink(): void
     {
-        $this->toastInfo('Not yet available', 'Sending a password reset link is not implemented yet.');
+        $this->authorize('users.manage');
+
+        $user = $this->record;
+
+        $status = Password::sendResetLink(['email' => $user->email]);
+
+        if ($status !== Password::RESET_LINK_SENT) {
+            $this->toastError('Could not send reset link', __($status));
+
+            return;
+        }
+
+        $this->logActivity(ActivityModule::User, ActivityAction::Sent, $user, ['type' => 'password_reset']);
+
+        $this->toastSuccess("Password reset link sent to {$user->email}.");
     }
 
     /**

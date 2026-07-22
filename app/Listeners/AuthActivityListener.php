@@ -10,6 +10,7 @@ use App\Support\ActivityLogger;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
@@ -84,6 +85,33 @@ class AuthActivityListener
             ActivityAction::PasswordReset,
             $user,
             causer: $user,
+            logName: ActivityLogName::Authentication,
+        );
+    }
+
+    /**
+     * Covers both self-service verification (the emailed signed link — including
+     * an unauthenticated click, since a valid signature is proof enough) and
+     * admin-initiated verification (Users\Show::verifyEmailManually), attributing
+     * the causer correctly for each.
+     */
+    public function handleVerified(Verified $event): void
+    {
+        $user = $event->user;
+
+        if (! $user instanceof User || $user->isGuest()) {
+            return;
+        }
+
+        $authUser = auth()->user();
+        $isAdminInitiated = $authUser instanceof User && $authUser->isNot($user);
+
+        ActivityLogger::log(
+            $this->moduleFor($user),
+            ActivityAction::Verified,
+            $user,
+            properties: ['initiated_by' => $isAdminInitiated ? 'admin' : 'self'],
+            causer: $isAdminInitiated ? $authUser : $user,
             logName: ActivityLogName::Authentication,
         );
     }

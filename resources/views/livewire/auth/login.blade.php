@@ -1,4 +1,10 @@
 <div>
+    @if (session('status'))
+        <x-ui.alert tone="success" class="mb-4">
+            <x-lucide-circle-check />
+            <x-ui.alert-description>{{ session('status') }}</x-ui.alert-description>
+        </x-ui.alert>
+    @endif
     <x-ui.card variant="sectioned" class="w-full max-w-sm">
         <x-ui.card-header>
             <x-ui.card-title>Sign in</x-ui.card-title>
