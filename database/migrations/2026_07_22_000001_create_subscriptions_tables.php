@@ -44,6 +44,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['user_id', 'status']);
+            $table->index(['status', 'ends_at']);
+            $table->index(['provider', 'status']);
         });
 
         Schema::create('subscription_receipts', function (Blueprint $table) {

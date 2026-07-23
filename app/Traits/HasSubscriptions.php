@@ -17,43 +17,32 @@ trait HasSubscriptions
     public function activeSubscription(): HasOne
     {
         return $this->hasOne(Subscription::class)
+            ->where('status', '!=', 'failed')
             ->where(function ($q) {
-                $q->whereIn('status', ['trialing', 'active'])
-                    ->where('ends_at', '>', now())
-                    ->orWhere(fn ($q2) => $q2
-                        ->where('status', 'grace')
-                        ->where('grace_ends_at', '>', now()))
-                    ->orWhere(fn ($q3) => $q3
-                        ->where('status', 'cancelled')
-                        ->where('ends_at', '>', now())); // cancelled but access remaining
+                $q->where('ends_at', '>', now())
+                    ->orWhere('grace_ends_at', '>', now());
             })
             ->latest('ends_at');
     }
 
     public function isSubscribed(): bool
     {
-        return $this->activeSubscription()->exists();
+        return $this->activeSubscription !== null;
     }
 
     public function isSubscribedTo(Plan $plan): bool
     {
-        $sub = $this->activeSubscription;
-
-        return $sub && $sub->plan_id === $plan->id;
+        return $this->activeSubscription?->plan_id === $plan->id;
     }
 
     public function isOnTrial(): bool
     {
-        $sub = $this->activeSubscription;
-
-        return $sub && $sub->status === 'trialing' && now()->lt($sub->trial_ends_at);
+        return (bool) $this->activeSubscription?->isOnTrial();
     }
 
     public function isInGrace(): bool
     {
-        $sub = $this->activeSubscription;
-
-        return $sub && $sub->status === 'grace' && now()->lt($sub->grace_ends_at);
+        return (bool) $this->activeSubscription?->isInGrace();
     }
 
     public function currentPlan(): ?Plan
@@ -61,7 +50,6 @@ trait HasSubscriptions
         return $this->activeSubscription?->plan;
     }
 
-    // features tak seedha shortcut — controller me kaam aayega
     public function planFeature(string $key, mixed $fallback = null): mixed
     {
         return $this->currentPlan()?->feature($key, $fallback) ?? $fallback;

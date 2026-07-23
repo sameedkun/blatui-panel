@@ -4,6 +4,7 @@ namespace App\Livewire\Admin\Management\Users;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
+use App\Enum\CancelledBy;
 use App\Livewire\Admin\BaseShow;
 use App\Livewire\Admin\Concerns\HasActivityDetailModal;
 use App\Livewire\Admin\Concerns\HasShowTabs;
@@ -231,7 +232,7 @@ class Show extends BaseShow
         }
 
         $planName = $active->plan->name;
-        $service->cancelActive($user, 'admin', trim($this->cancelReason) ?: null, true);
+        $service->cancelActive($user, CancelledBy::Admin, trim($this->cancelReason) ?: null, true);
 
         $this->cancelReason = '';
         $this->toastSuccess("{$planName} subscription cancelled immediately.");
@@ -260,7 +261,7 @@ class Show extends BaseShow
 
         $planName = $active->plan->name;
         $endsAt = $active->ends_at;
-        $service->cancelActive($user, 'admin', trim($this->cancelReason) ?: null, false);
+        $service->cancelActive($user, CancelledBy::Admin, trim($this->cancelReason) ?: null, false);
 
         $this->cancelReason = '';
         $this->toastSuccess("{$planName} subscription will end on ".$endsAt?->format('M d, Y').'.');

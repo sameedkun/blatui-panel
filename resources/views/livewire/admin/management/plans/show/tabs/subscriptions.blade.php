@@ -1,5 +1,6 @@
 @php
     use App\Enum\SubscriptionStatus;
+    use Illuminate\Support\Str;
     /** @var \Illuminate\Pagination\LengthAwarePaginator $subscriptions */
 
     $activeStatuses = [SubscriptionStatus::Trialing, SubscriptionStatus::Active, SubscriptionStatus::Grace];
@@ -36,7 +37,12 @@
                         <td class="px-4 py-3">
                             @if ($subscription->user)
                                 <div class="min-w-0">
-                                    <p class="truncate font-medium">{{ $subscription->user->name }}</p>
+                                    <div class="flex items-center gap-1.5">
+                                        <p class="truncate font-medium">{{ $subscription->user->name }}</p>
+                                        <x-ui.badge variant="outline" class="h-4 shrink-0 px-1.5 py-0 text-[10px] font-normal">
+                                            {{ Str::headline($subscription->user->type->value) }}
+                                        </x-ui.badge>
+                                    </div>
                                     <p class="truncate text-xs text-muted-foreground">{{ $subscription->user->email }}</p>
                                 </div>
                             @else

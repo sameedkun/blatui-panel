@@ -271,6 +271,41 @@ every caller (admin panel, future API) gets the trail for free:
 - `reactivate(User)` — undoes a cancel while still cancelled-but-live (`ends_at` still future);
   throws if there's nothing eligible. Logs `Updated` / `subscription_reactivated`.
 
+**`App\Services\SubscriptionLifecycleService`** is the counterpart for the *calendar-driven*
+transitions — deliberately a separate class from `SubscriptionService` because it runs unattended
+off the scheduler rather than in response to a user/admin action. `syncStatuses(array $providers =
+[PaymentProvider::Local])` loops each provider and, per provider, moves every non-terminal
+subscription **one step** when its next boundary date has passed (never straight past an
+intermediate state even if several boundaries have since elapsed — a later run catches whatever's
+still overdue): `trialing`→`active`/`expired` (trial ended; `is_recurring` decides which — `local`
+has no real gateway to ask, so recurring is treated as "renewal succeeds"), `active`→`grace`
+(period ended, recurring, price has a grace window) or straight to `expired` (not recurring, or no
+grace available), `grace`→`expired` (grace window also elapsed), `cancelled`→`expired` (the
+already-agreed access period ran out). Two transitions from the full state graph are deliberately
+**not** handled here since they aren't calendar-driven: `active`→`cancelled` is always the explicit
+`cancelActive()` action, and `grace`→`active` needs a real "payment received" signal `local` can't
+produce from dates alone (a future provider integration or an admin "mark paid" action would supply
+it). Only `local`-provider subscriptions are swept today — a real provider must confirm its own
+renewal charges via webhook/reconciliation before this same transition set is safe to run against
+it; adding one later is just appending to the `$providers` array passed to the job, no code change
+needed here. Each transition category runs as a **single bulk `UPDATE ... WHERE id IN (...)`** per
+chunk of up to 500 matching rows (snapshotting IDs first, since the update mutates the very
+`status` column the scope filters on) rather than one query per subscription — the only per-row
+work left is the (unavoidable) individual `ActivityLogger` entry per affected subscription, since
+audit properties are subject-specific. One transition, `trialing`→`expired` (non-recurring), stays
+fully per-row even for its update — its `proration_meta` JSON merge depends on each row's own
+existing value, so there's no static payload a bulk statement could write across every row at once.
+Logs with `causer: null` + `ActivityContext::Scheduler` (no `auth()` session in this context),
+mirroring `AccountDeletionService::purge()`'s scheduled path. Types logged: `subscription_expired`
+(with a `reason` property: `trial_lapsed`/`not_recurring`/`renewal_unconfirmed`/`grace_exhausted`/
+`cancellation_ended`), `subscription_trial_converted`, `subscription_entered_grace` — all three
+extend `ActivityPresenter` the same way the four `SubscriptionService`-logged types do.
+
+`App\Jobs\SyncSubscriptionStatuses` is a thin scheduled trigger (mirrors `PurgeExpiredAccounts`):
+constructor takes `array $providers = [PaymentProvider::Local]`, `handle()` just calls
+`SubscriptionLifecycleService::syncStatuses($this->providers)`. Scheduled hourly in
+`routes/console.php` as `new SyncSubscriptionStatuses([PaymentProvider::Local])`.
+
 Admin panel surface: `Users/Show.php` (`app/Livewire/Admin/Management/Users/`) — an "Assign /
 Change Plan" dialog (cascading Plan → active-prices-for-that-plan selects), "Cancel Immediately"
 and "Cancel at Period End" reason-dialogs, and a one-click "Reactivate" — all gated by
@@ -336,6 +371,9 @@ byte-for-byte the same Blade and the same `SubscriptionService` calls as a user'
 
 - `PurgeExpiredAccounts` job — hourly, `withoutOverlapping()`, 1 retry (idempotent purge, next
   hourly run catches stragglers on failure), 300s timeout.
+- `SyncSubscriptionStatuses` job — hourly, `withoutOverlapping()`, 1 retry, 300s timeout; scheduled
+  as `new SyncSubscriptionStatuses([PaymentProvider::Local])`. Delegates to
+  `SubscriptionLifecycleService::syncStatuses()` — see "Plans & Subscriptions" above.
 - `activitylog:clean` Artisan command (Spatie's built-in pruning) — weekly.
 
 ## Directory map
@@ -345,7 +383,7 @@ app/
   Enum/            UserType, Activity{LogName,Module,Action,Context}, MailPurpose,
                    BillingInterval, PaymentProvider, SubscriptionStatus, CancelledBy, ReceiptType
   Http/Middleware/ EnsurePanelAccess (alias: panel)
-  Jobs/            PurgeExpiredAccounts, ExportActivityLog
+  Jobs/            PurgeExpiredAccounts, ExportActivityLog, SyncSubscriptionStatuses
   Listeners/       AuthActivityListener
   Livewire/
     Auth/          Login, Logout, VerifyEmail, PasswordReset (reset-with-token form only)
@@ -367,7 +405,7 @@ app/
   Notifications/   Auth/VerifyEmailNotification.php, Auth/ResetPasswordNotification.php
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
                                              module view permission inheritance policy
-  Services/        AccountDeletionService, AccountMergeService, GuestConversionService, MailConfigurator, Auth/UrlResolver, SubscriptionService
+  Services/        AccountDeletionService, AccountMergeService, GuestConversionService, MailConfigurator, Auth/UrlResolver, SubscriptionService, SubscriptionLifecycleService
   Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter
   Traits/          HasSubscriptions (mixed into User), HasFeatures (mixed into Plan)
 config/panel.php    RBAC modules/actions/children, grace period, export threshold, seeded admin creds

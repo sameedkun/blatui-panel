@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Management\Subscriptions\Concerns;
 
+use App\Enum\CancelledBy;
 use App\Enum\SubscriptionStatus;
 use App\Livewire\Admin\BaseIndex;
 use App\Livewire\Admin\BaseShow;
@@ -74,7 +75,7 @@ trait HandlesSubscriptionRowActions
         }
 
         $planName = $subscription->plan->name;
-        $service->cancelActive($subscription->user, 'admin', trim($this->cancelReason) ?: null, true);
+        $service->cancelActive($subscription->user, CancelledBy::Admin, trim($this->cancelReason) ?: null, true);
 
         $this->targetSubscriptionId = null;
         $this->cancelReason = '';
@@ -104,7 +105,7 @@ trait HandlesSubscriptionRowActions
         }
 
         $planName = $subscription->plan->name;
-        $service->cancelActive($subscription->user, 'admin', trim($this->cancelReason) ?: null, false);
+        $service->cancelActive($subscription->user, CancelledBy::Admin, trim($this->cancelReason) ?: null, false);
         $endsAt = $subscription->fresh()->ends_at;
 
         $this->targetSubscriptionId = null;

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 #[Fillable([
     'user_id',
@@ -104,10 +105,33 @@ class Subscription extends Model
     /** Whether this subscription currently entitles the user to access. */
     public function isActive(): bool
     {
-        return match (true) {
-            ! in_array($this->status, [SubscriptionStatus::Trialing, SubscriptionStatus::Active, SubscriptionStatus::Grace], true) => false,
-            $this->ends_at !== null && $this->ends_at->isPast() => false,
-            default => true,
-        };
+        if ($this->status === SubscriptionStatus::Failed) {
+            return false;
+        }
+
+        $until = $this->accessEndsAt();
+
+        return $until !== null && $until->isFuture();
+    }
+
+    /** Trial window abhi chal rahi hai. */
+    public function isOnTrial(): bool
+    {
+        return $this->trial_ends_at !== null && $this->trial_ends_at->isFuture();
+    }
+
+    /** Billing period khatam, grace window me hai. */
+    public function isInGrace(): bool
+    {
+        return $this->ends_at !== null
+            && $this->grace_ends_at !== null
+            && $this->ends_at->isPast()
+            && $this->grace_ends_at->isFuture();
+    }
+
+    /** Access khatam hone ka actual waqt (grace samet). */
+    public function accessEndsAt(): ?Carbon
+    {
+        return $this->grace_ends_at ?? $this->ends_at;
     }
 }

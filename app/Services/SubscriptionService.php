@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
+use App\Enum\CancelledBy;
+use App\Enum\PaymentProvider;
+use App\Enum\SubscriptionStatus;
 use App\Models\PlanPrice;
 use App\Models\Subscription;
 use App\Models\User;
@@ -14,13 +17,20 @@ use InvalidArgumentException;
 
 class SubscriptionService
 {
-    public function subscribe(User $user, PlanPrice $price, string $provider = 'local'): Subscription
+    /**
+     * Start a brand-new subscription, replacing any existing active one.
+     *
+     * `$isRecurring` defaults to false: admin-assigned (`local`) and one-time
+     * payment (e.g. Oxapay) subscriptions don't renew, and they're the majority
+     * case here. Recurring gateway integrations pass `true` explicitly.
+     */
+    public function subscribe(User $user, PlanPrice $price, PaymentProvider $provider = PaymentProvider::Local, bool $isRecurring = false): Subscription
     {
-        return DB::transaction(function () use ($user, $price, $provider) {
+        return DB::transaction(function () use ($user, $price, $provider, $isRecurring) {
             // close the previous active subscription
-            $this->cancelActive($user, 'system', 'Replaced by new subscription', true);
+            $this->cancelActive($user, CancelledBy::System, 'Replaced by new subscription', true);
 
-            [$startsAt, $trialEndsAt, $endsAt, $graceEndsAt] = $this->computeDates($price);
+            [$startsAt, $trialEndsAt, $endsAt, $graceEndsAt] = $this->computeDates($price, $isRecurring);
 
             $subscription = $user->subscriptions()->create([
                 'plan_id' => $price->plan_id,
@@ -31,8 +41,8 @@ class SubscriptionService
                 'grace_ends_at' => $graceEndsAt,
                 'amount_paid' => $price->amount,
                 'currency' => $price->currency,
-                'status' => $trialEndsAt ? 'trialing' : 'active',
-                'is_recurring' => true,
+                'status' => $trialEndsAt ? SubscriptionStatus::Trialing : SubscriptionStatus::Active,
+                'is_recurring' => $isRecurring,
                 'provider' => $provider,
             ]);
 
@@ -41,21 +51,29 @@ class SubscriptionService
                 'plan' => $price->plan->name,
                 'amount' => (string) $price->amount,
                 'currency' => $price->currency,
-                'provider' => $provider,
+                'provider' => $provider->value,
             ]);
 
             return $subscription;
         });
     }
 
-    public function upgrade(User $user, PlanPrice $newPrice, string $provider = 'local'): Subscription
+    /**
+     * Replace the current subscription with a new plan/price, prorating the
+     * remaining balance and linking the previous subscription in the chain.
+     *
+     * `$isRecurring` defaults to false for the same reason as {@see subscribe()}:
+     * admin-assigned and one-time-payment subscriptions don't renew. Recurring
+     * gateway integrations pass `true` explicitly.
+     */
+    public function upgrade(User $user, PlanPrice $newPrice, PaymentProvider $provider = PaymentProvider::Local, bool $isRecurring = false): Subscription
     {
-        return DB::transaction(function () use ($user, $newPrice, $provider) {
+        return DB::transaction(function () use ($user, $newPrice, $provider, $isRecurring) {
             $current = $user->activeSubscription;
             $credit = $current ? $this->prorationCredit($current) : 0;
             $amountDue = max(0, $newPrice->amount - $credit);
 
-            [$startsAt, $trialEndsAt, $endsAt, $graceEndsAt] = $this->computeDates($newPrice);
+            [$startsAt, $trialEndsAt, $endsAt, $graceEndsAt] = $this->computeDates($newPrice, $isRecurring);
             $startsAt = $current?->starts_at ?? $startsAt;
 
             $newSub = $user->subscriptions()->create([
@@ -67,8 +85,8 @@ class SubscriptionService
                 'grace_ends_at' => $graceEndsAt,
                 'amount_paid' => $amountDue,
                 'currency' => $newPrice->currency,
-                'status' => $trialEndsAt ? 'trialing' : 'active',
-                'is_recurring' => true,
+                'status' => $trialEndsAt ? SubscriptionStatus::Trialing : SubscriptionStatus::Active,
+                'is_recurring' => $isRecurring,
                 'provider' => $provider,
                 'previous_subscription_id' => $current?->id,
                 'proration_meta' => [
@@ -78,17 +96,20 @@ class SubscriptionService
                 ],
             ]);
 
+            // Capture before the update below mutates $current away.
+            $fromPlanName = $current?->plan->name;
+
             $current?->update([
-                'status' => 'cancelled',
+                'status' => SubscriptionStatus::Cancelled,
                 'ends_at' => now(),
                 'is_recurring' => false,
-                'cancelled_by' => 'system',
-                'cancelled_reason' => 'Upgraded to: '.$newPrice->plan->slug,
+                'cancelled_by' => CancelledBy::System,
+                'cancelled_reason' => 'Upgraded to: ' . $newPrice->plan->slug,
             ]);
 
             ActivityLogger::log(ActivityModule::User, ActivityAction::Assigned, $user, [
                 'type' => 'subscription_upgraded',
-                'from_plan' => $current?->plan->name,
+                'from_plan' => $fromPlanName,
                 'to_plan' => $newPrice->plan->name,
                 'credit_applied' => $credit,
                 'amount_charged' => $amountDue,
@@ -99,12 +120,9 @@ class SubscriptionService
         });
     }
 
-    /**
-     * @param  'user'|'admin'|'system'  $cancelledBy
-     */
     public function cancelActive(
         User $user,
-        string $cancelledBy = 'user',
+        CancelledBy $cancelledBy = CancelledBy::User,
         ?string $reason = null,
         bool $immediately = false
     ): bool {
@@ -119,7 +137,7 @@ class SubscriptionService
             'cancelled_by' => $cancelledBy,
             'cancelled_reason' => $reasonText,
             'is_recurring' => false,
-            'status' => 'cancelled',
+            'status' => SubscriptionStatus::Cancelled,
         ];
 
         // if immediate or already expired then end now, otherwise keep access until period end
@@ -132,7 +150,7 @@ class SubscriptionService
         ActivityLogger::log(ActivityModule::User, ActivityAction::Cancelled, $user, [
             'type' => 'subscription_cancelled',
             'plan' => $sub->plan->name,
-            'cancelled_by' => $cancelledBy,
+            'cancelled_by' => $cancelledBy->value,
             'reason' => $reasonText,
             'immediately' => $immediately,
             'access_until' => $sub->ends_at?->toIso8601String(),
@@ -143,14 +161,18 @@ class SubscriptionService
 
     /**
      * Undo a cancellation while the subscription is still cancelled-but-live
-     * (status `cancelled`, `ends_at` still in the future) — restores
-     * auto-renewal and clears the cancellation reason. Not available once
-     * access has actually lapsed; assign a plan instead at that point.
+     * (status `cancelled`, `ends_at` still in the future) — restores the previous
+     * status and clears the cancellation reason. Not available once access has
+     * actually lapsed; assign a plan instead at that point.
+     *
+     * `$isRecurring` defaults to false for the same reason as {@see subscribe()}:
+     * reactivation shouldn't silently switch an admin-assigned or one-time
+     * subscription into a renewing one. Recurring gateway integrations pass `true`.
      */
-    public function reactivate(User $user): Subscription
+    public function reactivate(User $user, bool $isRecurring = false): Subscription
     {
         $sub = $user->subscriptions()
-            ->where('status', 'cancelled')
+            ->where('status', SubscriptionStatus::Cancelled)
             ->where('ends_at', '>', now())
             ->latest('ends_at')
             ->first();
@@ -160,8 +182,10 @@ class SubscriptionService
         }
 
         $sub->update([
-            'status' => $sub->trial_ends_at && now()->lt($sub->trial_ends_at) ? 'trialing' : 'active',
-            'is_recurring' => true,
+            'status' => $sub->trial_ends_at && now()->lt($sub->trial_ends_at)
+                ? SubscriptionStatus::Trialing
+                : SubscriptionStatus::Active,
+            'is_recurring' => $isRecurring,
             'cancelled_by' => null,
             'cancelled_reason' => null,
         ]);
@@ -193,14 +217,21 @@ class SubscriptionService
     /**
      * @return array{0: CarbonInterface, 1: ?CarbonInterface, 2: CarbonInterface, 3: ?CarbonInterface}
      */
-    protected function computeDates(PlanPrice $price): array
+    protected function computeDates(PlanPrice $price, bool $isRecurring): array
     {
         $startsAt = now();
-        $trialEndsAt = $price->trialEndsAt();      // null if trial 0
+        $trialEndsAt = $price->trialEndsAt();
         $billingDays = $price->billingDurationInDays();
 
-        $endsAt = ($trialEndsAt ?? $startsAt)->copy()->addDays($billingDays);
-        $graceEndsAt = $price->graceEndsAt($endsAt); // null if grace 0
+        // Non-recurring with a trial: there's no paid period to run into, so access
+        // ends where the trial does. Setting this correctly up front means nothing
+        // downstream has to rewrite ends_at later.
+        $endsAt = ($trialEndsAt && ! $isRecurring)
+            ? $trialEndsAt->copy()
+            : ($trialEndsAt ?? $startsAt)->copy()->addDays($billingDays);
+
+        // Grace only means anything when there's a renewal charge that might fail.
+        $graceEndsAt = $isRecurring ? $price->graceEndsAt($endsAt) : null;
 
         return [$startsAt, $trialEndsAt, $endsAt, $graceEndsAt];
     }

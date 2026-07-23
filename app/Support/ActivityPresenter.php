@@ -156,6 +156,9 @@ class ActivityPresenter
             'subscription_upgraded' => 'arrow-up-circle',
             'subscription_cancelled' => 'circle-slash',
             'subscription_reactivated' => 'refresh-cw',
+            'subscription_trial_converted' => 'badge-check',
+            'subscription_entered_grace' => 'triangle-alert',
+            'subscription_expired' => 'circle-x',
             default => 'activity',
         };
     }
@@ -175,12 +178,13 @@ class ActivityPresenter
     {
         return match ($kind) {
             'created', 'login', 'unbanned', 'restored', 'deletion_cancelled', 'setting_domain_created', 'plan_created',
-            'subscription_assigned', 'subscription_reactivated' => 'success',
+            'subscription_assigned', 'subscription_reactivated', 'subscription_trial_converted' => 'success',
             'updated', 'password_changed', 'password_reset', 'assigned', 'converted', 'merged',
             'setting_smtp', 'setting_domain_updated', 'setting_sender_updated', 'setting_test_email',
             'setting_policy_updated', 'plan_updated', 'subscription_upgraded' => 'info',
-            'failed', 'deletion_requested' => 'warning',
-            'deleted', 'force_deleted', 'purged', 'banned', 'setting_domain_deleted', 'plan_deleted', 'subscription_cancelled' => 'danger',
+            'failed', 'deletion_requested', 'subscription_entered_grace' => 'warning',
+            'deleted', 'force_deleted', 'purged', 'banned', 'setting_domain_deleted', 'plan_deleted',
+            'subscription_cancelled', 'subscription_expired' => 'danger',
             default => 'muted',
         };
     }
@@ -224,6 +228,9 @@ class ActivityPresenter
             'subscription_upgraded' => 'Plan Changed',
             'subscription_cancelled' => 'Subscription Cancelled',
             'subscription_reactivated' => 'Subscription Reactivated',
+            'subscription_trial_converted' => 'Trial Converted',
+            'subscription_entered_grace' => 'Entered Grace Period',
+            'subscription_expired' => 'Subscription Expired',
             default => Str::headline($kind),
         };
     }
@@ -319,6 +326,13 @@ class ActivityPresenter
             ],
             'subscription_reactivated' => [
                 self::row('Plan', $properties['plan'] ?? null),
+            ],
+            'subscription_trial_converted', 'subscription_entered_grace' => [
+                self::row('Plan', $properties['plan'] ?? null),
+            ],
+            'subscription_expired' => [
+                self::row('Plan', $properties['plan'] ?? null),
+                self::row('Reason', isset($properties['reason']) ? Str::headline((string) $properties['reason']) : null),
             ],
             default => [],
         }];
