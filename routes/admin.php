@@ -9,6 +9,11 @@ use App\Livewire\Admin\Administration\Staff\Index as StaffIndex;
 use App\Livewire\Admin\Dashboard;
 use App\Livewire\Admin\Management\Guests\Index as GuestsIndex;
 use App\Livewire\Admin\Management\Guests\Show as GuestsShow;
+use App\Livewire\Admin\Management\Plans\Form as PlansForm;
+use App\Livewire\Admin\Management\Plans\Index as PlansIndex;
+use App\Livewire\Admin\Management\Plans\Show as PlansShow;
+use App\Livewire\Admin\Management\Subscriptions\Index as SubscriptionsIndex;
+use App\Livewire\Admin\Management\Subscriptions\Show as SubscriptionsShow;
 use App\Livewire\Admin\Management\Users\Form as UsersForm;
 use App\Livewire\Admin\Management\Users\Index as UsersIndex;
 use App\Livewire\Admin\Management\Users\Show as UsersShow;
@@ -37,6 +42,20 @@ Route::middleware(['auth', 'panel', AuthenticateSession::class])->name('admin.')
     Route::prefix('guests')->name('guests.')->middleware('permission:guests.view')->group(function () {
         Route::get('/', GuestsIndex::class)->name('index');
         Route::get('/{user}', GuestsShow::class)->name('show')->middleware('permission:guests.manage')->withTrashed();
+    });
+
+    // ── Plans ─────────────────────────────────────────────────────────────
+    Route::prefix('plans')->name('plans.')->middleware('permission:plans.view')->group(function () {
+        Route::get('/', PlansIndex::class)->name('index');
+        Route::get('/create', PlansForm::class)->name('create')->middleware('permission:plans.create');
+        Route::get('/{plan}/edit', PlansForm::class)->name('edit')->middleware('permission:plans.edit');
+        Route::get('/{plan}', PlansShow::class)->name('show')->middleware('permission:plans.manage');
+    });
+
+    // ── Subscriptions ─────────────────────────────────────────────────────
+    Route::prefix('subscriptions')->name('subscriptions.')->middleware('permission:subscriptions.view')->group(function () {
+        Route::get('/', SubscriptionsIndex::class)->name('index');
+        Route::get('/{subscription}', SubscriptionsShow::class)->name('show')->middleware('permission:subscriptions.manage');
     });
 
     // ── Staff ─────────────────────────────────────────────────────────────

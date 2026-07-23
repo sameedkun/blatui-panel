@@ -27,4 +27,5 @@ enum ActivityAction: string
     case Converted = 'converted';
     case Merged = 'merged';
     case Sent = 'sent';
+    case Cancelled = 'cancelled';
 }

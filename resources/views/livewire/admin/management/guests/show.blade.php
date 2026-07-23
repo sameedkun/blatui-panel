@@ -35,4 +35,7 @@
     {{-- Convert/merge — profile-only, not shared with the Guests index --}}
     @include('livewire.admin.management.guests.profile.partials.conversion-dialogs')
 
+    {{-- Subscription-management dialogs — same partial as the Users profile --}}
+    @include('livewire.admin.management.users.partials.subscription-dialogs')
+
 </div>

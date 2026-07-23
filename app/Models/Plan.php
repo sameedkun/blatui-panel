@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Sluggable\Attributes\Sluggable;
 
 #[Sluggable(from: 'name', to: 'slug')]
@@ -23,7 +22,7 @@ use Spatie\Sluggable\Attributes\Sluggable;
 class Plan extends Model
 {
     /** @use HasFactory<PlanFactory> */
-    use HasFactory, HasFeatures, SoftDeletes;
+    use HasFactory, HasFeatures;
 
     protected function casts(): array
     {

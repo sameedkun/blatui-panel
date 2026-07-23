@@ -32,4 +32,7 @@
     {{-- Shared single-row action dialogs (same components as the Users index) --}}
     @include('livewire.admin.management.users.partials.single-row-dialogs')
 
+    {{-- Subscription-management dialogs (profile-only) --}}
+    @include('livewire.admin.management.users.partials.subscription-dialogs')
+
 </div>

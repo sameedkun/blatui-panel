@@ -28,7 +28,7 @@
                 </x-ui.sidebar-menu-item>
             @endcan
 
-            @canany(['users.view', 'guests.view'])
+            @canany(['users.view', 'guests.view', 'plans.view', 'subscriptions.view'])
                 <x-ui.sidebar-group-label>Management</x-ui.sidebar-group-label>
 
                 <x-ui.sidebar-menu>
@@ -47,6 +47,24 @@
                             <x-ui.sidebar-menu-button href="{{ route('admin.guests.index') }}" :isActive="request()->routeIs('admin.guests.*')">
                                 <x-lucide-user />
                                 <span>Guests</span>
+                            </x-ui.sidebar-menu-button>
+                        </x-ui.sidebar-menu-item>
+                    @endcan
+
+                    @can('plans.view')
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.plans.index') }}" :isActive="request()->routeIs('admin.plans.*')">
+                                <x-lucide-credit-card />
+                                <span>Plans</span>
+                            </x-ui.sidebar-menu-button>
+                        </x-ui.sidebar-menu-item>
+                    @endcan
+
+                    @can('subscriptions.view')
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.subscriptions.index') }}" :isActive="request()->routeIs('admin.subscriptions.*')">
+                                <x-lucide-receipt />
+                                <span>Subscriptions</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan

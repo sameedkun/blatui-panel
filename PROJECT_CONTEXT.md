@@ -51,7 +51,7 @@ Key state, all first-class on the model:
 ## Authorization: permissions, not roles, everywhere
 
 `config/panel.php` is the single source of truth for the whole RBAC surface:
-- `modules` — each entry (`users`, `guests`, `staff`, `roles`, `activity_logs`, `dashboard`, `settings`)
+- `modules` — each entry (`users`, `guests`, `plans`, `subscriptions`, `staff`, `roles`, `activity_logs`, `dashboard`, `settings`)
   declares its allowed `actions` from a fixed `action_vocabulary` (`view`, `create`, `edit`,
   `delete`, `restore`, `force-delete`, `ban`, `unban`, `export`, `import`, `manage`, `access`,
   `reply`, `assign`, `convert`, `merge`), plus optional `children` sub-modules (`general`, `mail`, `policies`, `storage`, `authentication`). Permissions are generated as `{module}.{action}` or `{module}.{child}.{action}`.
@@ -170,33 +170,127 @@ what the admin was looking at on screen. `App\Listeners\AuthActivityListener` au
 login/failed-login (rate-limited)/password-reset via Laravel's event discovery — guests are never
 logged for auth or account activity.
 
-## Plans & Subscriptions data model
+## Plans & Subscriptions
 
-Data layer only so far — **no admin UI, no seeder, no service wiring yet** (see rough edges
-below). Five new tables/models under `app/Models/`:
-- **`Plan`** (`#[Sluggable(from: 'name', to: 'slug')]`, soft-deletable) — `name`, `slug`,
-  `description`, `features` (`array` cast), `is_active`, `is_best_deal`, `sort_order`. Has many
-  `prices()` (`PlanPrice`) and `subscriptions()`.
-- **`PlanPrice`** (soft-deletable) — belongs to `Plan`; `amount`/`compare_at_amount` (`decimal:2`),
-  `currency`, `billing_period`+`billing_interval`, `trial_period`+`trial_interval`,
-  `grace_period`+`grace_interval` (the three `*_interval` columns all cast to
-  `App\Enum\BillingInterval`). Has many `providers()` (`PlanPriceProvider`) and `subscriptions()`.
+Five tables/models under `app/Models/`, a full admin UI, and full user-facing subscription
+management from the Users profile page. `Plan`/`PlanPrice` are **not** soft-deletable (plain
+`Model`) — a plan/price is either hard-deleted (blocked while it has any subscription) or retired
+via `is_active = false`; `Subscription` rows themselves are permanent records, never deleted.
+- **`Plan`** (`#[Sluggable(from: 'name', to: 'slug')]`, `HasFeatures` trait reading
+  `config('panel.features')`) — `name`, `slug`, `description`, `features` (`array` cast),
+  `is_active`, `is_best_deal`, `sort_order`. Has many `prices()` (`PlanPrice`) and `subscriptions()`.
+- **`PlanPrice`** — belongs to `Plan`; `amount`/`compare_at_amount` (`decimal:2`), `currency`,
+  `billing_period`+`billing_interval`, `trial_period`+`trial_interval`, `grace_period`+
+  `grace_interval` (the three `*_interval` columns cast to `App\Enum\BillingInterval`).
+  `billingDurationInDays()`/`trialEndsAt()`/`graceEndsAt()` compute the date math
+  `App\Services\SubscriptionService` relies on. Has many `providers()` (`PlanPriceProvider`) and
+  `subscriptions()`.
 - **`PlanPriceProvider`** — belongs to `PlanPrice` via `planPrice()`; maps a price to an external
   provider price/product id (`provider` cast to `App\Enum\PaymentProvider`, `external_id`). Unique
   on `(plan_price_id, provider)`.
 - **`Subscription`** — belongs to `User`, `Plan`, `PlanPrice` (`planPrice()`), and optionally a
-  `previousSubscription()` (self-referencing, for upgrade/downgrade chains). `status` casts to
-  `App\Enum\SubscriptionStatus`, `cancelled_by` to `App\Enum\CancelledBy`, `provider` to
-  `PaymentProvider`. `isActive(): bool` checks status is one of Trialing/Active/Grace and
-  `ends_at` hasn't passed. Has many `receipts()`.
+  `previousSubscription()` (self-referencing, for upgrade/downgrade chains — `plan_id`/
+  `plan_price_id` FKs are `restrictOnDelete()`, the DB-level backstop for the same rule the admin
+  UI enforces). `status` casts to `App\Enum\SubscriptionStatus`, `cancelled_by` to
+  `App\Enum\CancelledBy` (`User`/`Admin`/`System`), `provider` to `PaymentProvider`.
+  `isActive(): bool` checks status is one of Trialing/Active/Grace and `ends_at` hasn't passed.
+  Has many `receipts()`.
 - **`SubscriptionReceipt`** — belongs to `Subscription`; one row per provider webhook/event
-  (`type` cast to `App\Enum\ReceiptType`: Initial/Renewal/Restore/Refund/Cancellation).
+  (`type` cast to `App\Enum\ReceiptType`: Initial/Renewal/Restore/Refund/Cancellation). Not yet
+  surfaced anywhere in the admin UI.
 
-`User::subscriptions(): HasMany<Subscription>` added alongside `policyAcceptances()`
-(`app/Models/User.php`). All five models + factories exist; migrations are
-`2026_07_22_000000_create_plans_tables.php` and `..._000001_create_subscriptions_tables.php`.
-Per this codebase's hard convention, none of the "enum-like" columns above are native DB
-`enum()` columns — they're all `string` + a PHP backed-enum cast.
+Per this codebase's hard convention, none of the "enum-like" columns above are native DB `enum()`
+columns — they're all `string` + a PHP backed-enum cast.
+
+### Admin UI (`app/Livewire/Admin/Management/Plans/`)
+
+`Index`/`Form`/`Show`, routed at `admin.plans.*` (permissions `plans.view/create/edit/delete/
+manage` — `.manage` gates the Show page, same split as Users/Guests). Single-row actions
+(`toggleActive`, `confirmDelete`/`delete`) live in `Concerns/HandlesPlanRowActions`, shared by
+Index and Show exactly like `HandlesUserRowActions`; `Show::delete()` overrides the trait's
+version to redirect back to the index since deleting removes its own record. **A plan (or one of
+its prices) can never be deleted while it has any subscription** — `hasSubscriptions()` guards
+both the confirm step and the mutation itself (defense-in-depth); retiring one is `is_active =
+false` instead. `Show` has tabs for Overview, Prices (with their provider mappings), Subscriptions
+(every subscriber, filterable by status), and Activity.
+
+### Subscriptions admin module (`app/Livewire/Admin/Management/Subscriptions/`)
+
+A standalone `Index`/`Show` pair, routed at `admin.subscriptions.*` (module `subscriptions`,
+actions `view`/`manage` only — no create/edit/delete, since `Subscription` rows are permanent
+records created only via `SubscriptionService`). This is the cross-cutting view over every
+subscription ever sold, independent of which plan or user it's for:
+- `Index` — every subscription across every user/plan, with stats (Total, Active, Cancelled,
+  Revenue Collected), status/plan/provider filters, and search across the `user`/`plan` relations
+  (`whereHas`, since `Subscription` has no name/email column of its own — plain `searchableColumns`
+  doesn't reach relations). No bulk actions (deliberate — these are audit records, not bulk-editable
+  rows).
+- `Show` — full detail for one subscription row: plan/price/provider info, the owning user, a
+  Receipts tab (`SubscriptionReceipt` rows — first real surface for that model), and an Activity
+  tab (see caveat below). Tabs and hero header link out to `admin.users.show`/`admin.plans.show`
+  when the viewer holds `users.manage`/`plans.manage`.
+- Cancel/reactivate actions live in `Concerns/HandlesSubscriptionRowActions`, shared by Index and
+  Show exactly like `HandlesPlanRowActions` — both ultimately call `SubscriptionService`, keyed by
+  *user*, not by the specific row. `isLive(Subscription)` (is this row the user's actual current
+  subscription, i.e. does it match `$user->activeSubscription`?) gates every mutation and every
+  action button, so a stale/historical row can never be cancelled by mistake — only the live row
+  ever offers Cancel/Reactivate; anything else renders as a read-only "Historical record".
+- Caveat: subscription events are logged with the **User** as subject (see `SubscriptionService`
+  above), never the `Subscription` row itself, so the Show page's Activity tab can't use Spatie's
+  `forSubject()` — it queries `Activity` directly on `subject_type=User` + `properties->type like
+  'subscription_%'`, which surfaces the user's full subscription history rather than a precise
+  per-row slice (the data model has no `subscription_id` on the activity properties to disambiguate
+  further).
+- The Users/Show subscription-history table, the Guests/Show subscriptions tab, and the Plans/Show
+  subscriptions tab all link out to `admin.subscriptions.show` per row (gated on
+  `subscriptions.manage`) — every subscription surface in the panel ties back to this one detail page.
+
+### User-facing subscription management
+
+`App\Traits\HasSubscriptions` (mixed into `User`) — `subscriptions()`, `activeSubscription()` (a
+`hasOne` matching trialing/active-with-`ends_at` in the future, grace-with-`grace_ends_at` in the
+future, or cancelled-but-`ends_at`-still-future — i.e. cancelling doesn't cut access off until the
+period actually ends, unless done "immediately"), `isSubscribed()`, `isOnTrial()`, `isInGrace()`,
+`currentPlan()`, `planFeature()`. `App\Traits\HasFeatures` (mixed into `Plan`) resolves a feature
+key against `config('panel.features')`'s type/default.
+
+**`App\Services\SubscriptionService`** is the only place subscription state changes — mirroring
+`AccountDeletionService`, it logs its own audit rows (module `User`, subject the affected user) so
+every caller (admin panel, future API) gets the trail for free:
+- `subscribe(User, PlanPrice, provider='local')` — brand-new subscription; cancels any existing
+  active one first (immediate, `cancelled_by: system`). Logs `Assigned` /
+  `subscription_assigned`.
+- `upgrade(User, PlanPrice, provider='local')` — replaces the current subscription, computing a
+  proration credit off the remaining days and linking `previous_subscription_id` (preserves the
+  chain, unlike `subscribe()`). Logs `Assigned` / `subscription_upgraded`.
+- `cancelActive(User, cancelledBy, reason, immediately)` — `immediately=true` sets `ends_at =
+  now()` (access cut off right away); `immediately=false` just flips `status` to `cancelled` and
+  turns off `is_recurring`, leaving `ends_at` in the future so `activeSubscription()` still
+  resolves it (access continues) until the period naturally ends. Logs `Cancelled` /
+  `subscription_cancelled`.
+- `reactivate(User)` — undoes a cancel while still cancelled-but-live (`ends_at` still future);
+  throws if there's nothing eligible. Logs `Updated` / `subscription_reactivated`.
+
+Admin panel surface: `Users/Show.php` (`app/Livewire/Admin/Management/Users/`) — an "Assign /
+Change Plan" dialog (cascading Plan → active-prices-for-that-plan selects), "Cancel Immediately"
+and "Cancel at Period End" reason-dialogs, and a one-click "Reactivate" — all gated by
+`users.manage` (no new permission needed). The Overview tab shows a compact active-subscription
+glance; the Subscriptions tab (replacing the old "coming soon" placeholder) has full management
+plus the subscription history table. The Users index has a "Plan" column (plan name or "Free").
+`ActivityPresenter` is module/type-aware for these (`properties.module === 'user'` +
+`properties.type` starting with `subscription_`) so the Activity tab renders "Plan Assigned"/
+"Plan Changed"/"Subscription Cancelled"/"Subscription Reactivated" rather than generic wording.
+
+**`Guests/Show.php` has the identical surface**, gated on `guests.manage` instead — a guest is
+still just a `type=Guest` row in the same `users` table, so `HasSubscriptions`/`SubscriptionService`
+apply unmodified. Rather than duplicating the dialogs/partials, Guests/Show's `subscriptions` tab
+registry entry points straight at the Users profile's `subscriptions` Blade partial (same pattern
+already used for the Activity tab), and `show.blade.php` includes the same
+`users/partials/subscription-dialogs` partial — so a guest's Assign/Cancel/Reactivate is
+byte-for-byte the same Blade and the same `SubscriptionService` calls as a user's, just with
+`guests.manage` as the gate instead of `users.manage`. Guests/Show's Overview tab got the same
+"Active Subscription" glance card. `statCards()`'s `Plan` stat (name or "Free") replaced the old
+`Subscriptions` "coming soon" placeholder there too.
 
 ## Routes
 
@@ -229,7 +323,9 @@ Per this codebase's hard convention, none of the "enum-like" columns above are n
   makes the panel-vs-frontend choice itself — that logic lives solely in `UrlResolver`.
 - `routes/admin.php` — everything under `auth + panel + AuthenticateSession` middleware, name
   prefix `admin.`: `dashboard`, `users.*` (index/create/edit/show, `withTrashed()` on show),
-  `guests.*` (index/show only — no create/edit, guests aren't created via the panel), `staff.*`
+  `guests.*` (index/show only — no create/edit, guests aren't created via the panel), `plans.*`
+  (index/create/edit/show), `subscriptions.*` (index/show only — `Subscription` rows are never
+  created/edited/deleted via the panel, only through `SubscriptionService`), `staff.*`
   (index/create/edit — no show page, no delete route defined yet), `roles.*` (index/create/edit),
   `activity-logs.*` (index only, read-only), and a single `account` route (self-service "My
   Account" page — no extra permission, every staff member can reach it).
@@ -258,6 +354,8 @@ app/
       Account/Index.php                     self-service account page
       Management/Users/                     Index, Show, Form + Concerns/HandlesUserRowActions
       Management/Guests/                    Index, Show + Concerns/HandlesGuestRowActions
+      Management/Plans/                     Index, Show, Form + Concerns/HandlesPlanRowActions
+      Management/Subscriptions/             Index, Show + Concerns/HandlesSubscriptionRowActions
       Administration/Staff/                         Index, Form (staff CRUD + role assignment)
       Administration/Roles/                         Index, Form (role/permission-matrix CRUD)
       Administration/ActivityLogs/Index.php         read-only audit viewer
@@ -269,8 +367,9 @@ app/
   Notifications/   Auth/VerifyEmailNotification.php, Auth/ResetPasswordNotification.php
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
                                              module view permission inheritance policy
-  Services/        AccountDeletionService, AccountMergeService, GuestConversionService, MailConfigurator, Auth/UrlResolver
-  Support/         ActivityLogger, ActivityLogQuery
+  Services/        AccountDeletionService, AccountMergeService, GuestConversionService, MailConfigurator, Auth/UrlResolver, SubscriptionService
+  Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter
+  Traits/          HasSubscriptions (mixed into User), HasFeatures (mixed into Plan)
 config/panel.php    RBAC modules/actions/children, grace period, export threshold, seeded admin creds
 database/
   migrations/       users, permission_tables (Spatie), activity_log (+ 3 hand-added indexes),
@@ -290,7 +389,9 @@ resources/
 tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogTest,
                      ActivityLogsViewerTest, UserShowTest, GuestsIndexTest, GuestShowTest,
                      GuestConversionServiceTest, EmailSenderResolutionTest, SettingsMailTest,
-                     MailConfiguratorTest, UrlResolverTest, VerifyEmailTest, PasswordResetTest
+                     MailConfiguratorTest, UrlResolverTest, VerifyEmailTest, PasswordResetTest,
+                     PlansAdminTest, PlansShowTest, SubscriptionsAdminTest,
+                     UserSubscriptionManagementTest, GuestSubscriptionManagementTest
 ```
 
 ## Known rough edges / deferred work (don't be surprised by these)

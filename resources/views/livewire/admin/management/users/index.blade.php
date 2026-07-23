@@ -72,6 +72,7 @@
                         </button>
                     </th>
                     <th class="px-4 py-3 text-left font-medium text-foreground">Status</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground sm:table-cell">Plan</th>
                     <th class="hidden px-4 py-3 text-left md:table-cell">
                         <button wire:click="sort('registration_date')"
                             class="flex items-center gap-1 font-medium text-foreground">
@@ -165,6 +166,15 @@
                             @else
                                 <x-ui.badge variant="default"
                                     class="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0">Active</x-ui.badge>
+                            @endif
+                        </td>
+
+                        {{-- Plan --}}
+                        <td class="hidden px-4 py-3 sm:table-cell">
+                            @if ($user->activeSubscription?->plan)
+                                <x-ui.badge variant="secondary">{{ $user->activeSubscription->plan->name }}</x-ui.badge>
+                            @else
+                                <span class="text-xs text-muted-foreground">Free</span>
                             @endif
                         </td>
 
@@ -280,7 +290,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="px-4 py-16 text-center text-muted-foreground">
+                        <td colspan="7" class="px-4 py-16 text-center text-muted-foreground">
                             <x-lucide-users class="mx-auto mb-2 size-8 opacity-30" />
                             <p class="text-sm">No users found.</p>
                             @if ($this->hasActiveFilters())

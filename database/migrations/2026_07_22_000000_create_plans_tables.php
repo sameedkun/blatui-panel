@@ -21,7 +21,6 @@ return new class extends Migration
             $table->boolean('is_best_deal')->default(false);
             $table->unsignedSmallInteger('sort_order')->default(0);
             $table->timestamps();
-            $table->softDeletes();
         });
 
         Schema::create('plan_prices', function (Blueprint $table) {
@@ -40,7 +39,6 @@ return new class extends Migration
             $table->string('grace_interval', 10)->default('day');
             $table->boolean('is_active')->default(true);
             $table->timestamps();
-            $table->softDeletes();
         });
 
         Schema::create('plan_price_providers', function (Blueprint $table) {

@@ -2,10 +2,15 @@
 
 namespace App\Services;
 
+use App\Enum\ActivityAction;
+use App\Enum\ActivityModule;
 use App\Models\PlanPrice;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Support\ActivityLogger;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 class SubscriptionService
 {
@@ -17,7 +22,7 @@ class SubscriptionService
 
             [$startsAt, $trialEndsAt, $endsAt, $graceEndsAt] = $this->computeDates($price);
 
-            return $user->subscriptions()->create([
+            $subscription = $user->subscriptions()->create([
                 'plan_id' => $price->plan_id,
                 'plan_price_id' => $price->id,
                 'starts_at' => $startsAt,
@@ -30,6 +35,16 @@ class SubscriptionService
                 'is_recurring' => true,
                 'provider' => $provider,
             ]);
+
+            ActivityLogger::log(ActivityModule::User, ActivityAction::Assigned, $user, [
+                'type' => 'subscription_assigned',
+                'plan' => $price->plan->name,
+                'amount' => (string) $price->amount,
+                'currency' => $price->currency,
+                'provider' => $provider,
+            ]);
+
+            return $subscription;
         });
     }
 
@@ -71,10 +86,22 @@ class SubscriptionService
                 'cancelled_reason' => 'Upgraded to: '.$newPrice->plan->slug,
             ]);
 
+            ActivityLogger::log(ActivityModule::User, ActivityAction::Assigned, $user, [
+                'type' => 'subscription_upgraded',
+                'from_plan' => $current?->plan->name,
+                'to_plan' => $newPrice->plan->name,
+                'credit_applied' => $credit,
+                'amount_charged' => $amountDue,
+                'currency' => $newPrice->currency,
+            ]);
+
             return $newSub;
         });
     }
 
+    /**
+     * @param  'user'|'admin'|'system'  $cancelledBy
+     */
     public function cancelActive(
         User $user,
         string $cancelledBy = 'user',
@@ -86,9 +113,11 @@ class SubscriptionService
             return true;
         }
 
+        $reasonText = $reason ?: 'Cancelled';
+
         $data = [
             'cancelled_by' => $cancelledBy,
-            'cancelled_reason' => $reason ?: 'Cancelled',
+            'cancelled_reason' => $reasonText,
             'is_recurring' => false,
             'status' => 'cancelled',
         ];
@@ -100,7 +129,49 @@ class SubscriptionService
 
         $sub->update($data);
 
+        ActivityLogger::log(ActivityModule::User, ActivityAction::Cancelled, $user, [
+            'type' => 'subscription_cancelled',
+            'plan' => $sub->plan->name,
+            'cancelled_by' => $cancelledBy,
+            'reason' => $reasonText,
+            'immediately' => $immediately,
+            'access_until' => $sub->ends_at?->toIso8601String(),
+        ]);
+
         return true;
+    }
+
+    /**
+     * Undo a cancellation while the subscription is still cancelled-but-live
+     * (status `cancelled`, `ends_at` still in the future) — restores
+     * auto-renewal and clears the cancellation reason. Not available once
+     * access has actually lapsed; assign a plan instead at that point.
+     */
+    public function reactivate(User $user): Subscription
+    {
+        $sub = $user->subscriptions()
+            ->where('status', 'cancelled')
+            ->where('ends_at', '>', now())
+            ->latest('ends_at')
+            ->first();
+
+        if (! $sub) {
+            throw new InvalidArgumentException('This user has no cancelled subscription that can be reactivated.');
+        }
+
+        $sub->update([
+            'status' => $sub->trial_ends_at && now()->lt($sub->trial_ends_at) ? 'trialing' : 'active',
+            'is_recurring' => true,
+            'cancelled_by' => null,
+            'cancelled_reason' => null,
+        ]);
+
+        ActivityLogger::log(ActivityModule::User, ActivityAction::Updated, $user, [
+            'type' => 'subscription_reactivated',
+            'plan' => $sub->plan->name,
+        ]);
+
+        return $sub;
     }
 
     public function prorationCredit(Subscription $sub): float
@@ -120,7 +191,7 @@ class SubscriptionService
     }
 
     /**
-     * @return array{0: \Illuminate\Support\Carbon, 1: ?\Illuminate\Support\Carbon, 2: \Illuminate\Support\Carbon, 3: ?\Illuminate\Support\Carbon}
+     * @return array{0: CarbonInterface, 1: ?CarbonInterface, 2: CarbonInterface, 3: ?CarbonInterface}
      */
     protected function computeDates(PlanPrice $price): array
     {

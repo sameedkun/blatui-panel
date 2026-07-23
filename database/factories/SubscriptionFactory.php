@@ -68,4 +68,24 @@ class SubscriptionFactory extends Factory
             'ends_at' => now()->subDay(),
         ]);
     }
+
+    /** A subscription past its billing date but still within its grace period. */
+    public function grace(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => 'grace',
+            'ends_at' => now()->subDay(),
+            'grace_ends_at' => now()->addDays(3),
+        ]);
+    }
+
+    /** A subscription whose last renewal payment attempt failed. */
+    public function failed(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => 'failed',
+            'is_recurring' => false,
+            'ends_at' => now()->subDay(),
+        ]);
+    }
 }

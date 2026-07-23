@@ -109,11 +109,11 @@ class GuestShowTest extends TestCase
         $component = Livewire::test(Show::class, ['user' => $guest]);
 
         $component->assertSee('Mar 15, 2024');
-        $component->assertSee('Coming soon');
 
         $stats = collect($component->instance()->statCards())->keyBy('label');
         $this->assertCount(3, $stats);
-        $this->assertNull($stats['Subscriptions']['value']);
+        // Plan is now a real, built stat — 'Free' rather than a "Coming soon" placeholder.
+        $this->assertSame('Free', $stats['Plan']['value']);
         // Activity is a real count (not a placeholder) — 0 for a freshly created guest.
         $this->assertSame('0', $stats['Activity']['value']);
         $this->assertSame('Mar 15, 2024', $stats['Joined']['value']);

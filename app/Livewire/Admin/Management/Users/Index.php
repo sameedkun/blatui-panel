@@ -51,7 +51,7 @@ class Index extends BaseIndex
     // ── Base query ────────────────────────────────────────────────────────────
     protected function baseQuery(): Builder
     {
-        $query = User::query()->appUsers();
+        $query = User::query()->appUsers()->with('activeSubscription.plan');
 
         // Pending-deletion accounts live only in the 'pending' tab, never 'active'.
         return match ($this->tab) {

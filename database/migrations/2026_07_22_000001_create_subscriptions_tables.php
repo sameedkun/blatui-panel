@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('plan_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('plan_price_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('plan_id')->constrained()->restrictOnDelete();
+            $table->foreignId('plan_price_id')->constrained()->restrictOnDelete();
 
             $table->timestamp('starts_at');
             $table->timestamp('ends_at')->nullable();

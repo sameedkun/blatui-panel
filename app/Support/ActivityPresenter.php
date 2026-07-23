@@ -85,6 +85,20 @@ class ActivityPresenter
      */
     protected static function kind(string $event, array $properties): string
     {
+        $type = $properties['type'] ?? null;
+        if (($properties['module'] ?? null) === 'user' && is_string($type) && str_starts_with($type, 'subscription_')) {
+            return $type;
+        }
+
+        if (($properties['module'] ?? null) === 'plan') {
+            return match ($event) {
+                'created' => 'plan_created',
+                'updated' => 'plan_updated',
+                'deleted' => 'plan_deleted',
+                default => $event,
+            };
+        }
+
         if (($properties['module'] ?? null) === 'setting') {
             $area = $properties['area'] ?? null;
 
@@ -135,6 +149,13 @@ class ActivityPresenter
             'setting_sender_updated' => 'at-sign',
             'setting_test_email' => 'send',
             'setting_policy_updated' => 'file-text',
+            'plan_created' => 'package-plus',
+            'plan_updated' => 'package',
+            'plan_deleted' => 'package-x',
+            'subscription_assigned' => 'credit-card',
+            'subscription_upgraded' => 'arrow-up-circle',
+            'subscription_cancelled' => 'circle-slash',
+            'subscription_reactivated' => 'refresh-cw',
             default => 'activity',
         };
     }
@@ -153,12 +174,13 @@ class ActivityPresenter
     protected static function tone(string $kind): string
     {
         return match ($kind) {
-            'created', 'login', 'unbanned', 'restored', 'deletion_cancelled', 'setting_domain_created' => 'success',
+            'created', 'login', 'unbanned', 'restored', 'deletion_cancelled', 'setting_domain_created', 'plan_created',
+            'subscription_assigned', 'subscription_reactivated' => 'success',
             'updated', 'password_changed', 'password_reset', 'assigned', 'converted', 'merged',
             'setting_smtp', 'setting_domain_updated', 'setting_sender_updated', 'setting_test_email',
-            'setting_policy_updated' => 'info',
+            'setting_policy_updated', 'plan_updated', 'subscription_upgraded' => 'info',
             'failed', 'deletion_requested' => 'warning',
-            'deleted', 'force_deleted', 'purged', 'banned', 'setting_domain_deleted' => 'danger',
+            'deleted', 'force_deleted', 'purged', 'banned', 'setting_domain_deleted', 'plan_deleted', 'subscription_cancelled' => 'danger',
             default => 'muted',
         };
     }
@@ -195,6 +217,13 @@ class ActivityPresenter
             'setting_domain_deleted' => 'Sending Domain Removed',
             'setting_sender_updated' => 'Mail Purpose Updated',
             'setting_test_email' => 'Test Email Sent',
+            'plan_created' => 'Plan Created',
+            'plan_updated' => 'Plan Updated',
+            'plan_deleted' => 'Plan Deleted',
+            'subscription_assigned' => 'Plan Assigned',
+            'subscription_upgraded' => 'Plan Changed',
+            'subscription_cancelled' => 'Subscription Cancelled',
+            'subscription_reactivated' => 'Subscription Reactivated',
             default => Str::headline($kind),
         };
     }
@@ -255,7 +284,7 @@ class ActivityPresenter
             'password_changed' => [
                 self::row('IP', $properties['ip'] ?? null),
             ],
-            'updated' => [
+            'updated', 'plan_updated' => [
                 self::row('Changed', self::changedFields($properties)),
                 self::row('Password', ($properties['password_changed'] ?? false) ? 'Changed' : null),
             ],
@@ -270,6 +299,26 @@ class ActivityPresenter
             ],
             'setting_policy_updated' => [
                 self::row('Version', $properties['version'] ?? null),
+            ],
+            'subscription_assigned' => [
+                self::row('Plan', $properties['plan'] ?? null),
+                self::row('Amount', self::formatAmount($properties)),
+                self::row('Provider', isset($properties['provider']) ? Str::headline((string) $properties['provider']) : null),
+            ],
+            'subscription_upgraded' => [
+                self::row('From', $properties['from_plan'] ?? null),
+                self::row('To', $properties['to_plan'] ?? null),
+                self::row('Credit applied', isset($properties['credit_applied']) && $properties['credit_applied'] > 0 ? self::formatAmount($properties, 'credit_applied') : null),
+                self::row('Amount charged', self::formatAmount($properties, 'amount_charged')),
+            ],
+            'subscription_cancelled' => [
+                self::row('Plan', $properties['plan'] ?? null),
+                self::row('Cancelled by', isset($properties['cancelled_by']) ? Str::headline((string) $properties['cancelled_by']) : null),
+                self::row('Reason', $properties['reason'] ?? null),
+                self::row('Access', ($properties['immediately'] ?? false) ? 'Ended immediately' : 'Continues until period end'),
+            ],
+            'subscription_reactivated' => [
+                self::row('Plan', $properties['plan'] ?? null),
             ],
             default => [],
         }];
@@ -288,6 +337,18 @@ class ActivityPresenter
         }
 
         return ['label' => $label, 'value' => $value];
+    }
+
+    /** @param  array<string, mixed>  $properties */
+    protected static function formatAmount(array $properties, string $key = 'amount'): ?string
+    {
+        if (! isset($properties[$key])) {
+            return null;
+        }
+
+        $currency = $properties['currency'] ?? '';
+
+        return trim("{$currency} ".number_format((float) $properties[$key], 2));
     }
 
     /** @return array<int, string> */

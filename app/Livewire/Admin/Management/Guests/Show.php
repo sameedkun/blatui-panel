@@ -9,13 +9,18 @@ use App\Livewire\Admin\Concerns\HasActivityDetailModal;
 use App\Livewire\Admin\Concerns\HasShowTabs;
 use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Livewire\Admin\Management\Guests\Concerns\HandlesGuestRowActions;
+use App\Models\Plan;
+use App\Models\PlanPrice;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Services\AccountDeletionService;
 use App\Services\GuestConversionService;
+use App\Services\SubscriptionService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use InvalidArgumentException;
 use Livewire\Attributes\Layout;
 use Livewire\WithPagination;
 use Spatie\Activitylog\Models\Activity;
@@ -60,6 +65,14 @@ class Show extends BaseShow
 
     public string $mergeReason = '';
 
+    /** Plan/price picked in the "Assign / Change Plan" dialog. */
+    public ?int $assignPlanId = null;
+
+    public ?int $assignPriceId = null;
+
+    /** Shared reason field for the two cancel dialogs (only one is open at a time). */
+    public string $cancelReason = '';
+
     public function mount(User $user): void
     {
         abort_unless($user->isGuest(), 404);
@@ -78,9 +91,10 @@ class Show extends BaseShow
     }
 
     /**
-     * No Devices/Tickets here — guests don't have them. Subscriptions and
-     * Activity stay "coming soon" placeholders, same as they are on the Users
-     * profile today.
+     * No Devices/Tickets here — guests don't have them. Subscriptions reuses
+     * the exact same partial and management actions as the Users profile
+     * (a guest is still just a row in the same `users` table, so it can be
+     * assigned/upgraded/cancelled/reactivated identically); Activity does too.
      */
     protected function tabs(): array
     {
@@ -90,7 +104,15 @@ class Show extends BaseShow
                 'icon' => 'user',
                 'view' => 'livewire.admin.management.guests.profile.tabs.overview',
             ],
-            'subscriptions' => $this->comingSoonTab('Subscriptions', 'credit-card', 'Subscriptions for this account will appear here once billing ships.'),
+            'subscriptions' => [
+                'label' => 'Subscriptions',
+                'icon' => 'credit-card',
+                'view' => 'livewire.admin.management.users.profile.tabs.subscriptions',
+                'data' => fn (): array => [
+                    'subscriptionHistory' => $this->subscriptionHistory(),
+                    'reactivatable' => $this->reactivatableSubscription(),
+                ],
+            ],
             'activity' => [
                 'label' => 'Activity',
                 'icon' => 'activity',
@@ -111,6 +133,167 @@ class Show extends BaseShow
             ->with('causer')
             ->latest()
             ->paginate(10);
+    }
+
+    // -------------------------------------------------------------------------
+    // Subscription management — identical to Users/Show; a guest is still just
+    // a `users` row, so it can hold and be managed on a subscription the same way.
+    // -------------------------------------------------------------------------
+
+    /** Every subscription this account has ever had, newest first — powers the Subscriptions tab history table. */
+    protected function subscriptionHistory(): LengthAwarePaginator
+    {
+        return $this->record->subscriptions()
+            ->with(['plan', 'planPrice'])
+            ->latest('starts_at')
+            ->paginate(10, pageName: 'subs_page');
+    }
+
+    /** A cancelled-but-still-in-period subscription that can be undone, if any. */
+    protected function reactivatableSubscription(): ?Subscription
+    {
+        return $this->record->subscriptions()
+            ->where('status', 'cancelled')
+            ->where('ends_at', '>', now())
+            ->latest('ends_at')
+            ->first();
+    }
+
+    /** [plan id => name] for the active, purchasable plans offered in the assign/change dialog. */
+    protected function planOptions(): array
+    {
+        return Plan::query()->where('is_active', true)->orderBy('sort_order')->pluck('name', 'id')->all();
+    }
+
+    /** [price id => label] for a given plan's active prices. */
+    protected function priceOptionsFor(?int $planId): array
+    {
+        if (! $planId) {
+            return [];
+        }
+
+        return PlanPrice::query()
+            ->where('plan_id', $planId)
+            ->where('is_active', true)
+            ->orderBy('amount')
+            ->get()
+            ->mapWithKeys(fn (PlanPrice $price): array => [
+                $price->id => "{$price->currency} {$price->amount} / {$price->billing_period} "
+                    .$price->billing_interval->label().($price->billing_period > 1 ? 's' : ''),
+            ])
+            ->all();
+    }
+
+    public function openAssignPlanDialog(): void
+    {
+        $this->authorize('guests.manage');
+
+        $current = $this->record->activeSubscription;
+        $this->assignPlanId = $current?->plan_id;
+        $this->assignPriceId = $current?->plan_price_id;
+
+        $this->dispatch('open-dialog-assign-plan');
+    }
+
+    /** Reset the price when the plan changes so a stale price is never submitted. */
+    public function updatedAssignPlanId(): void
+    {
+        $options = $this->priceOptionsFor($this->assignPlanId);
+
+        if (! isset($options[$this->assignPriceId])) {
+            $this->assignPriceId = array_key_first($options);
+        }
+    }
+
+    public function assignPlan(SubscriptionService $service): void
+    {
+        $this->authorize('guests.manage');
+
+        $this->validate([
+            'assignPlanId' => ['required', 'integer'],
+            'assignPriceId' => ['required', 'integer'],
+        ]);
+
+        $price = PlanPrice::findOrFail($this->assignPriceId);
+        $guest = $this->record;
+
+        $subscription = $guest->activeSubscription
+            ? $service->upgrade($guest, $price)
+            : $service->subscribe($guest, $price);
+
+        $this->assignPlanId = null;
+        $this->assignPriceId = null;
+
+        $this->toastSuccess("{$guest->name} is now on the {$subscription->plan->name} plan.");
+    }
+
+    public function openCancelImmediatelyDialog(): void
+    {
+        $this->authorize('guests.manage');
+
+        $this->cancelReason = '';
+        $this->dispatch('open-dialog-cancel-immediately');
+    }
+
+    public function cancelImmediately(SubscriptionService $service): void
+    {
+        $this->authorize('guests.manage');
+
+        $guest = $this->record;
+        $active = $guest->activeSubscription;
+
+        if (! $active) {
+            $this->toastError('This guest has no active subscription.');
+
+            return;
+        }
+
+        $planName = $active->plan->name;
+        $service->cancelActive($guest, 'admin', trim($this->cancelReason) ?: null, true);
+
+        $this->cancelReason = '';
+        $this->toastSuccess("{$planName} subscription cancelled immediately.");
+    }
+
+    public function openCancelAtPeriodEndDialog(): void
+    {
+        $this->authorize('guests.manage');
+
+        $this->cancelReason = '';
+        $this->dispatch('open-dialog-cancel-at-period-end');
+    }
+
+    public function cancelAtPeriodEnd(SubscriptionService $service): void
+    {
+        $this->authorize('guests.manage');
+
+        $guest = $this->record;
+        $active = $guest->activeSubscription;
+
+        if (! $active) {
+            $this->toastError('This guest has no active subscription.');
+
+            return;
+        }
+
+        $planName = $active->plan->name;
+        $endsAt = $active->ends_at;
+        $service->cancelActive($guest, 'admin', trim($this->cancelReason) ?: null, false);
+
+        $this->cancelReason = '';
+        $this->toastSuccess("{$planName} subscription will end on ".$endsAt?->format('M d, Y').'.');
+    }
+
+    public function reactivateSubscription(SubscriptionService $service): void
+    {
+        $this->authorize('guests.manage');
+
+        try {
+            $subscription = $service->reactivate($this->record);
+            $this->toastSuccess("{$subscription->plan->name} subscription reactivated.");
+        } catch (InvalidArgumentException $e) {
+            $this->toastError($e->getMessage());
+        }
     }
 
     /**
@@ -274,7 +457,7 @@ class Show extends BaseShow
     public function statCards(): array
     {
         return [
-            ['label' => 'Subscriptions', 'icon' => 'credit-card', 'value' => null],
+            ['label' => 'Plan', 'icon' => 'credit-card', 'value' => $this->record->activeSubscription?->plan?->name ?? 'Free'],
             ['label' => 'Activity', 'icon' => 'activity', 'value' => $this->recordActivityCount()],
             ['label' => 'Joined', 'icon' => 'calendar', 'value' => $this->record->registration_date?->format('M d, Y') ?? '—'],
         ];
@@ -295,18 +478,9 @@ class Show extends BaseShow
 
         return view('livewire.admin.management.guests.show', [
             'stats' => $this->statCards(),
+            'planOptions' => $this->planOptions(),
+            'priceOptions' => $this->priceOptionsFor($this->assignPlanId),
         ]);
-    }
-
-    /** @return array<string, mixed> */
-    private function comingSoonTab(string $label, string $icon, string $description): array
-    {
-        return [
-            'label' => $label,
-            'icon' => $icon,
-            'view' => 'livewire.admin.management.users.profile.tabs.placeholder',
-            'data' => fn (): array => ['label' => $label, 'icon' => $icon, 'description' => $description],
-        ];
     }
 
     /** Pull fresh attributes so header badges reflect an action taken this request. */

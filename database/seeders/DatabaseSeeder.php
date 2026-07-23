@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             EmailSendersSeeder::class,
             UserSeeder::class,
             PoliciesSeeder::class,
+            PlansAndSubscriptionsSeeder::class,
         ]);
 
         User::factory(50)->create();

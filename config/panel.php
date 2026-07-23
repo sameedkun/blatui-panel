@@ -146,6 +146,18 @@ return [
             'actions' => ['view', 'delete', 'restore', 'force-delete', 'ban', 'unban', 'export', 'manage', 'convert', 'merge'],
             'icon' => 'user-friends',
         ],
+        'plans' => [
+            'label' => 'Plans',
+            'group' => 'management',
+            'actions' => ['view', 'create', 'edit', 'delete', 'manage'],
+            'icon' => 'credit-card',
+        ],
+        'subscriptions' => [
+            'label' => 'Subscriptions',
+            'group' => 'management',
+            'actions' => ['view', 'manage'],
+            'icon' => 'receipt',
+        ],
 
         // --- Administration ---
         'staff' => [

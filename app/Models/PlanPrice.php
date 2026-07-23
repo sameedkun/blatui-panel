@@ -3,13 +3,13 @@
 namespace App\Models;
 
 use App\Enum\BillingInterval;
+use Carbon\CarbonInterface;
 use Database\Factories\PlanPriceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'plan_id',
@@ -27,7 +27,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class PlanPrice extends Model
 {
     /** @use HasFactory<PlanPriceFactory> */
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected function casts(): array
     {
@@ -74,26 +74,28 @@ class PlanPrice extends Model
     public function billingDurationInDays(): int
     {
         return match ($this->billing_interval) {
-            'day' => $this->billing_period,
-            'week' => $this->billing_period * 7,
-            'month' => $this->billing_period * 30,
-            'year' => $this->billing_period * 365,
+            BillingInterval::Day => $this->billing_period,
+            BillingInterval::Week => $this->billing_period * 7,
+            BillingInterval::Month => $this->billing_period * 30,
+            BillingInterval::Year => $this->billing_period * 365,
         };
     }
 
-    public function trialEndsAt(): ?\Illuminate\Support\Carbon
+    public function trialEndsAt(): ?CarbonInterface
     {
         if ($this->trial_period <= 0) {
             return null;
         }
-        return now()->add($this->trial_interval, $this->trial_period);
+
+        return now()->add($this->trial_interval->value, $this->trial_period);
     }
 
-    public function graceEndsAt(\Illuminate\Support\Carbon $endsAt): ?\Illuminate\Support\Carbon
+    public function graceEndsAt(CarbonInterface $endsAt): ?CarbonInterface
     {
         if ($this->grace_period <= 0) {
             return null;
         }
-        return $endsAt->copy()->add($this->grace_interval, $this->grace_period);
+
+        return $endsAt->copy()->add($this->grace_interval->value, $this->grace_period);
     }
 }

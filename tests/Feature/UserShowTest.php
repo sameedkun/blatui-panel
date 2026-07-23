@@ -110,7 +110,8 @@ class UserShowTest extends TestCase
         $component->assertSee('Coming soon');
 
         $stats = collect($component->instance()->statCards())->keyBy('label');
-        $this->assertNull($stats['Subscriptions']['value']);
+        // Plan is now a real, built stat — 'Free' rather than a "Coming soon" placeholder.
+        $this->assertSame('Free', $stats['Plan']['value']);
         $this->assertNull($stats['Devices']['value']);
         $this->assertNull($stats['Tickets']['value']);
         // Activity is a real count (not a placeholder) — 0 for a freshly created user.
