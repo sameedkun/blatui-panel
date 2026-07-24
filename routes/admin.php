@@ -6,6 +6,12 @@ use App\Livewire\Admin\Administration\Roles\Form as RolesForm;
 use App\Livewire\Admin\Administration\Roles\Index as RolesIndex;
 use App\Livewire\Admin\Administration\Staff\Form as StaffForm;
 use App\Livewire\Admin\Administration\Staff\Index as StaffIndex;
+use App\Livewire\Admin\Application\Feedback\Index as FeedbackIndex;
+use App\Livewire\Admin\Application\Feedback\Show as FeedbackShow;
+use App\Livewire\Admin\Application\Language\Form as LanguageForm;
+use App\Livewire\Admin\Application\Language\Index as LanguageIndex;
+use App\Livewire\Admin\Application\Notification\Form as NotificationForm;
+use App\Livewire\Admin\Application\Notification\Index as NotificationIndex;
 use App\Livewire\Admin\Dashboard;
 use App\Livewire\Admin\Management\Guests\Index as GuestsIndex;
 use App\Livewire\Admin\Management\Guests\Show as GuestsShow;
@@ -56,6 +62,26 @@ Route::middleware(['auth', 'panel', AuthenticateSession::class])->name('admin.')
     Route::prefix('subscriptions')->name('subscriptions.')->middleware('permission:subscriptions.view')->group(function () {
         Route::get('/', SubscriptionsIndex::class)->name('index');
         Route::get('/{subscription}', SubscriptionsShow::class)->name('show')->middleware('permission:subscriptions.manage');
+    });
+
+    // ── Languages ─────────────────────────────────────────────────────────
+    Route::prefix('languages')->name('languages.')->middleware('permission:languages.view')->group(function () {
+        Route::get('/', LanguageIndex::class)->name('index');
+        Route::get('/create', LanguageForm::class)->name('create')->middleware('permission:languages.create');
+        Route::get('/{language}/edit', LanguageForm::class)->name('edit')->middleware('permission:languages.edit');
+    });
+
+    // ── Feedback ──────────────────────────────────────────────────────────
+    Route::prefix('feedback')->name('feedback.')->middleware('permission:feedback.view')->group(function () {
+        Route::get('/', FeedbackIndex::class)->name('index');
+        Route::get('/{feedback}', FeedbackShow::class)->name('show')->middleware('permission:feedback.manage');
+    });
+
+    // ── Notifications ─────────────────────────────────────────────────────
+    Route::prefix('notifications')->name('notifications.')->middleware('permission:notifications.view')->group(function () {
+        Route::get('/', NotificationIndex::class)->name('index');
+        Route::get('/create', NotificationForm::class)->name('create')->middleware('permission:notifications.create');
+        Route::get('/{notification}/edit', NotificationForm::class)->name('edit')->middleware('permission:notifications.edit');
     });
 
     // ── Staff ─────────────────────────────────────────────────────────────

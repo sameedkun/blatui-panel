@@ -159,6 +159,26 @@ return [
             'icon' => 'receipt',
         ],
 
+        // --- Application ---
+        'languages' => [
+            'label' => 'Languages',
+            'group' => 'app',
+            'actions' => ['view', 'create', 'edit', 'delete'],
+            'icon' => 'globe',
+        ],
+        'feedback' => [
+            'label' => 'Feedback',
+            'group' => 'app',
+            'actions' => ['view', 'manage'],
+            'icon' => 'message-square-quote',
+        ],
+        'notifications' => [
+            'label' => 'Notifications',
+            'group' => 'app',
+            'actions' => ['view', 'create', 'edit', 'delete'],
+            'icon' => 'bell',
+        ],
+
         // --- Administration ---
         'staff' => [
             'label' => 'Staff',

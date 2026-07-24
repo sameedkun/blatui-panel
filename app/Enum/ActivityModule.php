@@ -15,6 +15,9 @@ enum ActivityModule: string
     case Role = 'role';
     case Permission = 'permission';
     case Plan = 'plan';
+    case Language = 'language';
+    case Feedback = 'feedback';
+    case Notification = 'notification';
     case Server = 'server';
     case Ticket = 'ticket';
     case Setting = 'setting';

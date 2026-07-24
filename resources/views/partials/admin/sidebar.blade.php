@@ -72,6 +72,39 @@
                 </x-ui.sidebar-menu>
             @endcanany
 
+            @canany(['languages.view', 'feedback.view', 'notifications.view'])
+                <x-ui.sidebar-group-label>Application</x-ui.sidebar-group-label>
+
+                <x-ui.sidebar-menu>
+                    @can('languages.view')
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.languages.index') }}" :isActive="request()->routeIs('admin.languages.*')">
+                                <x-lucide-globe />
+                                <span>Languages</span>
+                            </x-ui.sidebar-menu-button>
+                        </x-ui.sidebar-menu-item>
+                    @endcan
+
+                    @can('feedback.view')
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.feedback.index') }}" :isActive="request()->routeIs('admin.feedback.*')">
+                                <x-lucide-message-square-quote />
+                                <span>Feedback</span>
+                            </x-ui.sidebar-menu-button>
+                        </x-ui.sidebar-menu-item>
+                    @endcan
+
+                    @can('notifications.view')
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.notifications.index') }}" :isActive="request()->routeIs('admin.notifications.*')">
+                                <x-lucide-bell />
+                                <span>Notifications</span>
+                            </x-ui.sidebar-menu-button>
+                        </x-ui.sidebar-menu-item>
+                    @endcan
+                </x-ui.sidebar-menu>
+            @endcanany
+
             @if (auth()->user()->canAny(['staff.view', 'roles.view', 'activity_logs.view']) || auth()->user()->canAccessModule('settings'))
                 <x-ui.sidebar-group-label>Administration</x-ui.sidebar-group-label>
 
