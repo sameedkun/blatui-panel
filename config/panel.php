@@ -179,6 +179,20 @@ return [
             'icon' => 'bell',
         ],
 
+        // --- Support ---
+        'tickets' => [
+            'label' => 'Tickets',
+            'group' => 'support',
+            'actions' => ['view', 'create', 'manage'],
+            'icon' => 'life-buoy',
+        ],
+        'ticket_categories' => [
+            'label' => 'Ticket Categories',
+            'group' => 'support',
+            'actions' => ['view', 'create', 'edit', 'delete'],
+            'icon' => 'tags',
+        ],
+
         // --- Administration ---
         'staff' => [
             'label' => 'Staff',

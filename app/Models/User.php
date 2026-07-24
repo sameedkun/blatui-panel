@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -48,7 +49,7 @@ use Spatie\Sluggable\Attributes\Sluggable;
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
-    use CausesActivity, HasFactory, HasRoles, Notifiable, SoftDeletes, HasSubscriptions;
+    use CausesActivity, HasFactory, HasRoles, HasSubscriptions, Notifiable, SoftDeletes;
 
     /**
      * Get the attributes that should be cast.
@@ -292,6 +293,40 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->policyAcceptances()
             ->where('policy_version_id', $activeVersion->id)
             ->exists();
+    }
+
+    // -------------------------------------------------------------------------
+    // Support tickets
+    // -------------------------------------------------------------------------
+
+    /**
+     * Tickets this user has raised as a requester.
+     *
+     * @return HasMany<Ticket, $this>
+     */
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class);
+    }
+
+    /**
+     * Tickets currently assigned to this user as a support agent.
+     *
+     * @return HasMany<Ticket, $this>
+     */
+    public function assignedTickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class, 'assigned_to');
+    }
+
+    /**
+     * Ticket categories this user is an eligible auto-assignment agent for.
+     *
+     * @return BelongsToMany<TicketCategory, $this>
+     */
+    public function agentCategories(): BelongsToMany
+    {
+        return $this->belongsToMany(TicketCategory::class, 'category_agent', 'user_id', 'category_id');
     }
 
     /**

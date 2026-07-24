@@ -28,8 +28,11 @@
     // Normalise to [value => label]: associative keys are values; a plain list uses value === label.
     $normalized = [];
     if ($hasOptions) {
+        $isList = array_is_list($options);
         foreach ($options as $k => $v) {
-            if (is_int($k)) {
+            if (is_array($v) && array_key_exists('value', $v)) {
+                $normalized[(string) $v['value']] = (string) ($v['label'] ?? $v['value']);
+            } elseif ($isList) {
                 $normalized[(string) $v] = (string) $v;
             } else {
                 $normalized[(string) $k] = (string) $v;

@@ -20,5 +20,6 @@ enum ActivityModule: string
     case Notification = 'notification';
     case Server = 'server';
     case Ticket = 'ticket';
+    case TicketCategory = 'ticket_category';
     case Setting = 'setting';
 }

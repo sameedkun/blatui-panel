@@ -99,6 +99,25 @@ class ActivityPresenter
             };
         }
 
+        if (($properties['module'] ?? null) === 'ticket') {
+            return match ($event) {
+                'created' => 'ticket_created',
+                'updated' => 'ticket_updated',
+                'assigned' => 'ticket_assigned',
+                'replied' => 'ticket_replied',
+                default => $event,
+            };
+        }
+
+        if (($properties['module'] ?? null) === 'ticket_category') {
+            return match ($event) {
+                'created' => 'ticket_category_created',
+                'updated' => 'ticket_category_updated',
+                'deleted' => 'ticket_category_deleted',
+                default => $event,
+            };
+        }
+
         if (($properties['module'] ?? null) === 'setting') {
             $area = $properties['area'] ?? null;
 
@@ -152,6 +171,12 @@ class ActivityPresenter
             'plan_created' => 'package-plus',
             'plan_updated' => 'package',
             'plan_deleted' => 'package-x',
+            'ticket_created' => 'life-buoy',
+            'ticket_updated' => 'ticket',
+            'ticket_assigned' => 'user-check',
+            'ticket_replied' => 'message-circle',
+            'ticket_category_created', 'ticket_category_updated' => 'tags',
+            'ticket_category_deleted' => 'tag',
             'subscription_assigned' => 'credit-card',
             'subscription_upgraded' => 'arrow-up-circle',
             'subscription_cancelled' => 'circle-slash',
@@ -178,13 +203,15 @@ class ActivityPresenter
     {
         return match ($kind) {
             'created', 'login', 'unbanned', 'restored', 'deletion_cancelled', 'setting_domain_created', 'plan_created',
-            'subscription_assigned', 'subscription_reactivated', 'subscription_trial_converted' => 'success',
+            'subscription_assigned', 'subscription_reactivated', 'subscription_trial_converted',
+            'ticket_created', 'ticket_category_created' => 'success',
             'updated', 'password_changed', 'password_reset', 'assigned', 'converted', 'merged',
             'setting_smtp', 'setting_domain_updated', 'setting_sender_updated', 'setting_test_email',
-            'setting_policy_updated', 'plan_updated', 'subscription_upgraded' => 'info',
+            'setting_policy_updated', 'plan_updated', 'subscription_upgraded',
+            'ticket_updated', 'ticket_assigned', 'ticket_replied', 'ticket_category_updated' => 'info',
             'failed', 'deletion_requested', 'subscription_entered_grace' => 'warning',
             'deleted', 'force_deleted', 'purged', 'banned', 'setting_domain_deleted', 'plan_deleted',
-            'subscription_cancelled', 'subscription_expired' => 'danger',
+            'subscription_cancelled', 'subscription_expired', 'ticket_category_deleted' => 'danger',
             default => 'muted',
         };
     }
@@ -224,6 +251,13 @@ class ActivityPresenter
             'plan_created' => 'Plan Created',
             'plan_updated' => 'Plan Updated',
             'plan_deleted' => 'Plan Deleted',
+            'ticket_created' => 'Ticket Created',
+            'ticket_updated' => 'Ticket Updated',
+            'ticket_assigned' => 'Agent Assigned',
+            'ticket_replied' => 'Staff Replied',
+            'ticket_category_created' => 'Category Created',
+            'ticket_category_updated' => 'Category Updated',
+            'ticket_category_deleted' => 'Category Deleted',
             'subscription_assigned' => 'Plan Assigned',
             'subscription_upgraded' => 'Plan Changed',
             'subscription_cancelled' => 'Subscription Cancelled',
@@ -291,9 +325,20 @@ class ActivityPresenter
             'password_changed' => [
                 self::row('IP', $properties['ip'] ?? null),
             ],
-            'updated', 'plan_updated' => [
+            'updated', 'plan_updated', 'ticket_category_updated' => [
                 self::row('Changed', self::changedFields($properties)),
                 self::row('Password', ($properties['password_changed'] ?? false) ? 'Changed' : null),
+            ],
+            'ticket_created' => [
+                self::row('Category', $properties['category'] ?? null),
+                self::row('Priority', isset($properties['priority']) ? Str::headline((string) $properties['priority']) : null),
+                self::row('Assigned to', $properties['agent'] ?? 'Unassigned'),
+            ],
+            'ticket_updated' => [
+                self::row('Changed', self::changedFields($properties)),
+            ],
+            'ticket_assigned' => [
+                self::row('Agent', $properties['agent'] ?? 'Unassigned'),
             ],
             'setting_domain_created', 'setting_domain_updated', 'setting_domain_deleted' => [
                 self::row('Domain', $properties['domain'] ?? null),

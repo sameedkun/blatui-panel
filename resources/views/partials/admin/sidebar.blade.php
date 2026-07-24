@@ -105,6 +105,30 @@
                 </x-ui.sidebar-menu>
             @endcanany
 
+            @canany(['tickets.view', 'ticket_categories.view'])
+                <x-ui.sidebar-group-label>Support</x-ui.sidebar-group-label>
+
+                <x-ui.sidebar-menu>
+                    @can('tickets.view')
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.tickets.index') }}" :isActive="request()->routeIs('admin.tickets.*')">
+                                <x-lucide-life-buoy />
+                                <span>Tickets</span>
+                            </x-ui.sidebar-menu-button>
+                        </x-ui.sidebar-menu-item>
+                    @endcan
+
+                    @can('ticket_categories.view')
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.ticket-categories.index') }}" :isActive="request()->routeIs('admin.ticket-categories.*')">
+                                <x-lucide-tags />
+                                <span>Ticket Categories</span>
+                            </x-ui.sidebar-menu-button>
+                        </x-ui.sidebar-menu-item>
+                    @endcan
+                </x-ui.sidebar-menu>
+            @endcanany
+
             @if (auth()->user()->canAny(['staff.view', 'roles.view', 'activity_logs.view']) || auth()->user()->canAccessModule('settings'))
                 <x-ui.sidebar-group-label>Administration</x-ui.sidebar-group-label>
 

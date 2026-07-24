@@ -51,7 +51,7 @@ Key state, all first-class on the model:
 ## Authorization: permissions, not roles, everywhere
 
 `config/panel.php` is the single source of truth for the whole RBAC surface:
-- `modules` — each entry (`users`, `guests`, `plans`, `subscriptions`, `staff`, `roles`, `activity_logs`, `dashboard`, `settings`)
+- `modules` — each entry (`users`, `guests`, `plans`, `subscriptions`, `tickets`, `ticket_categories`, `staff`, `roles`, `activity_logs`, `dashboard`, `settings`)
   declares its allowed `actions` from a fixed `action_vocabulary` (`view`, `create`, `edit`,
   `delete`, `restore`, `force-delete`, `ban`, `unban`, `export`, `import`, `manage`, `access`,
   `reply`, `assign`, `convert`, `merge`), plus optional `children` sub-modules (`general`, `mail`, `policies`, `storage`, `authentication`). Permissions are generated as `{module}.{action}` or `{module}.{child}.{action}`.
@@ -327,6 +327,69 @@ byte-for-byte the same Blade and the same `SubscriptionService` calls as a user'
 "Active Subscription" glance card. `statCards()`'s `Plan` stat (name or "Free") replaced the old
 `Subscriptions` "coming soon" placeholder there too.
 
+## Support Tickets
+
+`app/Models/{Ticket,TicketCategory,TicketMessage}.php`, backed by four tables from a single
+migration (`categories`, `tickets`, `ticket_messages`, `category_agent`). `TicketCategory` maps to
+the `categories` table via an explicit `protected $table` (named `TicketCategory`, not `Category`,
+to stay unambiguous). Neither `Ticket` nor `TicketCategory` is soft-deletable in the usual sense —
+`Ticket` has no soft deletes at all (permanent record, like `Subscription`); `TicketCategory` can
+be hard-deleted but only while it has zero tickets (`is_active = false` retires it instead,
+mirroring `Plan`).
+
+- **`Ticket`** — belongs to `User` (`user()`, the requester), `TicketCategory` (`category()`,
+  nullable), `User` (`agent()`, via `assigned_to`, nullable); has many `messages()`. `status`
+  (`App\Enum\TicketStatus`: Open/Pending/Resolved/Closed) and `priority`
+  (`App\Enum\TicketPriority`: Low/Medium/High/Urgent) are both `string` + backed-enum casts, same
+  convention as the rest of the codebase.
+- **`TicketCategory`** — `agents(): BelongsToMany` (`User` via `category_agent`, explicit pivot
+  keys `category_id`/`user_id` since Eloquent's default FK guess from the class name would be
+  wrong for a model mapped to a differently-named table) is the pool of staff eligible for
+  auto-assignment on that category. `tickets(): HasMany`.
+- **`TicketMessage`** — belongs to `Ticket` and (nullably) `User`. `author_type`
+  (`App\Enum\TicketMessageAuthorType`: User/Staff/System) distinguishes a requester message, a
+  staff reply, and an automated note (auto-assignment, reassignment, category-change re-routing) —
+  System notes make the load-balancing decision visible directly in the conversation thread, not
+  just the audit log.
+
+**`App\Services\TicketAssignmentService::pickAgent(TicketCategory)`** is the load-balancing core —
+pure selection, no side effects: among the category's `agents()`, picks whoever currently has the
+fewest open (non-Resolved/Closed) tickets via `withCount` + `orderBy`, ties broken by user id.
+Returns `null` if the category has no agents (ticket stays unassigned).
+
+**`App\Services\TicketService`** is the only place ticket state changes (mirrors
+`SubscriptionService`): `create()` (creates the ticket + first message, then auto-assigns via
+`TicketAssignmentService`), `reply()` (staff reply; flips `Open` → `Pending`, never silently
+overrides `Resolved`/`Closed`), `changeStatus()`, `changePriority()`, `reassign()` (manual
+override — not restricted to the category's agent pool, since an admin may need to override the
+automatic pick), `changeCategory()` (re-runs auto-assignment if the current agent isn't in the new
+category's pool). Every mutation logs through `ActivityLogger` with module `Ticket`.
+
+### Admin UI
+
+`app/Livewire/Admin/Support/{Tickets,Categories}/`, routed at `admin.tickets.*` /
+`admin.ticket-categories.*` (modules `tickets` — `view`/`create`/`manage` — and
+`ticket_categories` — `view`/`create`/`edit`/`delete` — both in the `support` permission group).
+- **Tickets** — `Index`, `Show`, `Form` (create-only — there is no public-facing submission
+  channel yet per "What this is" above, so the Form lets staff log a ticket on behalf of an
+  existing app user; this is also what exercises auto-assignment end-to-end today).
+  `Concerns/HandlesTicketRowActions` (assign-to-me, close, reopen) is shared by Index and Show,
+  same pattern as `HandlesPlanRowActions`. `Show` uses `HasShowTabs` with **Conversation**
+  (message thread + reply box + a management sidebar with Status/Priority/Category/Assigned-Agent
+  controls, each calling straight into `TicketService`) and **Activity** tabs.
+- **Categories** — `Index`, `Form` (create/edit only, no Show page). The Form's agent checklist
+  (`User::staff()`, bound via native `<x-ui.checkbox>` — the non-native Alpine checkbox only
+  entangles a scalar boolean, not array membership, so a shared-`wire:model` multi-checkbox list
+  needs `native`) is what actually populates `category_agent`, i.e. the load-balancing pool per
+  category. `Concerns/HandlesCategoryRowActions` mirrors `HandlesPlanRowActions`'s
+  guarded-delete-while-in-use pattern (`hasTickets()` in place of `hasSubscriptions()`).
+
+`ActivityModule::TicketCategory` and `ActivityAction::Replied` were added to the shared enums for
+this feature (`ActivityModule::Ticket` already existed as a placeholder before this feature was
+built out). `ActivityPresenter::kind()` has explicit `ticket`/`ticket_category` module branches —
+without them, a ticket's `created`/`updated`/`assigned` events would collide with the generic
+User-event titles ("Account Created" etc.), since those are the same raw event strings.
+
 ## Routes
 
 - `routes/web.php` requires `auth.php` then `admin.php`.
@@ -362,8 +425,10 @@ byte-for-byte the same Blade and the same `SubscriptionService` calls as a user'
   (index/create/edit/show), `subscriptions.*` (index/show only — `Subscription` rows are never
   created/edited/deleted via the panel, only through `SubscriptionService`), `staff.*`
   (index/create/edit — no show page, no delete route defined yet), `roles.*` (index/create/edit),
-  `activity-logs.*` (index only, read-only), and a single `account` route (self-service "My
-  Account" page — no extra permission, every staff member can reach it).
+  `activity-logs.*` (index only, read-only), `tickets.*` (index/create/show — no edit route; a
+  ticket's mutable fields all change via `Show` page actions, not a form), `ticket-categories.*`
+  (index/create/edit), and a single `account` route (self-service "My Account" page — no extra
+  permission, every staff member can reach it).
 - Each route group carries its own `permission:{module}.{action}` middleware layered on top of the
   group-level `permission:{module}.view`.
 
@@ -381,7 +446,8 @@ byte-for-byte the same Blade and the same `SubscriptionService` calls as a user'
 ```
 app/
   Enum/            UserType, Activity{LogName,Module,Action,Context}, MailPurpose,
-                   BillingInterval, PaymentProvider, SubscriptionStatus, CancelledBy, ReceiptType
+                   BillingInterval, PaymentProvider, SubscriptionStatus, CancelledBy, ReceiptType,
+                   TicketStatus, TicketPriority, TicketMessageAuthorType
   Http/Middleware/ EnsurePanelAccess (alias: panel)
   Jobs/            PurgeExpiredAccounts, ExportActivityLog, SyncSubscriptionStatuses
   Listeners/       AuthActivityListener
@@ -394,6 +460,8 @@ app/
       Management/Guests/                    Index, Show + Concerns/HandlesGuestRowActions
       Management/Plans/                     Index, Show, Form + Concerns/HandlesPlanRowActions
       Management/Subscriptions/             Index, Show + Concerns/HandlesSubscriptionRowActions
+      Support/Tickets/                      Index, Show, Form + Concerns/HandlesTicketRowActions
+      Support/Categories/                   Index, Form + Concerns/HandlesCategoryRowActions
       Administration/Staff/                         Index, Form (staff CRUD + role assignment)
       Administration/Roles/                         Index, Form (role/permission-matrix CRUD)
       Administration/ActivityLogs/Index.php         read-only audit viewer
@@ -401,11 +469,13 @@ app/
   Mail/            Concerns/HasMailPurpose.php (trait for purpose-based mailables),
                    Auth/VerifyEmailMail.php, Auth/ResetPasswordMail.php
   Models/          User.php (canAccessModule helper), EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php,
-                   Plan.php, PlanPrice.php, PlanPriceProvider.php, Subscription.php, SubscriptionReceipt.php
+                   Plan.php, PlanPrice.php, PlanPriceProvider.php, Subscription.php, SubscriptionReceipt.php,
+                   Ticket.php, TicketCategory.php, TicketMessage.php
   Notifications/   Auth/VerifyEmailNotification.php, Auth/ResetPasswordNotification.php
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
                                              module view permission inheritance policy
-  Services/        AccountDeletionService, AccountMergeService, GuestConversionService, MailConfigurator, Auth/UrlResolver, SubscriptionService, SubscriptionLifecycleService
+  Services/        AccountDeletionService, AccountMergeService, GuestConversionService, MailConfigurator, Auth/UrlResolver, SubscriptionService, SubscriptionLifecycleService,
+                   TicketService, TicketAssignmentService
   Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter
   Traits/          HasSubscriptions (mixed into User), HasFeatures (mixed into Plan)
 config/panel.php    RBAC modules/actions/children, grace period, export threshold, seeded admin creds
@@ -413,10 +483,12 @@ database/
   migrations/       users, permission_tables (Spatie), activity_log (+ 3 hand-added indexes),
                      cache, jobs, email_domains, email_senders, smtp_settings, policies_tables,
                      plans_tables (plans/plan_prices/plan_price_providers),
-                     subscriptions_tables (subscriptions/subscription_receipts)
+                     subscriptions_tables (subscriptions/subscription_receipts),
+                     tickets_table (categories/tickets/ticket_messages/category_agent)
   seeders/          DatabaseSeeder, RolesAndPermissionsSeeder (idempotent), UserSeeder,
                      EmailSendersSeeder (idempotent)
-  factories/         one per model, incl. Plan/PlanPrice/PlanPriceProvider/Subscription/SubscriptionReceipt
+  factories/         one per model, incl. Plan/PlanPrice/PlanPriceProvider/Subscription/SubscriptionReceipt,
+                     TicketCategory/Ticket/TicketMessage
 resources/
   views/components/ui/       BlatUI copy-paste components (x-ui.*) — see CLAUDE.md BlatUI section
   views/components/admin/    panel-specific composites: filter-bar, page-header, pagination,

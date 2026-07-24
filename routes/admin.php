@@ -26,6 +26,11 @@ use App\Livewire\Admin\Management\Users\Show as UsersShow;
 use App\Livewire\Admin\Settings\General;
 use App\Livewire\Admin\Settings\Mail;
 use App\Livewire\Admin\Settings\Policies;
+use App\Livewire\Admin\Support\Categories\Form as CategoriesForm;
+use App\Livewire\Admin\Support\Categories\Index as CategoriesIndex;
+use App\Livewire\Admin\Support\Tickets\Form as TicketsForm;
+use App\Livewire\Admin\Support\Tickets\Index as TicketsIndex;
+use App\Livewire\Admin\Support\Tickets\Show as TicketsShow;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Support\Facades\Route;
 
@@ -82,6 +87,20 @@ Route::middleware(['auth', 'panel', AuthenticateSession::class])->name('admin.')
         Route::get('/', NotificationIndex::class)->name('index');
         Route::get('/create', NotificationForm::class)->name('create')->middleware('permission:notifications.create');
         Route::get('/{notification}/edit', NotificationForm::class)->name('edit')->middleware('permission:notifications.edit');
+    });
+
+    // ── Tickets ───────────────────────────────────────────────────────────
+    Route::prefix('tickets')->name('tickets.')->middleware('permission:tickets.view')->group(function () {
+        Route::get('/', TicketsIndex::class)->name('index');
+        Route::get('/create', TicketsForm::class)->name('create')->middleware('permission:tickets.create');
+        Route::get('/{ticket}', TicketsShow::class)->name('show')->middleware('permission:tickets.manage');
+    });
+
+    // ── Ticket Categories ────────────────────────────────────────────────
+    Route::prefix('ticket-categories')->name('ticket-categories.')->middleware('permission:ticket_categories.view')->group(function () {
+        Route::get('/', CategoriesIndex::class)->name('index');
+        Route::get('/create', CategoriesForm::class)->name('create')->middleware('permission:ticket_categories.create');
+        Route::get('/{category}/edit', CategoriesForm::class)->name('edit')->middleware('permission:ticket_categories.edit');
     });
 
     // ── Staff ─────────────────────────────────────────────────────────────
