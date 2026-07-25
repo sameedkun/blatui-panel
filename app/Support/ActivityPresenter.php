@@ -3,12 +3,20 @@
 namespace App\Support;
 
 use App\Enum\PolicyType;
+use App\Models\Feedback;
+use App\Models\Language;
+use App\Models\Notification;
+use App\Models\Plan;
+use App\Models\Ticket;
+use App\Models\TicketCategory;
 use App\Models\User;
 use Carbon\CarbonInterface;
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Activity;
+use Spatie\Permission\Models\Role;
 
 /**
  * Turns one raw {@see Activity} row into display-ready data for the per-record
@@ -437,5 +445,48 @@ class ActivityPresenter
         }
 
         return $causer->isStaff() ? "{$causer->name} (Admin)" : $causer->name;
+    }
+
+    /**
+     * The admin URL for an activity's subject, permission-gated — null when
+     * there's no mapped destination (module has no detail/edit page, or the
+     * subject class isn't registered below) or the viewer lacks the
+     * permission to see it. Add one line to {@see subjectUrlResolvers()} for
+     * a new subject type rather than growing an if/elseif at every call site.
+     */
+    public static function subjectUrl(?Model $subject): ?string
+    {
+        if (! $subject) {
+            return null;
+        }
+
+        $resolver = static::subjectUrlResolvers()[$subject::class] ?? null;
+
+        return $resolver ? $resolver($subject) : null;
+    }
+
+    /**
+     * @return array<class-string, Closure(Model): ?string>
+     */
+    protected static function subjectUrlResolvers(): array
+    {
+        return [
+            User::class => function (User $user): ?string {
+                $viewer = auth()->user();
+
+                return match (true) {
+                    $user->isStaff() => $viewer->can('staff.edit') ? route('admin.staff.edit', $user) : null,
+                    $user->isGuest() => $viewer->can('guests.manage') ? route('admin.guests.show', $user) : null,
+                    default => $viewer->can('users.manage') ? route('admin.users.show', $user) : null,
+                };
+            },
+            Plan::class => fn (Plan $plan): ?string => auth()->user()->can('plans.manage') ? route('admin.plans.show', $plan) : null,
+            Ticket::class => fn (Ticket $ticket): ?string => auth()->user()->can('tickets.manage') ? route('admin.tickets.show', $ticket) : null,
+            TicketCategory::class => fn (TicketCategory $category): ?string => auth()->user()->can('ticket_categories.edit') ? route('admin.ticket-categories.edit', $category) : null,
+            Language::class => fn (Language $language): ?string => auth()->user()->can('languages.edit') ? route('admin.languages.edit', $language) : null,
+            Notification::class => fn (Notification $notification): ?string => auth()->user()->can('notifications.edit') ? route('admin.notifications.edit', $notification) : null,
+            Feedback::class => fn (Feedback $feedback): ?string => auth()->user()->can('feedback.manage') ? route('admin.feedback.show', $feedback) : null,
+            Role::class => fn (Role $role): ?string => auth()->user()->can('roles.edit') ? route('admin.roles.edit', $role) : null,
+        ];
     }
 }

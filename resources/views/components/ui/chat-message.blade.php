@@ -4,6 +4,7 @@
     'time' => null,
     'avatar' => null,      // image url; falls back to initials from $name (or a generic glyph)
     'typing' => false,     // render 3 animated dots instead of slot content
+    'bubbleClass' => null,
 ])
 
 @php
@@ -30,12 +31,12 @@
     {{ $attributes }}
 >
     {{-- Avatar (image or initials). Decorative relative to the text, so labelled minimally. --}}
-    <x-ui.avatar @class(['shrink-0', 'bg-muted' => ! $avatar])>
+    <x-ui.avatar @class(['shrink-0 shadow-2xs border border-border/60', 'bg-muted' => ! $avatar])>
         @if ($avatar)
             <x-ui.avatar-image :src="$avatar" :alt="$name ? $name : ''" />
-            <x-ui.avatar-fallback>{{ $initials ?: '?' }}</x-ui.avatar-fallback>
+            <x-ui.avatar-fallback class="font-semibold text-xs">{{ $initials ?: '?' }}</x-ui.avatar-fallback>
         @elseif ($initials)
-            <x-ui.avatar-fallback class="text-foreground">{{ $initials }}</x-ui.avatar-fallback>
+            <x-ui.avatar-fallback class="font-semibold text-xs text-foreground">{{ $initials }}</x-ui.avatar-fallback>
         @else
             <x-ui.avatar-fallback class="text-muted-foreground">
                 <x-dynamic-component :component="'lucide-'.($isUser ? 'user' : 'bot')" class="size-4" aria-hidden="true" />
@@ -52,7 +53,7 @@
         @if ($name || $time)
             <div class="flex items-center gap-2 px-1 text-xs text-muted-foreground">
                 @if ($name)
-                    <span class="font-medium">{{ $name }}</span>
+                    <span class="font-medium text-foreground/90">{{ $name }}</span>
                 @endif
                 @if ($time)
                     <span>{{ $time }}</span>
@@ -61,9 +62,8 @@
         @endif
 
         <div @class([
-            'max-w-[80%] rounded-2xl px-3.5 py-2 text-sm break-words',
-            'bg-primary text-primary-foreground rounded-ee-sm' => $isUser,
-            'bg-muted text-foreground rounded-es-sm' => ! $isUser,
+            'max-w-[88%] sm:max-w-[82%] rounded-2xl px-4 py-2.5 text-sm break-words shadow-2xs overflow-hidden',
+            $bubbleClass ?? ($isUser ? 'bg-primary text-primary-foreground rounded-ee-sm' : 'bg-muted text-foreground rounded-es-sm border border-border/40'),
         ])>
             @if ($typing)
                 <span class="flex items-center gap-1 py-1" role="status" aria-label="{{ $name ? $name . ' is typing' : 'Typing' }}">

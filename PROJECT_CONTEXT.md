@@ -170,6 +170,19 @@ what the admin was looking at on screen. `App\Listeners\AuthActivityListener` au
 login/failed-login (rate-limited)/password-reset via Laravel's event discovery — guests are never
 logged for auth or account activity.
 
+The shared activity detail dialog (`.../activity-logs/partials/detail-dialog.blade.php`, used by
+both the global viewer and every per-record Activity tab) resolves its "Subject" link via
+**`ActivityPresenter::subjectUrl(?Model $subject)`** — a lookup table
+(`subjectUrlResolvers()`: subject class → a permission-gated closure building the right route)
+covering every model actually logged as a subject (`User` — staff/app/guest each to their own
+route, `Plan`, `Ticket`, `TicketCategory`, `Language`, `Notification`, `Feedback`, `Role`). Adding
+support for a new subject type is one array entry there, not a new `if`/`elseif` in every view that
+renders a subject link. The dialog also accepts an optional `$currentRecord` (the profile page's own
+bound model, passed by the three per-record Activity tabs — Tickets, Plans, Users, and by extension
+Guests since it reuses the Users partial) — when the activity's subject *is* that same record, the
+subject renders as plain text with a small "Viewing" badge instead of a link back to the page
+you're already on.
+
 ## Plans & Subscriptions
 
 Five tables/models under `app/Models/`, a full admin UI, and full user-facing subscription
@@ -352,18 +365,61 @@ mirroring `Plan`).
   System notes make the load-balancing decision visible directly in the conversation thread, not
   just the audit log.
 
-**`App\Services\TicketAssignmentService::pickAgent(TicketCategory)`** is the load-balancing core —
-pure selection, no side effects: among the category's `agents()`, picks whoever currently has the
-fewest open (non-Resolved/Closed) tickets via `withCount` + `orderBy`, ties broken by user id.
-Returns `null` if the category has no agents (ticket stays unassigned).
+**`App\Services\TicketAssignmentService`** is the single source of truth for two related things:
+
+- **Agent eligibility** — a staff member only counts as an "agent" if they hold *both*
+  `tickets.view` and `tickets.manage` (checked via Spatie's `permission()` scope, chained — two
+  calls ANDed together, not one call with an array which would OR them). `eligibleAgentsQuery()`
+  returns the scoped `Builder`; `eligibleAgents()`/`eligibleAgentOptions()` are the
+  Collection/pluck-list conveniences built on it. Every place in the panel that offers or accepts
+  an agent — the category form's checklist, the ticket filters, the bulk-assign dialog, manual
+  reassignment — goes through one of these rather than re-deriving the permission check, so a
+  staff member who loses ticket access stops being assignable everywhere at once.
+- **`pickAgent(TicketCategory)`** — the load-balancing core, pure selection, no side effects:
+  among the category's `agents()` **intersected with the eligible set**, picks whoever currently
+  has the fewest open (non-Resolved/Closed) tickets via `withCount` + `orderBy`, ties broken by
+  user id. Returns `null` if the category has no *eligible* agents (a category can have agents
+  attached who've since lost permission — they're skipped, not just deprioritized).
 
 **`App\Services\TicketService`** is the only place ticket state changes (mirrors
 `SubscriptionService`): `create()` (creates the ticket + first message, then auto-assigns via
-`TicketAssignmentService`), `reply()` (staff reply; flips `Open` → `Pending`, never silently
-overrides `Resolved`/`Closed`), `changeStatus()`, `changePriority()`, `reassign()` (manual
-override — not restricted to the category's agent pool, since an admin may need to override the
-automatic pick), `changeCategory()` (re-runs auto-assignment if the current agent isn't in the new
-category's pool). Every mutation logs through `ActivityLogger` with module `Ticket`.
+`TicketAssignmentService`), `reply()` (staff reply, optionally with file attachments — see below;
+flips `Open` → `Pending`, never silently overrides `Resolved`/`Closed`), `changeStatus()`,
+`changePriority()`, `reassign()` (manual override — not restricted to the category's agent pool,
+since an admin may need to override the automatic pick), `changeCategory()` (re-runs
+auto-assignment if the current agent isn't in the new category's pool). Every mutation logs
+through `ActivityLogger` with module `Ticket`.
+
+**Ticket visibility** (`Ticket::scopeVisibleTo(User $user)`) is the single query scope gating
+which tickets a staff member can see at all: a super admin (`isSuperAdmin()`) sees everything;
+anyone else sees only tickets `assigned_to` them, plus unassigned tickets in a category they're an
+agent for (`agentCategories()`). Applied to `Tickets/Index`'s base query, every stat card, and both
+bulk actions (so a crafted `selectedIds` payload can't reach an out-of-scope ticket) — and,
+defensively, to `Tickets/Show::mount()` (`abort_unless(...->exists(), 403)`, so a non-super-admin
+can't reach an out-of-scope ticket just by knowing its URL) and to
+`HandlesTicketRowActions`'s lookups (assign-to-me/close/reopen).
+
+### Message attachments
+
+Staff can attach files when replying (`TicketService::reply()`'s `$attachments` param, an array of
+`UploadedFile`). `storeAttachments()` writes each one via `$file->store($ticket->attachmentsPath())`
+— **no disk named**, so it follows whatever `filesystems.default` resolves to (same convention as
+`User::avatarUrl()`) — and records `{name, size, mime, path}` per file into
+`ticket_messages.attachments` (`array` cast). Only the **path** is stored, never a resolved URL;
+`TicketMessage::attachmentsWithUrls()` resolves `Storage::url()` per attachment at render time.
+`Ticket::attachmentsPath()` (`ticket-attachments/{id}`) is the **single folder every message's
+attachments for that ticket share** — not per-message subfolders — specifically so `Ticket::booted()`'s
+`deleting` event can remove everything in one `Storage::deleteDirectory()` call when a ticket is
+deleted (DB-level FK cascade already removes the `ticket_messages` rows; that event is what actually
+removes the files). The reply form uses BlatUI's `file-upload` component (`php artisan blatui:add
+file-upload`, newly added for this) bridged to Livewire's `WithFileUploads` on `Tickets/Show`
+(`$replyAttachments`, validated: max 5 files, 10MB each, an image/doc/archive mime allowlist). Its
+`wire:key` is tied to an incrementing `replyAttachmentsKey` bumped after every successful reply —
+the component keeps its own client-side (Alpine) preview list that a normal Livewire morph won't
+clear just because the server-side property was reset, so the key change forces a fresh remount
+instead. After a successful reply the component also dispatches `scroll-to-latest-message`, which
+the conversation tab's thread card listens for to scroll itself into view and its internal chat box
+down to the new message (`x-ref`s, no polling).
 
 ### Admin UI
 

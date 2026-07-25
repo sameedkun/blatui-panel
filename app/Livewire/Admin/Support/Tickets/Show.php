@@ -11,12 +11,15 @@ use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Livewire\Admin\Support\Tickets\Concerns\HandlesTicketRowActions;
 use App\Models\Ticket;
 use App\Models\TicketCategory;
-use App\Models\User;
+use App\Services\TicketAssignmentService;
 use App\Services\TicketService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 use Spatie\Activitylog\Models\Activity;
 
 /**
@@ -33,12 +36,27 @@ class Show extends BaseShow
     use HasActivityDetailModal;
     use HasShowTabs;
     use LogsAdminActivity;
+    use WithFileUploads;
 
     public string $replyMessage = '';
+
+    /** @var array<int, TemporaryUploadedFile> */
+    public array $replyAttachments = [];
+
+    /** Bumped after every reply so the file-upload's wire:key changes — its own
+     *  Alpine preview list is client-side state that a normal morph wouldn't
+     *  touch even after $replyAttachments is reset server-side; changing the
+     *  key forces Livewire to tear down and remount it fresh. */
+    public int $replyAttachmentsKey = 0;
 
     public function mount(Ticket $ticket): void
     {
         $this->initShow($ticket);
+
+        // The index only lists what visibleTo() allows — enforce the same
+        // restriction here so a non-super-admin can't reach an out-of-scope
+        // ticket just by knowing its URL.
+        abort_unless(Ticket::visibleTo(auth()->user())->whereKey($ticket->id)->exists(), 403);
     }
 
     protected function indexRoute(): string
@@ -65,7 +83,7 @@ class Show extends BaseShow
                 'view' => 'livewire.admin.support.tickets.show.tabs.conversation',
                 'data' => fn (): array => [
                     'categoryOptions' => TicketCategory::orderBy('name')->pluck('name', 'id')->all(),
-                    'agentOptions' => User::staff()->permission(['tickets.view', 'tickets.manage'])->orderBy('name')->pluck('name', 'id')->all(),
+                    'agentOptions' => app(TicketAssignmentService::class)->eligibleAgentOptions(),
                     'statusOptions' => collect(TicketStatus::cases())->mapWithKeys(fn (TicketStatus $c) => [$c->value => $c->label()])->all(),
                     'priorityOptions' => collect(TicketPriority::cases())->mapWithKeys(fn (TicketPriority $c) => [$c->value => $c->label()])->all(),
                 ],
@@ -95,15 +113,22 @@ class Show extends BaseShow
     {
         $this->authorize('tickets.manage');
 
-        $this->validate(['replyMessage' => ['required', 'string', 'max:5000']]);
+        $this->validate([
+            'replyMessage' => ['required', 'string', 'max:5000'],
+            'replyAttachments' => ['array', 'max:5'],
+            'replyAttachments.*' => ['file', 'max:10240', 'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,csv,txt,zip'],
+        ]);
 
         /** @var Ticket $ticket */
         $ticket = $this->record;
 
-        app(TicketService::class)->reply($ticket, auth()->user(), $this->replyMessage);
+        app(TicketService::class)->reply($ticket, auth()->user(), $this->replyMessage, $this->replyAttachments);
 
         $this->replyMessage = '';
+        $this->replyAttachments = [];
+        $this->replyAttachmentsKey++;
         $this->toastSuccess('Reply sent.');
+        $this->dispatch('scroll-to-latest-message');
     }
 
     public function updateStatus(string $status): void
@@ -160,13 +185,14 @@ class Show extends BaseShow
         $this->authorize('tickets.manage');
 
         $agentId = $agentId !== null && $agentId !== '' ? (int) $agentId : null;
+        $assignment = app(TicketAssignmentService::class);
 
         Validator::make(
             ['agentId' => $agentId],
-            ['agentId' => ['nullable', 'integer', 'exists:users,id']],
+            ['agentId' => ['nullable', 'integer', Rule::in(array_keys($assignment->eligibleAgentOptions()))]],
         )->validate();
 
-        $agent = $agentId ? User::staff()->findOrFail($agentId) : null;
+        $agent = $agentId ? $assignment->eligibleAgentsQuery()->findOrFail($agentId) : null;
 
         /** @var Ticket $ticket */
         $ticket = $this->record;

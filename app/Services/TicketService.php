@@ -12,6 +12,7 @@ use App\Models\TicketCategory;
 use App\Models\TicketMessage;
 use App\Models\User;
 use App\Support\ActivityLogger;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -67,17 +68,21 @@ class TicketService
     }
 
     /**
-     * Record a staff reply. Moves an Open ticket to Pending (waiting on the
-     * customer) — never silently overrides a Resolved/Closed ticket; the
-     * caller should reopen it first via {@see changeStatus()}.
+     * Record a staff reply, storing any attached files under the ticket's own
+     * folder ({@see storeAttachments()}). Moves an Open ticket to Pending
+     * (waiting on the customer) — never silently overrides a Resolved/Closed
+     * ticket; the caller should reopen it first via {@see changeStatus()}.
+     *
+     * @param  array<int, UploadedFile>  $attachments
      */
-    public function reply(Ticket $ticket, User $staff, string $message): TicketMessage
+    public function reply(Ticket $ticket, User $staff, string $message, array $attachments = []): TicketMessage
     {
-        return DB::transaction(function () use ($ticket, $staff, $message): TicketMessage {
+        return DB::transaction(function () use ($ticket, $staff, $message, $attachments): TicketMessage {
             $ticketMessage = $ticket->messages()->create([
                 'user_id' => $staff->id,
                 'author_type' => TicketMessageAuthorType::Staff,
                 'message' => $message,
+                'attachments' => $this->storeAttachments($ticket, $attachments),
             ]);
 
             $ticket->update(['last_staff_response_at' => now()]);
@@ -86,7 +91,9 @@ class TicketService
                 $ticket->update(['status' => TicketStatus::Pending]);
             }
 
-            ActivityLogger::log(ActivityModule::Ticket, ActivityAction::Replied, $ticket, [], causer: $staff);
+            ActivityLogger::log(ActivityModule::Ticket, ActivityAction::Replied, $ticket, [
+                'attachments' => count($attachments),
+            ], causer: $staff);
 
             return $ticketMessage;
         });
@@ -194,5 +201,29 @@ class TicketService
         ]);
 
         return $agent;
+    }
+
+    /**
+     * Stores every attachment under the ticket's single folder
+     * ({@see Ticket::attachmentsPath()}) — never a per-message subfolder, so
+     * deleting the ticket (its `deleting` model event) can remove every
+     * message's attachments in one `deleteDirectory()` call. No disk is
+     * named here — `store()` writes to the app's default disk, same as
+     * {@see User::avatarUrl()}, so this follows whatever `FILESYSTEM_DISK`
+     * is configured without this class needing to know or care.
+     *
+     * @param  array<int, UploadedFile>  $files
+     * @return array<int, array{name: string, size: int, mime: string, path: string}>
+     */
+    protected function storeAttachments(Ticket $ticket, array $files): array
+    {
+        return collect($files)
+            ->map(fn (UploadedFile $file): array => [
+                'name' => $file->getClientOriginalName(),
+                'size' => $file->getSize(),
+                'mime' => $file->getClientMimeType(),
+                'path' => $file->store($ticket->attachmentsPath()),
+            ])
+            ->all();
     }
 }

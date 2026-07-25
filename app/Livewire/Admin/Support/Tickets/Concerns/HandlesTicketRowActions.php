@@ -21,7 +21,7 @@ trait HandlesTicketRowActions
     {
         $this->authorize('tickets.manage');
 
-        $ticket = Ticket::findOrFail($ticketId);
+        $ticket = Ticket::visibleTo(auth()->user())->findOrFail($ticketId);
         $agent = auth()->user();
 
         app(TicketService::class)->reassign($ticket, $agent, $agent);
@@ -33,7 +33,7 @@ trait HandlesTicketRowActions
     {
         $this->authorize('tickets.manage');
 
-        $ticket = Ticket::findOrFail($ticketId);
+        $ticket = Ticket::visibleTo(auth()->user())->findOrFail($ticketId);
 
         app(TicketService::class)->changeStatus($ticket, TicketStatus::Closed, auth()->user());
 
@@ -44,7 +44,7 @@ trait HandlesTicketRowActions
     {
         $this->authorize('tickets.manage');
 
-        $ticket = Ticket::findOrFail($ticketId);
+        $ticket = Ticket::visibleTo(auth()->user())->findOrFail($ticketId);
 
         app(TicketService::class)->changeStatus($ticket, TicketStatus::Open, auth()->user());
 

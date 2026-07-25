@@ -85,5 +85,6 @@
         'dialogId' => 'record-activity-detail',
         'closeMethod' => 'clearSelectedActivityDetail',
         'showScopeLink' => false,
+        'currentRecord' => $record,
     ])
 </x-ui.card>

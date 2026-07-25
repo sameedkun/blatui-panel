@@ -6,10 +6,12 @@ use App\Enum\TicketPriority;
 use App\Enum\TicketStatus;
 use Database\Factories\TicketFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
     'user_id',
@@ -26,6 +28,17 @@ class Ticket extends Model
 {
     /** @use HasFactory<TicketFactory> */
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        // TicketMessage rows cascade-delete at the DB level (FK constraint), but
+        // that never touches the filesystem — this is what actually removes the
+        // stored files, in one shot, regardless of how many messages/attachments
+        // existed.
+        static::deleting(function (Ticket $ticket): void {
+            Storage::deleteDirectory($ticket->attachmentsPath());
+        });
+    }
 
     protected function casts(): array
     {
@@ -81,5 +94,34 @@ class Ticket extends Model
     public function isAssigned(): bool
     {
         return $this->assigned_to !== null;
+    }
+
+    /** The single folder every message attachment for this ticket is stored under. */
+    public function attachmentsPath(): string
+    {
+        return "ticket-attachments/{$this->id}";
+    }
+
+    /**
+     * Scopes tickets to what a staff member is allowed to see: a super admin
+     * sees everything; anyone else sees only tickets assigned to them, plus
+     * unassigned tickets in a category they're an agent for. Shared by the
+     * index listing, its stats, bulk actions, and the detail page so the
+     * restriction can't be bypassed by visiting a ticket URL directly.
+     */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->isSuperAdmin()) {
+            return $query;
+        }
+
+        $categoryIds = $user->agentCategories()->pluck('categories.id');
+
+        return $query->where(function (Builder $q) use ($user, $categoryIds): void {
+            $q->where('assigned_to', $user->id)
+                ->orWhere(function (Builder $q2) use ($categoryIds): void {
+                    $q2->whereNull('assigned_to')->whereIn('category_id', $categoryIds);
+                });
+        });
     }
 }

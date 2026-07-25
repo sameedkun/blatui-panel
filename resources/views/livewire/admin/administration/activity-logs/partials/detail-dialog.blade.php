@@ -8,12 +8,15 @@
         $dialogId      string      unique <x-ui.dialog> id on the page
         $closeMethod   string      Livewire method to call when the dialog closes
         $showScopeLink bool        show the "Show all activity for this record" link (default true)
+        $currentRecord ?Model      the record this page is already showing, if any — its own
+                                    subject link is shown as plain text instead of a self-link
 --}}
 @php
     use App\Support\ActivityPresenter;
     use Illuminate\Support\Str;
 
     $showScopeLink ??= true;
+    $currentRecord ??= null;
 
     $actionBadge = function (?string $event): array {
         return match ($event) {
@@ -50,12 +53,10 @@
                 $rest = ActivityPresenter::orderProperties($sProps->except(['module', 'context', 'attributes', 'old']));
 
                 $subject = $activity->subject;
-                $subjectUrl = null;
-                if ($subject instanceof \App\Models\User) {
-                    $subjectUrl = $subject->isStaff()
-                        ? route('admin.staff.edit', $subject)
-                        : route('admin.users.edit', $subject);
-                }
+                $subjectUrl = ActivityPresenter::subjectUrl($subject);
+                $isCurrentRecord = $subject && $currentRecord
+                    && $subject::class === $currentRecord::class
+                    && $subject->getKey() === $currentRecord->getKey();
                 $sBadge = $actionBadge($activity->event);
             @endphp
 
@@ -90,10 +91,23 @@
                         <dt class="text-xs text-muted-foreground">Subject</dt>
                         <dd class="font-medium">
                             @if ($activity->subject_type)
-                                @if ($subjectUrl)
+                                @if ($isCurrentRecord)
+                                    <span class="inline-flex flex-wrap items-center gap-1.5 text-muted-foreground">
+                                        {{ class_basename($activity->subject_type) }} #{{ $activity->subject_id }}
+                                        <x-ui.badge variant="outline" class="gap-1 text-[10px] font-normal">
+                                            <x-lucide-eye class="size-2.5" />
+                                            Viewing
+                                        </x-ui.badge>
+                                    </span>
+                                @elseif ($subjectUrl)
                                     <a href="{{ $subjectUrl }}" class="text-primary underline hover:no-underline">
                                         {{ class_basename($activity->subject_type) }} #{{ $activity->subject_id }}
                                     </a>
+                                @elseif ($subject)
+                                    {{-- Record exists but there's no page to link to for it (or the viewer lacks the permission). --}}
+                                    <span class="font-mono text-xs">
+                                        {{ class_basename($activity->subject_type) }} #{{ $activity->subject_id }}
+                                    </span>
                                 @else
                                     <span class="font-mono text-xs">
                                         {{ class_basename($activity->subject_type) }} #{{ $activity->subject_id }}

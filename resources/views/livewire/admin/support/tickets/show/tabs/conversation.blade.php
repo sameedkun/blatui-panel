@@ -1,16 +1,23 @@
 {{--
     Conversation tab — ticket thread on the left built with BlatUI Chat components (<x-ui.chat> and <x-ui.chat-message>),
-    a reply box below, and a ticket management sidebar on the right.
+    media image previews & file cards, reply box below, and ticket management sidebar on the right.
 
     Expects: $record, $categoryOptions, $agentOptions, $statusOptions, $priorityOptions
 --}}
-<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-3" x-data="{ previewUrl: null, previewTitle: null }">
 
     {{-- Thread Column --}}
     <div class="space-y-6 lg:col-span-2">
 
         {{-- BlatUI Chat Component Thread Card --}}
-        <x-ui.card class="overflow-hidden">
+        <x-ui.card
+            class="overflow-hidden scroll-mt-6"
+            x-ref="threadCard"
+            @scroll-to-latest-message.window="
+                $refs.threadCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                $nextTick(() => $refs.chatBox.scrollTo({ top: $refs.chatBox.scrollHeight, behavior: 'smooth' }));
+            "
+        >
             <x-ui.card-header class="border-b border-border/50 pb-4">
                 <div class="flex items-center gap-3">
                     <div class="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
@@ -24,28 +31,179 @@
             </x-ui.card-header>
 
             <x-ui.card-content class="p-4 sm:p-6">
-                <x-ui.chat class="max-h-[550px] space-y-4">
+                <x-ui.chat x-ref="chatBox" class="max-h-[580px] space-y-4">
                     @forelse ($record->messages as $message)
                         @if ($message->isSystem())
                             <div class="my-2 flex justify-center" wire:key="ticket-message-{{ $message->id }}">
-                                <span class="inline-flex items-center gap-1.5 rounded-full bg-muted px-3.5 py-1 text-xs font-medium text-muted-foreground border border-border/50">
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-muted/80 px-3.5 py-1 text-xs font-medium text-muted-foreground border border-border/60 shadow-2xs">
                                     <x-lucide-zap class="size-3 text-amber-500" />
                                     <span>{{ $message->message }}</span>
                                     <x-ui.local-time :value="$message->created_at" show-diff="true" />
                                 </span>
                             </div>
                         @else
-                            @php $isStaff = $message->author_type === \App\Enum\TicketMessageAuthorType::Staff; @endphp
+                            @php
+                                $isStaff = $message->author_type === \App\Enum\TicketMessageAuthorType::Staff;
+                                $attachments = $message->attachmentsWithUrls();
+                                $images = [];
+                                $files = [];
+                                foreach ($attachments as $att) {
+                                    $ext = strtolower(pathinfo($att['name'] ?? '', PATHINFO_EXTENSION));
+                                    $isImg = str_starts_with($att['mime'] ?? '', 'image/') || in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'avif']);
+                                    if ($isImg) {
+                                        $images[] = $att;
+                                    } else {
+                                        $files[] = $att;
+                                    }
+                                }
+                            @endphp
+
                             <x-ui.chat-message
                                 wire:key="ticket-message-{{ $message->id }}"
                                 role="{{ $isStaff ? 'user' : 'assistant' }}"
                                 name="{{ $message->user?->name ?? 'Unknown' }}"
                                 avatar="{{ $message->user?->avatarUrl() }}"
+                                bubbleClass="{{ $isStaff ? 'bg-primary text-primary-foreground font-medium rounded-ee-sm border border-primary/20' : 'bg-muted/90 text-foreground rounded-es-sm border border-border/60' }}"
                             >
                                 <x-slot:time>
                                     <x-ui.local-time :value="$message->created_at" show-diff="true" />
                                 </x-slot:time>
+
                                 <div class="whitespace-pre-line leading-relaxed">{{ $message->message }}</div>
+
+                                {{-- Attachments Container --}}
+                                @if (! empty($attachments))
+                                    <div class="mt-2 space-y-2 border-t border-current/15 pt-2 w-fit max-w-full">
+
+                                        {{-- Image Media Previews --}}
+                                        @if (! empty($images))
+                                            @php $imgCount = count($images); @endphp
+                                            @if ($imgCount === 1)
+                                                @php $img = $images[0]; @endphp
+                                                <div class="mt-2 w-44 sm:w-48 max-w-full">
+                                                    <div class="group relative overflow-hidden rounded-xl border border-black/20 dark:border-white/20 bg-card shadow-2xs transition-all hover:border-primary/40 w-full">
+                                                        @if ($img['url'])
+                                                            <button
+                                                                type="button"
+                                                                @click="previewUrl = '{{ $img['url'] }}'; previewTitle = '{{ e($img['name']) }}'"
+                                                                class="block w-full overflow-hidden text-left cursor-pointer"
+                                                            >
+                                                                <img
+                                                                    src="{{ $img['url'] }}"
+                                                                    alt="{{ $img['name'] }}"
+                                                                    class="block h-32 sm:h-36 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                                                    loading="lazy"
+                                                                />
+                                                            </button>
+                                                        @else
+                                                            <div class="flex h-24 items-center justify-center text-xs text-muted-foreground px-3">Image unavailable</div>
+                                                        @endif
+
+                                                        <div class="flex items-center justify-between gap-1 border-t border-black/10 dark:border-white/10 bg-card px-2 py-1.5 w-full">
+                                                            <span class="truncate text-[9px] font-medium text-foreground flex-1 min-w-0" title="{{ $img['name'] }}">{{ $img['name'] }}</span>
+                                                            @if ($img['url'])
+                                                                <a
+                                                                    href="{{ $img['url'] }}"
+                                                                    target="_blank"
+                                                                    rel="noopener"
+                                                                    title="Open full size in new tab"
+                                                                    class="inline-flex shrink-0 items-center gap-0.5 font-mono text-[9px] text-muted-foreground hover:text-primary transition-colors"
+                                                                >
+                                                                    <span>{{ number_format($img['size'] / 1024, 1) }} KB</span>
+                                                                    <x-lucide-external-link class="size-2.5" />
+                                                                </a>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            @else
+                                                @php
+                                                    $colsClass = match ($imgCount) {
+                                                        2 => 'grid-cols-2 sm:max-w-xs',
+                                                        3 => 'grid-cols-3 sm:max-w-md',
+                                                        4 => 'grid-cols-2 sm:max-w-xs',
+                                                        default => 'grid-cols-3 sm:max-w-md',
+                                                    };
+                                                @endphp
+                                                <div class="mt-2 grid {{ $colsClass }} gap-1.5 w-fit max-w-full">
+                                                    @foreach ($images as $img)
+                                                        <div class="group relative overflow-hidden rounded-xl border border-black/20 dark:border-white/20 bg-card shadow-2xs transition-all hover:border-primary/40 min-w-0">
+                                                            @if ($img['url'])
+                                                                <button
+                                                                    type="button"
+                                                                    @click="previewUrl = '{{ $img['url'] }}'; previewTitle = '{{ e($img['name']) }}'"
+                                                                    class="block w-full overflow-hidden text-left cursor-pointer"
+                                                                >
+                                                                    <img
+                                                                        src="{{ $img['url'] }}"
+                                                                        alt="{{ $img['name'] }}"
+                                                                        class="block h-24 sm:h-28 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                                                        loading="lazy"
+                                                                    />
+                                                                </button>
+                                                            @else
+                                                                <div class="flex h-20 items-center justify-center text-xs text-muted-foreground">Image unavailable</div>
+                                                            @endif
+
+                                                            <div class="flex items-center justify-between gap-1 border-t border-black/10 dark:border-white/10 bg-card px-1.5 py-1 w-full">
+                                                                <span class="truncate text-[9px] font-medium text-foreground flex-1 min-w-0" title="{{ $img['name'] }}">{{ $img['name'] }}</span>
+                                                                @if ($img['url'])
+                                                                    <a
+                                                                        href="{{ $img['url'] }}"
+                                                                        target="_blank"
+                                                                        rel="noopener"
+                                                                        title="Open full size in new tab"
+                                                                        class="inline-flex shrink-0 items-center gap-0.5 font-mono text-[8px] text-muted-foreground hover:text-primary transition-colors"
+                                                                    >
+                                                                        <span>{{ number_format($img['size'] / 1024, 1) }} KB</span>
+                                                                        <x-lucide-external-link class="size-2" />
+                                                                    </a>
+                                                                @endif
+                                                            </div>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        @endif
+
+                                        {{-- Non-Image Document File Cards --}}
+                                        @if (! empty($files))
+                                            <div class="space-y-1 w-fit max-w-full sm:max-w-[240px]">
+                                                @foreach ($files as $file)
+                                                    @php $ext = strtolower(pathinfo($file['name'] ?? '', PATHINFO_EXTENSION)); @endphp
+                                                    <a
+                                                        href="{{ $file['url'] ?? '#' }}"
+                                                        target="_blank"
+                                                        rel="noopener"
+                                                        class="flex items-center gap-2.5 rounded-lg border border-black/15 dark:border-white/15 bg-card p-2 text-xs transition-all hover:bg-card hover:border-primary/50 shadow-2xs group max-w-full {{ ! $file['url'] ? 'pointer-events-none opacity-50' : '' }}"
+                                                    >
+                                                        <div class="flex size-7 shrink-0 items-center justify-center rounded-md border border-primary/20 bg-primary/10 text-primary">
+                                                            @if ($ext === 'pdf')
+                                                                <x-lucide-file-text class="size-3.5" />
+                                                            @elseif (in_array($ext, ['zip', 'rar', '7z', 'tar', 'gz']))
+                                                                <x-lucide-file-archive class="size-3.5" />
+                                                            @elseif (in_array($ext, ['json', 'php', 'js', 'html', 'css', 'ts']))
+                                                                <x-lucide-file-code class="size-3.5" />
+                                                            @else
+                                                                <x-lucide-file class="size-3.5" />
+                                                            @endif
+                                                        </div>
+
+                                                        <div class="min-w-0 flex-1 space-y-0.5">
+                                                            <p class="truncate font-semibold text-foreground text-[11px] group-hover:text-primary transition-colors">{{ $file['name'] }}</p>
+                                                            <p class="font-mono text-[9px] text-muted-foreground">{{ number_format($file['size'] / 1024, 1) }} KB</p>
+                                                        </div>
+
+                                                        <div class="flex size-5.5 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                                            <x-lucide-external-link class="size-2.5" />
+                                                        </div>
+                                                    </a>
+                                                @endforeach
+                                            </div>
+                                        @endif
+
+                                    </div>
+                                @endif
                             </x-ui.chat-message>
                         @endif
                     @empty
@@ -88,8 +246,25 @@
                                 @enderror
                             </x-ui.field>
 
+                            <x-ui.field>
+                                <x-ui.field-label class="text-xs font-medium">Upload Attachments</x-ui.field-label>
+                                <x-ui.file-upload
+                                    wire:key="reply-attachments-{{ $replyAttachmentsKey }}"
+                                    name="replyAttachments"
+                                    multiple
+                                    maxSizeLabel="Up to 5 files, 10MB each"
+                                    wire:model="replyAttachments"
+                                />
+                                @error('replyAttachments')
+                                    <x-ui.field-error>{{ $message }}</x-ui.field-error>
+                                @enderror
+                                @error('replyAttachments.*')
+                                    <x-ui.field-error>{{ $message }}</x-ui.field-error>
+                                @enderror
+                            </x-ui.field>
+
                             <div class="flex justify-end">
-                                <x-ui.button type="submit" size="sm" wire:loading.attr="disabled" wire:target="reply" class="gap-1.5 shadow-2xs">
+                                <x-ui.button type="submit" size="sm" wire:loading.attr="disabled" wire:target="reply,replyAttachments" class="gap-1.5 shadow-2xs">
                                     <x-lucide-send class="size-3.5" />
                                     <span>Send Reply</span>
                                 </x-ui.button>
@@ -202,6 +377,33 @@
             </x-ui.card-content>
         </x-ui.card>
 
+    </div>
+
+    {{-- Alpine Lightbox Image Preview Modal --}}
+    <div
+        x-show="previewUrl"
+        x-cloak
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
+        @click.self="previewUrl = null"
+        @keydown.escape.window="previewUrl = null"
+    >
+        <div class="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl border border-white/20 bg-card p-3 shadow-2xl space-y-3">
+            <div class="flex items-center justify-between border-b border-border/50 pb-2 px-2">
+                <span class="text-xs font-semibold text-foreground truncate max-w-md" x-text="previewTitle"></span>
+                <div class="flex items-center gap-3">
+                    <a :href="previewUrl" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                        <span>Open in new tab</span>
+                        <x-lucide-external-link class="size-3.5" />
+                    </a>
+                    <button type="button" @click="previewUrl = null" class="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-muted">
+                        <x-lucide-x class="size-5" />
+                    </button>
+                </div>
+            </div>
+            <div class="flex items-center justify-center overflow-auto max-h-[78vh] p-1">
+                <img :src="previewUrl" :alt="previewTitle" class="max-h-[75vh] w-auto max-w-full rounded-xl object-contain" />
+            </div>
+        </div>
     </div>
 
 </div>

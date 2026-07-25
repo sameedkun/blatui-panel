@@ -9,10 +9,11 @@ use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Livewire\Admin\Support\Tickets\Concerns\HandlesTicketRowActions;
 use App\Models\Ticket;
 use App\Models\TicketCategory;
-use App\Models\User;
+use App\Services\TicketAssignmentService;
 use App\Services\TicketService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -40,7 +41,7 @@ class Index extends BaseIndex
 
     protected function baseQuery(): Builder
     {
-        return Ticket::query()->with(['user', 'category', 'agent']);
+        return Ticket::query()->visibleTo(auth()->user())->with(['user', 'category', 'agent']);
     }
 
     protected function searchableColumns(): array
@@ -111,7 +112,7 @@ class Index extends BaseIndex
     /** @return array<int|string, string> */
     private function assignedOptions(): array
     {
-        return ['unassigned' => 'Unassigned'] + User::staff()->permission(['tickets.view', 'tickets.manage'])->orderBy('name')->pluck('name', 'id')->all();
+        return ['unassigned' => 'Unassigned'] + app(TicketAssignmentService::class)->eligibleAgentOptions();
     }
 
     protected function statsConfig(): array
@@ -119,25 +120,25 @@ class Index extends BaseIndex
         return [
             [
                 'label' => 'Total Tickets',
-                'value' => fn () => Ticket::count(),
+                'value' => fn () => Ticket::visibleTo(auth()->user())->count(),
                 'icon' => 'life-buoy',
                 'description' => 'All-time submissions',
             ],
             [
                 'label' => 'Open',
-                'value' => fn () => Ticket::whereIn('status', [TicketStatus::Open->value, TicketStatus::Pending->value])->count(),
+                'value' => fn () => Ticket::visibleTo(auth()->user())->whereIn('status', [TicketStatus::Open->value, TicketStatus::Pending->value])->count(),
                 'icon' => 'inbox',
                 'description' => 'Needs attention',
             ],
             [
                 'label' => 'Unassigned',
-                'value' => fn () => Ticket::whereNull('assigned_to')->whereNotIn('status', [TicketStatus::Resolved->value, TicketStatus::Closed->value])->count(),
+                'value' => fn () => Ticket::visibleTo(auth()->user())->whereNull('assigned_to')->whereNotIn('status', [TicketStatus::Resolved->value, TicketStatus::Closed->value])->count(),
                 'icon' => 'user-x',
                 'description' => 'No agent yet',
             ],
             [
                 'label' => 'Closed',
-                'value' => fn () => Ticket::where('status', TicketStatus::Closed->value)->count(),
+                'value' => fn () => Ticket::visibleTo(auth()->user())->where('status', TicketStatus::Closed->value)->count(),
                 'icon' => 'circle-check',
                 'description' => 'Resolved & archived',
             ],
@@ -170,7 +171,8 @@ class Index extends BaseIndex
         $this->authorize('tickets.manage');
 
         $service = app(TicketService::class);
-        $tickets = Ticket::whereIn('id', $this->selectedIds)
+        $tickets = Ticket::visibleTo(auth()->user())
+            ->whereIn('id', $this->selectedIds)
             ->where('status', '!=', TicketStatus::Closed->value)
             ->get();
 
@@ -186,15 +188,17 @@ class Index extends BaseIndex
     {
         $this->authorize('tickets.manage');
 
+        $assignment = app(TicketAssignmentService::class);
+
         Validator::make(
             ['bulkAssignAgentId' => $this->bulkAssignAgentId],
-            ['bulkAssignAgentId' => ['required', 'integer', 'exists:users,id']],
+            ['bulkAssignAgentId' => ['required', 'integer', Rule::in(array_keys($assignment->eligibleAgentOptions()))]],
         )->validate();
 
-        $agent = User::staff()->findOrFail($this->bulkAssignAgentId);
+        $agent = $assignment->eligibleAgentsQuery()->findOrFail($this->bulkAssignAgentId);
         $service = app(TicketService::class);
 
-        $tickets = Ticket::whereIn('id', $this->selectedIds)->get();
+        $tickets = Ticket::visibleTo(auth()->user())->whereIn('id', $this->selectedIds)->get();
         foreach ($tickets as $ticket) {
             $service->reassign($ticket, $agent, auth()->user());
         }
@@ -213,7 +217,7 @@ class Index extends BaseIndex
             'pageIds' => $tickets->pluck('id')->map(fn ($id) => (string) $id)->toArray(),
             'stats' => $this->resolveStats(),
             'filterBarConfig' => $this->filterBarConfig(),
-            'agentOptions' => User::staff()->permission(['tickets.view', 'tickets.manage'])->orderBy('name')->pluck('name', 'id')->all(),
+            'agentOptions' => app(TicketAssignmentService::class)->eligibleAgentOptions(),
         ]);
     }
 }
