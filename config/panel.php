@@ -279,6 +279,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Ticket Auto-Close & Retention
+    |--------------------------------------------------------------------------
+    |
+    | A Pending/Resolved ticket with no requester reply since the staff's last
+    | message auto-closes once that staff message reaches this many days old.
+    | A Closed ticket (and all its messages/attachments) is permanently purged
+    | this many months after it was closed.
+    |
+    */
+    'ticket_auto_close_inactive_days' => env('TICKET_AUTO_CLOSE_INACTIVE_DAYS', 7),
+    'ticket_purge_closed_after_months' => env('TICKET_PURGE_CLOSED_AFTER_MONTHS', 6),
+
+    /*
+    |--------------------------------------------------------------------------
     | Activity Log Export Threshold
     |--------------------------------------------------------------------------
     |

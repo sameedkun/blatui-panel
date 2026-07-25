@@ -106,7 +106,15 @@ class Show extends BaseShow
                     'selectedActivity' => $this->selectedActivityDetail(),
                 ],
             ],
-            'tickets' => $this->comingSoonTab('Tickets', 'ticket', 'Support tickets opened by this account will appear here once support ships.'),
+            'tickets' => [
+                'label' => 'Tickets',
+                'icon' => 'ticket',
+                'view' => 'livewire.admin.management.users.profile.tabs.tickets',
+                'permission' => 'tickets.view',
+                'data' => fn (): array => [
+                    'ticketHistory' => $this->ticketHistory(),
+                ],
+            ],
         ];
     }
 
@@ -130,6 +138,19 @@ class Show extends BaseShow
             ->with(['plan', 'planPrice'])
             ->latest('starts_at')
             ->paginate(10, pageName: 'subs_page');
+    }
+
+    // -------------------------------------------------------------------------
+    // Support tickets
+    // -------------------------------------------------------------------------
+
+    /** Every ticket this account has ever opened, newest first — powers the Tickets tab. */
+    protected function ticketHistory(): LengthAwarePaginator
+    {
+        return $this->record->tickets()
+            ->with(['category', 'agent'])
+            ->latest()
+            ->paginate(10, pageName: 'tickets_page');
     }
 
     /** A cancelled-but-still-in-period subscription that can be undone, if any. */
@@ -396,7 +417,7 @@ class Show extends BaseShow
         return [
             ['label' => 'Plan', 'icon' => 'credit-card', 'value' => $this->record->activeSubscription?->plan?->name ?? 'Free'],
             ['label' => 'Devices', 'icon' => 'smartphone', 'value' => null],
-            ['label' => 'Tickets', 'icon' => 'ticket', 'value' => null],
+            ['label' => 'Tickets', 'icon' => 'ticket', 'value' => $this->ticketCount()],
             ['label' => 'Activity', 'icon' => 'activity', 'value' => $this->recordActivityCount()],
             ['label' => 'Joined', 'icon' => 'calendar', 'value' => $this->record->registration_date?->format('M d, Y') ?? '—'],
         ];
@@ -407,6 +428,14 @@ class Show extends BaseShow
     {
         return auth()->user()->can('activity_logs.view')
             ? (string) Activity::forSubject($this->record)->count()
+            : null;
+    }
+
+    /** Total tickets this account has opened, or null (renders "Coming soon") without permission to see them. */
+    protected function ticketCount(): ?string
+    {
+        return auth()->user()->can('tickets.view')
+            ? (string) $this->record->tickets()->count()
             : null;
     }
 

@@ -1,6 +1,8 @@
 <?php
 
 use App\Enum\PaymentProvider;
+use App\Jobs\AutoCloseInactiveTickets;
+use App\Jobs\PurgeClosedTickets;
 use App\Jobs\PurgeExpiredAccounts;
 use App\Jobs\SyncSubscriptionStatuses;
 use Illuminate\Support\Facades\Schedule;
@@ -13,6 +15,17 @@ Schedule::job(new PurgeExpiredAccounts)->hourly()->name('account-deletion-purge'
 Schedule::job(new SyncSubscriptionStatuses([PaymentProvider::Local]))
     ->hourly()
     ->name('subscription-status-sync')
+    ->withoutOverlapping();
+
+// Day-granularity thresholds, so daily is frequent enough for both sweeps.
+Schedule::job(new AutoCloseInactiveTickets(config('panel.ticket_auto_close_inactive_days')))
+    ->daily()
+    ->name('ticket-auto-close')
+    ->withoutOverlapping();
+
+Schedule::job(new PurgeClosedTickets(config('panel.ticket_purge_closed_after_months')))
+    ->daily()
+    ->name('ticket-purge-closed')
     ->withoutOverlapping();
 
 // Prune activity-log entries older than config('activitylog.clean_after_days').

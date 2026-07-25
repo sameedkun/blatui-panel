@@ -421,6 +421,30 @@ instead. After a successful reply the component also dispatches `scroll-to-lates
 the conversation tab's thread card listens for to scroll itself into view and its internal chat box
 down to the new message (`x-ref`s, no polling).
 
+### Ticket lifecycle sweeps
+
+**`App\Services\TicketLifecycleService`** is the calendar-driven counterpart to `TicketService`,
+mirroring the `SubscriptionService`/`SubscriptionLifecycleService` split — these two run off the
+scheduler, not in response to a staff action:
+- `autoCloseInactive(int $days)` (`panel.ticket_auto_close_inactive_days`, default 7) — closes every
+  Pending/Resolved ticket whose `last_staff_response_at` is at least that old **and** hasn't had a
+  requester reply since (`last_user_response_at` null or older than the staff message — i.e. staff
+  had the last word). Leaves a `System` thread message ("Automatically closed after N days of
+  inactivity.") and emails the requester via `TicketAutoClosedNotification` →
+  `App\Mail\Support\TicketAutoClosedMail` (`MailPurpose::Support`).
+- `purgeClosedTickets(int $months)` (`panel.ticket_purge_closed_after_months`, default 6) —
+  permanently deletes every ticket that's been `Closed` for at least that long. Just calls
+  `$ticket->delete()`: the model's `deleting` event removes the attachments folder first, the DB-level
+  FK cascade removes every `ticket_messages` row, then the ticket row itself goes — snapshotted into
+  the audit log first (subject/requester/category as properties) since Spatie's subject reference
+  survives the row being gone but can no longer be resolved live.
+
+Both log with `causer: null` + `ActivityContext::Scheduler` (module `Ticket`, reusing `Updated`/
+`Deleted` with a distinguishing `type` property rather than new verbs). `App\Jobs\
+{AutoCloseInactiveTickets,PurgeClosedTickets}` are thin scheduled triggers (mirroring
+`PurgeExpiredAccounts`) reading their threshold from config; both scheduled daily in
+`routes/console.php` since the thresholds are day/month-granularity.
+
 ### Admin UI
 
 `app/Livewire/Admin/Support/{Tickets,Categories}/`, routed at `admin.tickets.*` /
@@ -495,6 +519,8 @@ User-event titles ("Account Created" etc.), since those are the same raw event s
 - `SyncSubscriptionStatuses` job — hourly, `withoutOverlapping()`, 1 retry, 300s timeout; scheduled
   as `new SyncSubscriptionStatuses([PaymentProvider::Local])`. Delegates to
   `SubscriptionLifecycleService::syncStatuses()` — see "Plans & Subscriptions" above.
+- `AutoCloseInactiveTickets` / `PurgeClosedTickets` jobs — both daily, `withoutOverlapping()`, 1
+  retry, 300s timeout; delegate to `TicketLifecycleService` — see "Ticket lifecycle sweeps" above.
 - `activitylog:clean` Artisan command (Spatie's built-in pruning) — weekly.
 
 ## Directory map
@@ -505,7 +531,8 @@ app/
                    BillingInterval, PaymentProvider, SubscriptionStatus, CancelledBy, ReceiptType,
                    TicketStatus, TicketPriority, TicketMessageAuthorType
   Http/Middleware/ EnsurePanelAccess (alias: panel)
-  Jobs/            PurgeExpiredAccounts, ExportActivityLog, SyncSubscriptionStatuses
+  Jobs/            PurgeExpiredAccounts, ExportActivityLog, SyncSubscriptionStatuses,
+                   AutoCloseInactiveTickets, PurgeClosedTickets
   Listeners/       AuthActivityListener
   Livewire/
     Auth/          Login, Logout, VerifyEmail, PasswordReset (reset-with-token form only)
@@ -523,15 +550,16 @@ app/
       Administration/ActivityLogs/Index.php         read-only audit viewer
       Settings/                             BaseSettings, Index, General, Mail, Policies
   Mail/            Concerns/HasMailPurpose.php (trait for purpose-based mailables),
-                   Auth/VerifyEmailMail.php, Auth/ResetPasswordMail.php
+                   Auth/VerifyEmailMail.php, Auth/ResetPasswordMail.php, Support/TicketAutoClosedMail.php
   Models/          User.php (canAccessModule helper), EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php,
                    Plan.php, PlanPrice.php, PlanPriceProvider.php, Subscription.php, SubscriptionReceipt.php,
                    Ticket.php, TicketCategory.php, TicketMessage.php
-  Notifications/   Auth/VerifyEmailNotification.php, Auth/ResetPasswordNotification.php
+  Notifications/   Auth/VerifyEmailNotification.php, Auth/ResetPasswordNotification.php,
+                   Support/TicketAutoClosedNotification.php
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
                                              module view permission inheritance policy
   Services/        AccountDeletionService, AccountMergeService, GuestConversionService, MailConfigurator, Auth/UrlResolver, SubscriptionService, SubscriptionLifecycleService,
-                   TicketService, TicketAssignmentService
+                   TicketService, TicketAssignmentService, TicketLifecycleService
   Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter
   Traits/          HasSubscriptions (mixed into User), HasFeatures (mixed into Plan)
 config/panel.php    RBAC modules/actions/children, grace period, export threshold, seeded admin creds
@@ -562,6 +590,11 @@ tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogT
 
 ## Known rough edges / deferred work (don't be surprised by these)
 
+- `TicketAutoClosedMail` tells the requester "reply to this ticket and it will be reopened
+  automatically" — there's no mechanism that does that yet (no public-facing ticket UI or
+  inbound-email parsing per "What this is" above), so this is aspirational copy matching a
+  future capability, not a working link/flow today. Reopening currently only happens via the
+  admin panel (`TicketService::changeStatus()`).
 - `UserSeeder` assigns `config('panel.app_user_role')` to the local test user, but `panel.php`
   only defines `super_admin_role` — app users/guests are distinguished by `type`, not roles, so
   this key doesn't exist. Local-only seeding path; harmless but dead config lookup.

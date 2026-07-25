@@ -113,9 +113,9 @@ class UserShowTest extends TestCase
         // Plan is now a real, built stat — 'Free' rather than a "Coming soon" placeholder.
         $this->assertSame('Free', $stats['Plan']['value']);
         $this->assertNull($stats['Devices']['value']);
-        $this->assertNull($stats['Tickets']['value']);
-        // Activity is a real count (not a placeholder) — 0 for a freshly created user.
+        // Activity and Tickets are real counts (not placeholders) — 0 for a freshly created user.
         $this->assertSame('0', $stats['Activity']['value']);
+        $this->assertSame('0', $stats['Tickets']['value']);
         $this->assertSame('Mar 15, 2024', $stats['Joined']['value']);
     }
 
