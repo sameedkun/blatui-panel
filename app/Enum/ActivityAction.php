@@ -29,4 +29,7 @@ enum ActivityAction: string
     case Sent = 'sent';
     case Cancelled = 'cancelled';
     case Replied = 'replied';
+    case Blocked = 'blocked';
+    case Unblocked = 'unblocked';
+    case Revoked = 'revoked';
 }

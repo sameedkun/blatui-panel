@@ -200,15 +200,26 @@ class AccountDeletionService
      * Remove rows owned by the account. Each table is guarded so the pipeline
      * stays idempotent and tolerates data that is missing or already deleted.
      *
-     * NOTE: subscriptions / devices / personal_access_tokens tables do not exist
-     * in the schema yet — the guards make this a no-op until they are added.
+     * `user_devices` isn't listed here — its `user_id` FK is `cascadeOnDelete()`
+     * at the DB level, so the forceDelete() below already removes those rows;
+     * explicit cleanup would be redundant. Its tokens are still cleaned up
+     * below (deleting the token first is what the model's own revoke/block
+     * hooks do too), same reasoning as sessions.
+     *
+     * `blocked_ips` IS listed here, unlike `user_devices` — its `user_id` FK is
+     * `restrictOnDelete()`, not `cascadeOnDelete()` (InnoDB refuses a cascading
+     * action on a column a stored generated column depends on — see the
+     * migration), so this explicit delete is what actually prevents the
+     * subsequent forceDelete() from being blocked by that FK.
      */
     protected function deleteRelatedData(User $user): void
     {
-        foreach (['subscriptions', 'devices'] as $table) {
-            if (Schema::hasTable($table)) {
-                DB::table($table)->where('user_id', $user->id)->delete();
-            }
+        if (Schema::hasTable('subscriptions')) {
+            DB::table('subscriptions')->where('user_id', $user->id)->delete();
+        }
+
+        if (Schema::hasTable('blocked_ips')) {
+            DB::table('blocked_ips')->where('user_id', $user->id)->delete();
         }
 
         if (Schema::hasTable('personal_access_tokens')) {

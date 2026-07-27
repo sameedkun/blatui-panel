@@ -105,15 +105,13 @@ class UserShowTest extends TestCase
 
         $component = Livewire::test(Show::class, ['user' => $user]);
 
-        // Joined is real; the unbuilt module cards say "Coming soon", not "0".
         $component->assertSee('Mar 15, 2024');
-        $component->assertSee('Coming soon');
 
         $stats = collect($component->instance()->statCards())->keyBy('label');
-        // Plan is now a real, built stat — 'Free' rather than a "Coming soon" placeholder.
+        // Every stat card is now real/built — Devices included, since device
+        // management shipped. 0 for a freshly created user with no devices yet.
         $this->assertSame('Free', $stats['Plan']['value']);
-        $this->assertNull($stats['Devices']['value']);
-        // Activity and Tickets are real counts (not placeholders) — 0 for a freshly created user.
+        $this->assertSame('0', $stats['Devices']['value']);
         $this->assertSame('0', $stats['Activity']['value']);
         $this->assertSame('0', $stats['Tickets']['value']);
         $this->assertSame('Mar 15, 2024', $stats['Joined']['value']);

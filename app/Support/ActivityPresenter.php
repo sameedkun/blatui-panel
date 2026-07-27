@@ -10,6 +10,7 @@ use App\Models\Plan;
 use App\Models\Ticket;
 use App\Models\TicketCategory;
 use App\Models\User;
+use App\Models\UserDevice;
 use Carbon\CarbonInterface;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
@@ -126,6 +127,24 @@ class ActivityPresenter
             };
         }
 
+        if (($properties['module'] ?? null) === 'device') {
+            return match ($event) {
+                'blocked' => 'device_blocked',
+                'unblocked' => 'device_unblocked',
+                'revoked' => 'device_revoked',
+                default => $event,
+            };
+        }
+
+        if (($properties['module'] ?? null) === 'blocked_ip') {
+            return match ($event) {
+                'created' => 'blocked_ip_created',
+                'updated' => 'blocked_ip_updated',
+                'deleted' => 'blocked_ip_deleted',
+                default => $event,
+            };
+        }
+
         if (($properties['module'] ?? null) === 'setting') {
             $area = $properties['area'] ?? null;
 
@@ -192,6 +211,12 @@ class ActivityPresenter
             'subscription_trial_converted' => 'badge-check',
             'subscription_entered_grace' => 'triangle-alert',
             'subscription_expired' => 'circle-x',
+            'device_blocked' => 'shield-ban',
+            'device_unblocked' => 'shield-check',
+            'device_revoked' => 'shield-off',
+            'blocked_ip_created' => 'shield-alert',
+            'blocked_ip_updated' => 'pencil',
+            'blocked_ip_deleted' => 'shield-check',
             default => 'activity',
         };
     }
@@ -219,7 +244,10 @@ class ActivityPresenter
             'ticket_updated', 'ticket_assigned', 'ticket_replied', 'ticket_category_updated' => 'info',
             'failed', 'deletion_requested', 'subscription_entered_grace' => 'warning',
             'deleted', 'force_deleted', 'purged', 'banned', 'setting_domain_deleted', 'plan_deleted',
-            'subscription_cancelled', 'subscription_expired', 'ticket_category_deleted' => 'danger',
+            'subscription_cancelled', 'subscription_expired', 'ticket_category_deleted',
+            'device_blocked', 'blocked_ip_created' => 'danger',
+            'device_unblocked', 'device_revoked', 'blocked_ip_deleted' => 'warning',
+            'blocked_ip_updated' => 'info',
             default => 'muted',
         };
     }
@@ -273,6 +301,12 @@ class ActivityPresenter
             'subscription_trial_converted' => 'Trial Converted',
             'subscription_entered_grace' => 'Entered Grace Period',
             'subscription_expired' => 'Subscription Expired',
+            'device_blocked' => 'Device Blocked',
+            'device_unblocked' => 'Device Unblocked',
+            'device_revoked' => 'Device Revoked',
+            'blocked_ip_created' => 'IP Block Created',
+            'blocked_ip_updated' => 'IP Block Updated',
+            'blocked_ip_deleted' => 'IP Block Removed',
             default => Str::headline($kind),
         };
     }
@@ -387,6 +421,21 @@ class ActivityPresenter
                 self::row('Plan', $properties['plan'] ?? null),
                 self::row('Reason', isset($properties['reason']) ? Str::headline((string) $properties['reason']) : null),
             ],
+            'device_blocked' => [
+                self::row('Device', $properties['device_name'] ?? null),
+                self::row('Reason', $properties['reason'] ?? null),
+            ],
+            'device_unblocked', 'device_revoked' => [
+                self::row('Device', $properties['device_name'] ?? null),
+            ],
+            'blocked_ip_created', 'blocked_ip_updated' => [
+                self::row('IP Address', $properties['ip_address'] ?? null),
+                self::row('Scope', isset($properties['scope']) ? Str::headline((string) $properties['scope']) : null),
+                self::row('Reason', $properties['reason'] ?? null),
+            ],
+            'blocked_ip_deleted' => [
+                self::row('IP Address', $properties['ip_address'] ?? null),
+            ],
             default => [],
         }];
 
@@ -487,6 +536,9 @@ class ActivityPresenter
             Notification::class => fn (Notification $notification): ?string => auth()->user()->can('notifications.edit') ? route('admin.notifications.edit', $notification) : null,
             Feedback::class => fn (Feedback $feedback): ?string => auth()->user()->can('feedback.manage') ? route('admin.feedback.show', $feedback) : null,
             Role::class => fn (Role $role): ?string => auth()->user()->can('roles.edit') ? route('admin.roles.edit', $role) : null,
+            UserDevice::class => fn (UserDevice $device): ?string => auth()->user()->can('users.manage')
+                ? route('admin.users.show', $device->user_id)
+                : null,
         ];
     }
 }

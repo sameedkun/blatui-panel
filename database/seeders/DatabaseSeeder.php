@@ -24,5 +24,9 @@ class DatabaseSeeder extends Seeder
         ]);
 
         User::factory(50)->create();
+
+        if (app()->isLocal()) {
+            $this->call(DeviceManagementDemoSeeder::class);
+        }
     }
 }

@@ -28,7 +28,7 @@
                 </x-ui.sidebar-menu-item>
             @endcan
 
-            @canany(['users.view', 'guests.view', 'plans.view', 'subscriptions.view'])
+            @canany(['users.view', 'guests.view', 'plans.view', 'subscriptions.view', 'devices.view'])
                 <x-ui.sidebar-group-label>Management</x-ui.sidebar-group-label>
 
                 <x-ui.sidebar-menu>
@@ -65,6 +65,24 @@
                             <x-ui.sidebar-menu-button href="{{ route('admin.subscriptions.index') }}" :isActive="request()->routeIs('admin.subscriptions.*')">
                                 <x-lucide-receipt />
                                 <span>Subscriptions</span>
+                            </x-ui.sidebar-menu-button>
+                        </x-ui.sidebar-menu-item>
+                    @endcan
+
+                    @can('devices.view')
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.devices.index') }}" :isActive="request()->routeIs('admin.devices.*')">
+                                <x-lucide-smartphone />
+                                <span>Devices</span>
+                            </x-ui.sidebar-menu-button>
+                        </x-ui.sidebar-menu-item>
+                    @endcan
+
+                    @can('blocked-ips.view')
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.blocked-ips.index') }}" :isActive="request()->routeIs('admin.blocked-ips.*')">
+                                <x-lucide-shield-alert />
+                                <span>Blocked IPs</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan
@@ -185,7 +203,7 @@
                         <x-ui.sidebar-menu-button size="lg"
                             class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
                             <x-ui.avatar class="size-8 rounded-lg">
-                                @if(auth()->user()->avatarUrl())
+                                @if (auth()->user()->avatarUrl())
                                     <x-ui.avatar-image src="{{ auth()->user()->avatarUrl() }}"
                                         alt="{{ auth()->user()->name ?? 'User' }}" />
                                 @endif
@@ -205,7 +223,7 @@
                         <x-ui.dropdown-menu-label class="p-0 font-normal">
                             <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                                 <x-ui.avatar class="size-8 rounded-lg">
-                                    @if(auth()->user()->avatarUrl())
+                                    @if (auth()->user()->avatarUrl())
                                         <x-ui.avatar-image src="{{ auth()->user()->avatarUrl() }}"
                                             alt="{{ auth()->user()->name ?? 'User' }}" />
                                     @endif
@@ -232,8 +250,7 @@
                             </x-ui.dropdown-menu-item>
                         @endcan
                         <x-ui.dropdown-menu-separator />
-                        <x-ui.dropdown-menu-item
-                            href="{{ route('logout') }}"
+                        <x-ui.dropdown-menu-item href="{{ route('logout') }}"
                             class="text-destructive focus:text-destructive">
                             <x-lucide-log-out class="size-4" />
                             Log out

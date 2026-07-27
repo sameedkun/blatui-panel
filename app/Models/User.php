@@ -331,6 +331,16 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Physical devices ever registered to this account (current + revoked/blocked).
+     *
+     * @return HasMany<UserDevice, $this>
+     */
+    public function devices(): HasMany
+    {
+        return $this->hasMany(UserDevice::class);
+    }
+
+    /**
      * Check if the user has access to a module or any of its children.
      */
     public function canAccessModule(string $module): bool

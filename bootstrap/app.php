@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\CheckBlockedIp;
+use App\Http\Middleware\EnsureDeviceIsValid;
 use App\Http\Middleware\EnsurePanelAccess;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -11,9 +13,9 @@ use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__ . '/../routes/web.php',
-        commands: __DIR__ . '/../routes/console.php',
-        api: __DIR__ . '/../routes/api.php',
+        web: __DIR__.'/../routes/web.php',
+        commands: __DIR__.'/../routes/console.php',
+        api: __DIR__.'/../routes/api.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
@@ -21,12 +23,17 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
-            
+
             'panel' => EnsurePanelAccess::class,
+            'device.valid' => EnsureDeviceIsValid::class,
         ]);
+
+        // Runs before every API route's own middleware (e.g. auth:sanctum),
+        // since it needs to reject a blocked IP before authentication even runs.
+        $middleware->api(prepend: [CheckBlockedIp::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn(Request $request) => $request->is('api/*'),
+            fn (Request $request) => $request->is('api/*'),
         );
     })->create();

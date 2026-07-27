@@ -97,6 +97,12 @@ return [
         'assign',
         'convert',
         'merge',
+        'investigate',
+        'block',
+        'unblock',
+        'revoke',
+        'update',
+        'create-global',
     ],
 
     /*
@@ -157,6 +163,19 @@ return [
             'group' => 'management',
             'actions' => ['view', 'manage'],
             'icon' => 'receipt',
+        ],
+        'devices' => [
+            'label' => 'Devices',
+            'group' => 'management',
+            'actions' => ['view', 'investigate', 'block', 'unblock', 'revoke', 'export'],
+            'icon' => 'smartphone',
+        ],
+
+        'blocked-ips' => [
+            'label' => 'Blocked IPs',
+            'group' => 'management',
+            'actions' => ['view', 'create', 'create-global', 'update', 'delete'],
+            'icon' => 'shield-alert',
         ],
 
         // --- Application ---
@@ -264,6 +283,9 @@ return [
         'roles.delete',
         'logs.access',
         'activity_logs.export',
+        // A global IP block can lock out thousands of legitimate users at once
+        // (carrier-NAT), so creating one is reserved for senior staff only.
+        'blocked-ips.create-global',
     ],
 
     /*
@@ -290,6 +312,19 @@ return [
     */
     'ticket_auto_close_inactive_days' => env('TICKET_AUTO_CLOSE_INACTIVE_DAYS', 7),
     'ticket_purge_closed_after_months' => env('TICKET_PURGE_CLOSED_AFTER_MONTHS', 6),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Devices & IP Blocking
+    |--------------------------------------------------------------------------
+    |
+    | Months a revoked (never blocked) device row is kept before the monthly
+    | retention sweep deletes it, and the distinct-user threshold above which
+    | creating a global IP block warns that it looks like carrier NAT.
+    |
+    */
+    'user_device_revoked_retention_months' => env('USER_DEVICE_REVOKED_RETENTION_MONTHS', 6),
+    'blocked_ip_carrier_nat_threshold' => env('BLOCKED_IP_CARRIER_NAT_THRESHOLD', 10),
 
     /*
     |--------------------------------------------------------------------------

@@ -22,4 +22,6 @@ enum ActivityModule: string
     case Ticket = 'ticket';
     case TicketCategory = 'ticket_category';
     case Setting = 'setting';
+    case Device = 'device';
+    case BlockedIp = 'blocked_ip';
 }

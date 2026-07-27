@@ -142,6 +142,31 @@
         </div>
     </div>
 
+    {{-- ── Free-text ── --}}
+    @elseif($type === 'text')
+    @php $textVal = $filters[$key] ?? ''; @endphp
+    <div x-data="{ open: false }" class="relative">
+        <x-ui.button variant="outline" size="sm" @click="open = !open; $nextTick(() => open && $refs.{{ $key }}Input.focus())"
+            class="{{ $textVal !== '' ? 'border-primary/60 bg-primary/5' : '' }}">
+            <x-lucide-plus class="size-3.5 {{ $textVal !== '' ? 'hidden' : '' }}" />
+            <x-lucide-check class="size-3.5 {{ $textVal !== '' ? '' : 'hidden' }}" />
+            {{ $label }}
+            @if($textVal !== '')
+            <span class="ml-0.5 rounded bg-primary/15 px-1.5 py-0.5 text-xs leading-none">{{ $textVal }}</span>
+            @endif
+        </x-ui.button>
+        <div x-show="open" @click.outside="open = false" x-cloak
+            x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-75" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+            class="absolute top-full z-20 mt-1 w-56 rounded-md border border-border bg-popover p-2 shadow-md">
+            <x-ui.input x-ref="{{ $key }}Input" wire:model.live.debounce.400ms="filters.{{ $key }}"
+                placeholder="{{ $item['placeholder'] ?? $label }}" class="h-8 text-xs" />
+            @if($textVal !== '')
+            <button wire:click="setFilter('{{ $key }}', '')" class="mt-2 w-full rounded-sm py-1 text-center text-xs text-muted-foreground hover:text-foreground">Clear</button>
+            @endif
+        </div>
+    </div>
+
     {{-- ── Toggle button ── --}}
     @elseif($type === 'toggle')
     @php

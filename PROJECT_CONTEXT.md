@@ -134,8 +134,9 @@ conversion, or merge logic inline in a Livewire component.**
   - Guests: `purgeGuestByAdmin()` skips straight to `purge()` — no request/cancel phase at all.
   - `purge()` is transactional and idempotent (`if (! $user->exists) return;`), snapshots the
     account into the audit-log properties before `forceDelete()`, and cleans up related rows
-    (`deleteRelatedData()` — currently guarded no-ops for `subscriptions`/`devices` tables that
-    don't exist yet; sessions and personal-access-tokens *are* cleaned).
+    (`deleteRelatedData()` — explicitly deletes `subscriptions`/`personal_access_tokens`/`sessions`
+    rows; `user_devices` isn't listed there since its `user_id` FK is `cascadeOnDelete()`, so the
+    subsequent `forceDelete()` already removes those rows without needing an explicit query).
   - Scheduled purges use an explicit `causer: null` + `context: Scheduler` (no `auth()` session
     exists in that context); admin-triggered purges auto-resolve the causer/context.
 - **`GuestConversionService`** — flips a guest in place into an app user (same row/id).
@@ -147,8 +148,9 @@ conversion, or merge logic inline in a Livewire component.**
 - **`AccountMergeService`** — merges a guest's identity into an *existing* app account; the
   destination survives, the guest row is `forceDelete()`d. `mergeFromProvider()` (self-service,
   OAuth-driven, no reason needed) vs `mergeByAdmin()` (requires a non-empty `$reason` — no
-  provider proof, so it must be traceable as an admin judgment call). `migrateRelatedData()` is a
-  TODO stub for once `devices`/`subscriptions` tables exist.
+  provider proof, so it must be traceable as an admin judgment call). `migrateRelatedData()` is
+  still a TODO stub — reassigning a guest's `subscriptions`/`user_devices` rows to the destination
+  account on merge isn't wired up yet, even though both tables now exist.
 
 These three services are why **the current uncommitted work** (per git status) exists: guest
 conversion/merge functionality was just added — `AccountMergeService` is new, and
@@ -470,6 +472,130 @@ built out). `ActivityPresenter::kind()` has explicit `ticket`/`ticket_category` 
 without them, a ticket's `created`/`updated`/`assigned` events would collide with the generic
 User-event titles ("Account Created" etc.), since those are the same raw event strings.
 
+## Device Management & IP Blocking
+
+`app/Models/{UserDevice,BlockedIp}.php`, backed by the `user_devices` and `blocked_ips` tables.
+Auth for the (not-yet-built) mobile/API surface is Laravel Sanctum personal access tokens; these
+two features track which device holds each token and let both the user and an admin kill that
+access, plus block traffic by IP.
+
+- **`UserDevice`** — one row per physical device, holding only its *current* token
+  (`token_id`, nullable FK to `personal_access_tokens`) — deliberately no login-history table.
+  `ulid` (generated in `booted()`, like `User::external_id`) is the public handle; `id` stays the
+  PK for FKs. `device_fingerprint` is stored as a sha256 hash, never plaintext, and is unique per
+  `(user_id, device_fingerprint)` — a re-login on the same physical device updates the existing
+  row rather than creating a second one. `device_type` casts to `App\Enum\DeviceType`
+  (`Mobile`/`Tablet`/`Desktop`/`Web` — form factor; `platform`/`os` stay free-text columns for
+  OS-level detail). Status is derived, never stored as a boolean: `is_active`/`is_blocked`/
+  `is_revoked` accessors and matching `active()`/`revoked()`/`blocked()` scopes read off
+  `revoked_at`/`blocked_at` (blocked wins visual priority when both could apply). A model
+  `updated` hook deletes the associated `personal_access_tokens` row and nulls `token_id`
+  whenever `revoked_at` or `blocked_at` is freshly set — revoking/blocking always kills API access
+  immediately, never just marks it.
+- **`BlockedIp`** — `user_id` nullable (`null` = global block, matching every user). A DB-generated
+  `user_scope` column (`COALESCE(user_id, 0)`) backs a `(ip_address, user_scope)` unique
+  constraint — one global block per IP, one per-user block per `(IP, user)` pair, enforced at the
+  DB layer, not just in the UI. `active()` scope excludes anything past `expires_at`; `recordHit()`
+  increments `hits` + stamps `last_hit_at` in one query. `user_id`'s FK is `restrictOnDelete()`,
+  not `cascadeOnDelete()` — InnoDB (MySQL error 1215) refuses a cascading `ON DELETE`/`ON UPDATE`
+  action on a column that a stored generated column depends on, and `user_scope` depends on
+  `user_id`. `AccountDeletionService::deleteRelatedData()` explicitly deletes a user's
+  `blocked_ips` rows before `forceDelete()` instead, so the restriction is never actually hit.
+
+**`App\Services\DeviceService`** is the only place device rows are mutated (mirrors
+`AccountDeletionService`'s "one service, everything goes through here" shape). `register()` hashes
+the incoming fingerprint, locks the *user* row (`lockForUpdate()`, not just the device row — two
+concurrent logins for two different fingerprints would otherwise both pass the limit check) inside
+a transaction, checks the caller's plan `device_limit` feature (`$user->planFeature('device_limit',
+...)` from `HasSubscriptions`/`HasFeatures`, already used by Plans/Subscriptions) only when the
+matched device is new or currently revoked — an already-active device's re-login never counts
+against the limit — then `updateOrCreate`s the row, retrying once past a `QueryException` race on
+the unique constraint. Throws `App\Exceptions\DeviceLimitExceededException` /
+`DeviceBlockedException` (a blocked device can never reactivate by logging in again, only via
+`unblock()`). `revoke()`/`revokeAll()`/`block()`/`unblock()` are the only audited device
+mutations — deliberately, `register()`/`touch()` never write an audit-log entry, since this app's
+"no login history" design would otherwise be defeated by every login becoming an auditable event.
+`touch()` (called by `EnsureDeviceIsValid`) throttles its own write to once per 5 minutes. No
+geo-IP resolution package is installed — `city`/`country`/`country_code` are only ever populated
+from client-supplied `App\Support\DeviceData` at registration time, never resolved from the
+request IP.
+
+**Middleware**: `EnsureDeviceIsValid` (alias `device.valid`, applied to the whole authenticated API
+group in `routes/api.php`) resolves the device from the current Sanctum token and 401s with a
+`DEVICE_REVOKED`/`DEVICE_BLOCKED` machine-readable code if it's missing, revoked, or blocked, then
+calls `DeviceService::touch()`. `CheckBlockedIp` is prepended to the whole `api` middleware group
+in `bootstrap/app.php` (`$middleware->api(prepend: [...])`) so it runs *before* `auth:sanctum` —
+since the user isn't resolved yet at that point, it independently peeks the bearer token via
+`PersonalAccessToken::findToken()` to still support per-user blocks that early. Match result is
+cached 60s (keyed `blocked-ip:{ip}:{userId|guest}`, via the default `Cache` facade — this app's
+`.env` already points `CACHE_STORE` at Redis); a hit dispatches the queued `RecordBlockedIpHit` job
+rather than writing synchronously, since this runs on every single API request.
+
+A minimal self-service API exists at `App\Http\Controllers\Api\DeviceController` (`GET
+/api/devices`, `DELETE /api/devices/{ulid}`) — list/revoke *your own* devices, scoped to
+`$request->user()->devices()`; a ulid for another account's device 404s via `firstOrFail()`, never
+a manual 403. There is deliberately no login/device-registration endpoint yet — `DeviceService::
+register()` is a ready wiring point for whenever a real auth/login controller is built, same as
+`GuestConversionService`'s deferred email-verification TODOs.
+
+**Admin panel** (`app/Livewire/Admin/Management/{Devices,BlockedIps}/`): `Devices/Index` is the
+global, filterable device list (`admin.devices.index`, shows a User column) — a normal
+route-bound component like every other Index page in this app, not a nested/embedded one.
+Block/unblock/revoke live in `Concerns/HandlesDeviceRowActions` (mirrors `HandlesPlanRowActions`),
+confirmed via the standard `x-admin.confirm-dialog` / `x-admin.reason-dialog` components the rest
+of the app uses (Devices originally used the right-side drawer variants like BlockedIps below, but
+was switched to match the rest of the admin panel). `Devices/SharedFingerprints` is a separate
+page/query (`GROUP BY device_fingerprint HAVING COUNT(DISTINCT user_id) > 1`) rather than an Index
+filter.
+
+BlockedIps' own confirmations (delete/delete-all-expired, the IP-activity panel) still use
+right-side drawers rather than dialogs (per-feature preference) — two reusable partials,
+`x-admin.confirm-drawer` / `x-admin.reason-drawer`, mirror `confirm-dialog`/`reason-dialog` but
+wrap BlatUI's `drawer` component (`direction="right"`). BlatUI's own `drawer.blade.php` was
+extended with the same `id`-driven dispatchable-open/close prop `dialog.blade.php` already had
+(`$dispatch('open-drawer-{id}')`) — upstream only exposed `direction`.
+
+The Users/Show `devices` tab does **not** embed `Devices/Index` — it's a plain Blade partial (like
+every other tab in this app) fed by `Show::deviceHistory()`, with its own scoped copy of
+block/unblock/revoke plus a revoke-all action living directly on `Show` (mirroring how that page's
+subscription actions are bespoke rather than reused from a shared trait) rather than sharing
+`HandlesDeviceRowActions` — that trait's lookups are deliberately unscoped (any device, matching
+the global index's investigator role), while the profile tab's lookups are scoped to
+`$this->record->devices()` so a crafted ulid can never reach another account's device from a
+specific user's page.
+
+`BlockedIps/Index` (a normal `BaseIndex` page) keeps its create/edit drawer state and the
+IP-activity-panel drawer directly on itself (`Concerns/HandlesBlockedIpForm`,
+`Concerns/HandlesIpActivityPanel`) rather than as separate nested components — this follows the
+existing single-component-owns-its-dialog-state pattern (`Users/Show`'s Assign-Plan dialog is the
+same shape). Picking Global scope in the form requires an explicit second confirmation
+(`globalConfirmed`, disables Save until checked) showing the IP's distinct-user count over the
+last 30 days, with an extra carrier-NAT warning above `panel.blocked_ip_carrier_nat_threshold`
+(default 10) — Pakistani/Indian mobile networks routinely put hundreds of unrelated users behind
+one address. Creating a global block also `Log::warning()`s loudly. There is no Show page for a
+blocked IP — `HandlesIpActivityPanel`'s drawer (gated `devices.view`, since it surfaces emails) is
+what a Show page would have been.
+
+**Permissions**: two new modules in `config/panel.php` — `devices` (group `management`: `view`,
+`investigate`, `block`, `unblock`, `revoke`, `export`) and `blocked-ips` (group `infrastructure` —
+previously an unused group label; `view`, `create`, `create-global`, `update`, `delete`). The
+action vocabulary gained `investigate`/`block`/`unblock`/`revoke`/`update`/`create-global` to
+support them. `blocked-ips.create-global` is excluded from the seeded `admin` role
+(`admin_excluded_permissions`) — a global block can lock out thousands of paying users at once, so
+it's reserved for senior staff, same reasoning as the other exclusions there. Note the `blocked-ips`
+module key is hyphenated (unlike `ticket_categories`, which is underscored with a hyphenated
+*route* prefix) — a deliberate one-off to match this feature's literal permission-string spec.
+
+**Scheduled**: `PruneExpiredBlockedIps` (daily) deletes `blocked_ips` past `expires_at`;
+`PruneRevokedDevices` (monthly, delegates to `DeviceService::pruneRevoked()`) deletes `user_devices`
+revoked (never blocked) more than `panel.user_device_revoked_retention_months` (default 6) ago —
+blocked devices are never swept by retention, since `blocked_reason` is the only record of why.
+
+`ActivityModule::Device`/`BlockedIp` and `ActivityAction::Blocked`/`Unblocked`/`Revoked` were added
+to the shared enums; `ActivityPresenter` has `device`/`blocked_ip` branches (same pattern as the
+`ticket`/`ticket_category` ones) so these events read as "Device Blocked"/"IP Block Created" etc.
+rather than colliding with generic titles.
+
 ## Routes
 
 - `routes/web.php` requires `auth.php` then `admin.php`.
@@ -507,10 +633,17 @@ User-event titles ("Account Created" etc.), since those are the same raw event s
   (index/create/edit — no show page, no delete route defined yet), `roles.*` (index/create/edit),
   `activity-logs.*` (index only, read-only), `tickets.*` (index/create/show — no edit route; a
   ticket's mutable fields all change via `Show` page actions, not a form), `ticket-categories.*`
-  (index/create/edit), and a single `account` route (self-service "My Account" page — no extra
+  (index/create/edit), `devices.*` (index only, plus `shared-fingerprints` gated
+  `devices.investigate`), `blocked-ips.*` (index only — create/edit/delete are drawer actions on
+  the index, not routes), and a single `account` route (self-service "My Account" page — no extra
   permission, every staff member can reach it).
 - Each route group carries its own `permission:{module}.{action}` middleware layered on top of the
   group-level `permission:{module}.view`.
+- `routes/api.php` — the first real content beyond the skeleton `/user` route: everything is under
+  `auth:sanctum + device.valid` (`EnsureDeviceIsValid`). `GET /devices` / `DELETE
+  /devices/{ulid}` are the self-service device endpoints (see "Device Management & IP Blocking"
+  above). `CheckBlockedIp` isn't route-level — it's prepended to the whole `api` middleware group
+  in `bootstrap/app.php` instead, since it has to run before `auth:sanctum` resolves the user.
 
 ## Scheduled/queued work (`routes/console.php`)
 
@@ -521,6 +654,9 @@ User-event titles ("Account Created" etc.), since those are the same raw event s
   `SubscriptionLifecycleService::syncStatuses()` — see "Plans & Subscriptions" above.
 - `AutoCloseInactiveTickets` / `PurgeClosedTickets` jobs — both daily, `withoutOverlapping()`, 1
   retry, 300s timeout; delegate to `TicketLifecycleService` — see "Ticket lifecycle sweeps" above.
+- `PruneExpiredBlockedIps` job — daily, `withoutOverlapping()`, 1 retry, 300s timeout.
+- `PruneRevokedDevices` job — monthly, `withoutOverlapping()`, 1 retry, 300s timeout; delegates to
+  `DeviceService::pruneRevoked()` — see "Device Management & IP Blocking" above.
 - `activitylog:clean` Artisan command (Spatie's built-in pruning) — weekly.
 
 ## Directory map
@@ -529,10 +665,15 @@ User-event titles ("Account Created" etc.), since those are the same raw event s
 app/
   Enum/            UserType, Activity{LogName,Module,Action,Context}, MailPurpose,
                    BillingInterval, PaymentProvider, SubscriptionStatus, CancelledBy, ReceiptType,
-                   TicketStatus, TicketPriority, TicketMessageAuthorType
-  Http/Middleware/ EnsurePanelAccess (alias: panel)
+                   TicketStatus, TicketPriority, TicketMessageAuthorType, DeviceType
+  Exceptions/      DeviceLimitExceededException, DeviceBlockedException
+  Http/Controllers/Api/DeviceController.php     self-service list/revoke own devices
+  Http/Middleware/ EnsurePanelAccess (alias: panel), EnsureDeviceIsValid (alias: device.valid),
+                   CheckBlockedIp (prepended to the global `api` middleware group)
+  Http/Resources/  UserDeviceResource
   Jobs/            PurgeExpiredAccounts, ExportActivityLog, SyncSubscriptionStatuses,
-                   AutoCloseInactiveTickets, PurgeClosedTickets
+                   AutoCloseInactiveTickets, PurgeClosedTickets, PruneExpiredBlockedIps,
+                   PruneRevokedDevices, RecordBlockedIpHit (queued, dispatched by CheckBlockedIp)
   Listeners/       AuthActivityListener
   Livewire/
     Auth/          Login, Logout, VerifyEmail, PasswordReset (reset-with-token form only)
@@ -543,6 +684,8 @@ app/
       Management/Guests/                    Index, Show + Concerns/HandlesGuestRowActions
       Management/Plans/                     Index, Show, Form + Concerns/HandlesPlanRowActions
       Management/Subscriptions/             Index, Show + Concerns/HandlesSubscriptionRowActions
+      Management/Devices/                   Index, SharedFingerprints + Concerns/HandlesDeviceRowActions
+      Management/BlockedIps/                Index + Concerns/{HandlesBlockedIpForm,HandlesIpActivityPanel}
       Support/Tickets/                      Index, Show, Form + Concerns/HandlesTicketRowActions
       Support/Categories/                   Index, Form + Concerns/HandlesCategoryRowActions
       Administration/Staff/                         Index, Form (staff CRUD + role assignment)
@@ -553,14 +696,14 @@ app/
                    Auth/VerifyEmailMail.php, Auth/ResetPasswordMail.php, Support/TicketAutoClosedMail.php
   Models/          User.php (canAccessModule helper), EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php,
                    Plan.php, PlanPrice.php, PlanPriceProvider.php, Subscription.php, SubscriptionReceipt.php,
-                   Ticket.php, TicketCategory.php, TicketMessage.php
+                   Ticket.php, TicketCategory.php, TicketMessage.php, UserDevice.php, BlockedIp.php
   Notifications/   Auth/VerifyEmailNotification.php, Auth/ResetPasswordNotification.php,
                    Support/TicketAutoClosedNotification.php
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
                                              module view permission inheritance policy
   Services/        AccountDeletionService, AccountMergeService, GuestConversionService, MailConfigurator, Auth/UrlResolver, SubscriptionService, SubscriptionLifecycleService,
-                   TicketService, TicketAssignmentService, TicketLifecycleService
-  Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter
+                   TicketService, TicketAssignmentService, TicketLifecycleService, DeviceService
+  Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter, DeviceData
   Traits/          HasSubscriptions (mixed into User), HasFeatures (mixed into Plan)
 config/panel.php    RBAC modules/actions/children, grace period, export threshold, seeded admin creds
 database/
@@ -568,15 +711,19 @@ database/
                      cache, jobs, email_domains, email_senders, smtp_settings, policies_tables,
                      plans_tables (plans/plan_prices/plan_price_providers),
                      subscriptions_tables (subscriptions/subscription_receipts),
-                     tickets_table (categories/tickets/ticket_messages/category_agent)
+                     tickets_table (categories/tickets/ticket_messages/category_agent),
+                     user_devices_table, blocked_ips_table (generated `user_scope` column backing
+                     its unique constraint)
   seeders/          DatabaseSeeder, RolesAndPermissionsSeeder (idempotent), UserSeeder,
                      EmailSendersSeeder (idempotent)
   factories/         one per model, incl. Plan/PlanPrice/PlanPriceProvider/Subscription/SubscriptionReceipt,
-                     TicketCategory/Ticket/TicketMessage
+                     TicketCategory/Ticket/TicketMessage, UserDevice, BlockedIp
 resources/
-  views/components/ui/       BlatUI copy-paste components (x-ui.*) — see CLAUDE.md BlatUI section
-  views/components/admin/    panel-specific composites: filter-bar, page-header, pagination,
-                              confirm-dialog, reason-dialog, show-tabs, stat-card, dropdown, tooltip
+  views/components/ui/       BlatUI copy-paste components (x-ui.*) — see CLAUDE.md BlatUI section;
+                              `drawer` extended with the same id-driven open/close prop `dialog` has
+  views/components/admin/    panel-specific composites: filter-bar (now also a `text` filter type),
+                              page-header, pagination, confirm-dialog, reason-dialog, confirm-drawer,
+                              reason-drawer, device-status-badge, show-tabs, stat-card, dropdown, tooltip
   views/layouts/admin/       app.blade.php (sidebar shell), guest.blade.php (login)
   views/livewire/admin/      one folder per Livewire component, mirroring app/Livewire/Admin
   css/blatui.css             design tokens (CSS vars on :root/.dark/[data-*])
@@ -585,7 +732,9 @@ tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogT
                      GuestConversionServiceTest, EmailSenderResolutionTest, SettingsMailTest,
                      MailConfiguratorTest, UrlResolverTest, VerifyEmailTest, PasswordResetTest,
                      PlansAdminTest, PlansShowTest, SubscriptionsAdminTest,
-                     UserSubscriptionManagementTest, GuestSubscriptionManagementTest
+                     UserSubscriptionManagementTest, GuestSubscriptionManagementTest,
+                     DeviceServiceTest, DeviceApiTest, BlockedIpTest, DevicesAdminTest,
+                     BlockedIpsAdminTest
 ```
 
 ## Known rough edges / deferred work (don't be surprised by these)
@@ -602,12 +751,13 @@ tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogT
     looks like leftover/aspirational code.
 - Several TODOs mark intentionally-deferred wiring: email verification notifications on guest
   conversion, password-reset-link dispatch on admin-initiated conversion, and
-  `AccountMergeService::migrateRelatedData()` / `AccountDeletionService::deleteRelatedData()` for
-  `subscriptions`/`devices` tables. The `subscriptions` table now exists (see "Plans &
-  Subscriptions data model" above), but these two methods haven't been revisited yet — the
-  deletion-service cleanup still works (it's a guarded `Schema::hasTable()` check that now passes
-  for `subscriptions` but still no-ops for `devices`), while the merge-service reassignment is
-  still an unimplemented stub either way.
+  `AccountMergeService::migrateRelatedData()` — reassigning a guest's `subscriptions`/
+  `user_devices` rows to the destination account on merge isn't wired up yet, even though both
+  tables now exist. (`AccountDeletionService::deleteRelatedData()` is no longer on this list — it
+  now explicitly cleans up `subscriptions`, and `user_devices` needs no explicit query since its
+  `user_id` FK cascade-deletes when the account is force-deleted.)
+- There is deliberately no login/device-registration API endpoint yet — see "Device Management &
+  IP Blocking" above. `DeviceService::register()` is a ready wiring point for whenever one is built.
 - `Users/Show.php` has three scaffolded-but-inert actions (`verifyEmailManually`,
   `resendVerificationEmail`, `sendPasswordResetLink`) that toast "not yet available" rather than
   perform the action — wiring points for when Laravel's real verification/password-broker flows

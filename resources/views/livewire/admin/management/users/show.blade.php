@@ -35,4 +35,7 @@
     {{-- Subscription-management dialogs (profile-only) --}}
     @include('livewire.admin.management.users.partials.subscription-dialogs')
 
+    {{-- Device-management dialogs (profile-only) --}}
+    @include('livewire.admin.management.users.partials.device-dialogs')
+
 </div>

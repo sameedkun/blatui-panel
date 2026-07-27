@@ -13,6 +13,10 @@ use App\Livewire\Admin\Application\Language\Index as LanguageIndex;
 use App\Livewire\Admin\Application\Notification\Form as NotificationForm;
 use App\Livewire\Admin\Application\Notification\Index as NotificationIndex;
 use App\Livewire\Admin\Dashboard;
+use App\Livewire\Admin\Management\BlockedIps\Form as BlockedIpsForm;
+use App\Livewire\Admin\Management\BlockedIps\Index as BlockedIpsIndex;
+use App\Livewire\Admin\Management\Devices\Index as DevicesIndex;
+use App\Livewire\Admin\Management\Devices\SharedFingerprints;
 use App\Livewire\Admin\Management\Guests\Index as GuestsIndex;
 use App\Livewire\Admin\Management\Guests\Show as GuestsShow;
 use App\Livewire\Admin\Management\Plans\Form as PlansForm;
@@ -67,6 +71,19 @@ Route::middleware(['auth', 'panel', AuthenticateSession::class])->name('admin.')
     Route::prefix('subscriptions')->name('subscriptions.')->middleware('permission:subscriptions.view')->group(function () {
         Route::get('/', SubscriptionsIndex::class)->name('index');
         Route::get('/{subscription}', SubscriptionsShow::class)->name('show')->middleware('permission:subscriptions.manage');
+    });
+
+    // ── Devices ───────────────────────────────────────────────────────────
+    Route::prefix('devices')->name('devices.')->middleware('permission:devices.view')->group(function () {
+        Route::get('/', DevicesIndex::class)->name('index');
+        Route::get('/shared-fingerprints', SharedFingerprints::class)->name('shared-fingerprints')->middleware('permission:devices.investigate');
+    });
+
+    // ── Blocked IPs ───────────────────────────────────────────────────────
+    Route::prefix('blocked-ips')->name('blocked-ips.')->middleware('permission:blocked-ips.view')->group(function () {
+        Route::get('/', BlockedIpsIndex::class)->name('index');
+        Route::get('/create', BlockedIpsForm::class)->name('create')->middleware('permission:blocked-ips.create');
+        Route::get('/{blockedIp}/edit', BlockedIpsForm::class)->name('edit')->middleware('permission:blocked-ips.update');
     });
 
     // ── Languages ─────────────────────────────────────────────────────────

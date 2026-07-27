@@ -2,6 +2,8 @@
 
 use App\Enum\PaymentProvider;
 use App\Jobs\AutoCloseInactiveTickets;
+use App\Jobs\PruneExpiredBlockedIps;
+use App\Jobs\PruneRevokedDevices;
 use App\Jobs\PurgeClosedTickets;
 use App\Jobs\PurgeExpiredAccounts;
 use App\Jobs\SyncSubscriptionStatuses;
@@ -30,3 +32,10 @@ Schedule::job(new PurgeClosedTickets(config('panel.ticket_purge_closed_after_mon
 
 // Prune activity-log entries older than config('activitylog.clean_after_days').
 Schedule::command('activitylog:clean')->weekly()->name('activitylog-clean')->withoutOverlapping();
+
+Schedule::job(new PruneExpiredBlockedIps)->daily()->name('blocked-ips-prune-expired')->withoutOverlapping();
+
+Schedule::job(new PruneRevokedDevices(config('panel.user_device_revoked_retention_months')))
+    ->monthly()
+    ->name('devices-prune-revoked')
+    ->withoutOverlapping();

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\TicketService;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 
 /**
@@ -19,8 +20,10 @@ use Livewire\Attributes\Layout;
 #[Layout('layouts.admin.app')]
 class Form extends BaseForm
 {
-    /** Bound to a native <select> — always a string over the wire, even for the blank placeholder. */
+    /** Bound to requester user ID. */
     public $requesterId = '';
+
+    public string $userSearch = '';
 
     public $categoryId = '';
 
@@ -29,6 +32,45 @@ class Form extends BaseForm
     public string $message = '';
 
     public string $priority = 'medium';
+
+    public function selectUser(int $id): void
+    {
+        $this->requesterId = $id;
+        $this->userSearch = '';
+    }
+
+    public function clearUser(): void
+    {
+        $this->requesterId = '';
+        $this->userSearch = '';
+    }
+
+    #[Computed]
+    public function userSearchResults()
+    {
+        $term = trim($this->userSearch);
+
+        return User::appUsers()
+            ->when($term !== '', function ($query) use ($term) {
+                $query->where(function ($sub) use ($term) {
+                    $sub->where('name', 'like', "%{$term}%")
+                        ->orWhere('email', 'like', "%{$term}%");
+                });
+            })
+            ->orderBy('name')
+            ->take(10)
+            ->get();
+    }
+
+    #[Computed]
+    public function selectedUser(): ?User
+    {
+        if (! $this->requesterId) {
+            return null;
+        }
+
+        return User::appUsers()->find($this->requesterId);
+    }
 
     protected function indexRoute(): string
     {
@@ -70,7 +112,6 @@ class Form extends BaseForm
     public function render(): View
     {
         return view('livewire.admin.support.tickets.form', [
-            'requesterOptions' => User::appUsers()->orderBy('name')->pluck('name', 'id')->all(),
             'categoryOptions' => TicketCategory::where('is_active', true)->orderBy('name')->pluck('name', 'id')->all(),
             'priorityOptions' => collect(TicketPriority::cases())->mapWithKeys(fn (TicketPriority $c) => [$c->value => $c->label()])->all(),
         ]);

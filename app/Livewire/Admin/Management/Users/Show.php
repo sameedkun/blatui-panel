@@ -14,7 +14,9 @@ use App\Models\Plan;
 use App\Models\PlanPrice;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Models\UserDevice;
 use App\Services\AccountDeletionService;
+use App\Services\DeviceService;
 use App\Services\SubscriptionService;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -52,6 +54,16 @@ class Show extends BaseShow
 
     /** Shared reason field for the two cancel dialogs (only one is open at a time). */
     public string $cancelReason = '';
+
+    /** The device awaiting block confirmation (ulid), or null. */
+    public ?string $blockingDeviceUlid = null;
+
+    public string $blockDeviceReason = '';
+
+    /** The device awaiting revoke confirmation (ulid), or null. */
+    public ?string $revokingDeviceUlid = null;
+
+    public bool $revokingAllDevices = false;
 
     public function mount(User $user): void
     {
@@ -95,7 +107,15 @@ class Show extends BaseShow
                     'reactivatable' => $this->reactivatableSubscription(),
                 ],
             ],
-            'devices' => $this->comingSoonTab('Devices', 'smartphone', 'Devices registered to this account will appear here once device management ships.'),
+            'devices' => [
+                'label' => 'Devices',
+                'icon' => 'smartphone',
+                'view' => 'livewire.admin.management.users.profile.tabs.devices',
+                'permission' => 'devices.view',
+                'data' => fn (): array => [
+                    'deviceHistory' => $this->deviceHistory(),
+                ],
+            ],
             'activity' => [
                 'label' => 'Activity',
                 'icon' => 'activity',
@@ -138,6 +158,108 @@ class Show extends BaseShow
             ->with(['plan', 'planPrice'])
             ->latest('starts_at')
             ->paginate(10, pageName: 'subs_page');
+    }
+
+    // -------------------------------------------------------------------------
+    // Devices
+    // -------------------------------------------------------------------------
+
+    /** Every device this account has ever logged in from, most recently seen first — powers the Devices tab. */
+    protected function deviceHistory(): LengthAwarePaginator
+    {
+        return $this->record->devices()
+            ->latest('last_seen_at')
+            ->paginate(10, pageName: 'devices_page');
+    }
+
+    protected function activeDeviceCount(): int
+    {
+        return $this->record->devices()->active()->count();
+    }
+
+    protected function findDevice(string $ulid): UserDevice
+    {
+        return $this->record->devices()->where('ulid', $ulid)->firstOrFail();
+    }
+
+    public function openBlockDeviceDialog(string $ulid): void
+    {
+        $this->authorize('devices.block');
+
+        $this->findDevice($ulid);
+
+        $this->blockingDeviceUlid = $ulid;
+        $this->blockDeviceReason = '';
+        $this->resetErrorBag('blockDeviceReason');
+        $this->dispatch('open-dialog-block-user-device');
+    }
+
+    public function blockDevice(DeviceService $devices): void
+    {
+        $this->authorize('devices.block');
+
+        $this->validate([
+            'blockDeviceReason' => ['required', 'string', 'min:10'],
+        ], [
+            'blockDeviceReason.required' => 'A reason is required to block a device.',
+            'blockDeviceReason.min' => 'The reason must be at least :min characters.',
+        ]);
+
+        $device = $this->findDevice($this->blockingDeviceUlid);
+        $devices->block($device, trim($this->blockDeviceReason), auth()->user());
+
+        $this->blockingDeviceUlid = null;
+        $this->blockDeviceReason = '';
+        $this->toastSuccess("{$device->displayName()} has been blocked.");
+    }
+
+    public function unblockDevice(string $ulid, DeviceService $devices): void
+    {
+        $this->authorize('devices.unblock');
+
+        $device = $this->findDevice($ulid);
+        $devices->unblock($device);
+
+        $this->toastSuccess("{$device->displayName()} has been unblocked.", 'The user must log in again to reconnect it.');
+    }
+
+    public function confirmRevokeDevice(string $ulid): void
+    {
+        $this->authorize('devices.revoke');
+
+        $this->findDevice($ulid);
+
+        $this->revokingDeviceUlid = $ulid;
+        $this->dispatch('open-alert-dialog-revoke-user-device');
+    }
+
+    public function revokeDevice(DeviceService $devices): void
+    {
+        $this->authorize('devices.revoke');
+
+        $device = $this->findDevice($this->revokingDeviceUlid);
+        $devices->revoke($device);
+
+        $this->revokingDeviceUlid = null;
+        $this->toastSuccess("{$device->displayName()} has been revoked.");
+    }
+
+    public function confirmRevokeAllDevices(): void
+    {
+        $this->authorize('devices.revoke');
+
+        $this->revokingAllDevices = true;
+        $this->dispatch('open-alert-dialog-revoke-all-user-devices');
+    }
+
+    public function revokeAllDevices(DeviceService $devices): void
+    {
+        $this->authorize('devices.revoke');
+
+        $count = $devices->revokeAll($this->record);
+
+        $this->revokingAllDevices = false;
+        $this->toastSuccess("{$count} ".str('device')->plural($count).' revoked.');
     }
 
     // -------------------------------------------------------------------------
@@ -416,7 +538,7 @@ class Show extends BaseShow
     {
         return [
             ['label' => 'Plan', 'icon' => 'credit-card', 'value' => $this->record->activeSubscription?->plan?->name ?? 'Free'],
-            ['label' => 'Devices', 'icon' => 'smartphone', 'value' => null],
+            ['label' => 'Devices', 'icon' => 'smartphone', 'value' => $this->deviceCount()],
             ['label' => 'Tickets', 'icon' => 'ticket', 'value' => $this->ticketCount()],
             ['label' => 'Activity', 'icon' => 'activity', 'value' => $this->recordActivityCount()],
             ['label' => 'Joined', 'icon' => 'calendar', 'value' => $this->record->registration_date?->format('M d, Y') ?? '—'],
@@ -436,6 +558,14 @@ class Show extends BaseShow
     {
         return auth()->user()->can('tickets.view')
             ? (string) $this->record->tickets()->count()
+            : null;
+    }
+
+    /** Active (non-revoked, non-blocked) device count, or null without permission to see them. */
+    protected function deviceCount(): ?string
+    {
+        return auth()->user()->can('devices.view')
+            ? (string) $this->activeDeviceCount()
             : null;
     }
 
