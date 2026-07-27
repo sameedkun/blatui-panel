@@ -122,7 +122,7 @@
                         <x-ui.sidebar-menu-item>
                             <x-ui.sidebar-menu-button href="{{ route('admin.ticket-categories.index') }}" :isActive="request()->routeIs('admin.ticket-categories.*')">
                                 <x-lucide-tags />
-                                <span>Ticket Categories</span>
+                                <span>Categories</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan

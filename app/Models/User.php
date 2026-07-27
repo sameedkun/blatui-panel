@@ -20,6 +20,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\HasApiTokens;
 use Spatie\Activitylog\Models\Concerns\CausesActivity;
 use Spatie\Permission\Traits\HasRoles;
 use Spatie\Sluggable\Attributes\Sluggable;
@@ -49,7 +50,7 @@ use Spatie\Sluggable\Attributes\Sluggable;
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
-    use CausesActivity, HasFactory, HasRoles, HasSubscriptions, Notifiable, SoftDeletes;
+    use CausesActivity, HasApiTokens, HasFactory, HasRoles, HasSubscriptions, Notifiable, SoftDeletes;
 
     /**
      * Get the attributes that should be cast.
