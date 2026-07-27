@@ -9,6 +9,8 @@ use App\Models\BlockedIp;
 use App\Support\ActivityLogger;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Daily sweep deleting every blocked_ips row whose expires_at has passed.
@@ -45,5 +47,13 @@ class PruneExpiredBlockedIps implements ShouldQueue
             'blocked_ip_ids' => $expired->pluck('id')->all(),
             'count' => $expired->count(),
         ], causer: null, context: ActivityContext::Scheduler);
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        Log::channel('jobs')->error('Job failed: PruneExpiredBlockedIps', [
+            'job' => self::class,
+            'exception' => $exception,
+        ]);
     }
 }

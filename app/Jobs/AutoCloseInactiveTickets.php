@@ -5,6 +5,8 @@ namespace App\Jobs;
 use App\Services\TicketLifecycleService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Thin scheduled trigger for the ticket auto-close sweep. All logic lives in
@@ -23,10 +25,16 @@ class AutoCloseInactiveTickets implements ShouldQueue
 
     public int $timeout = 300;
 
-    public function __construct(public readonly int $inactiveDays) {}
-
     public function handle(TicketLifecycleService $lifecycle): void
     {
-        $lifecycle->autoCloseInactive($this->inactiveDays);
+        $lifecycle->autoCloseInactive(config('panel.ticket_auto_close_inactive_days'));
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        Log::channel('jobs')->error('Job failed: AutoCloseInactiveTickets', [
+            'job' => self::class,
+            'exception' => $exception,
+        ]);
     }
 }

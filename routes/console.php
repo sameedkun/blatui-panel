@@ -1,6 +1,5 @@
 <?php
 
-use App\Enum\PaymentProvider;
 use App\Jobs\AutoCloseInactiveTickets;
 use App\Jobs\PruneExpiredBlockedIps;
 use App\Jobs\PruneRevokedDevices;
@@ -11,21 +10,20 @@ use Illuminate\Support\Facades\Schedule;
 
 Schedule::job(new PurgeExpiredAccounts)->hourly()->name('account-deletion-purge')->withoutOverlapping();
 
-// Only `local` subscriptions can have their status inferred from dates alone (no real
-// payment gateway to confirm a renewal charge yet) — once a real provider integration
-// exists, just add it here: new SyncSubscriptionStatuses([PaymentProvider::Local, PaymentProvider::Stripe]).
-Schedule::job(new SyncSubscriptionStatuses([PaymentProvider::Local]))
+// Only local subscriptions can have their status inferred from dates alone.
+// Provider selection belongs to the job so the scheduler remains configuration-free.
+Schedule::job(new SyncSubscriptionStatuses)
     ->hourly()
     ->name('subscription-status-sync')
     ->withoutOverlapping();
 
 // Day-granularity thresholds, so daily is frequent enough for both sweeps.
-Schedule::job(new AutoCloseInactiveTickets(config('panel.ticket_auto_close_inactive_days')))
+Schedule::job(new AutoCloseInactiveTickets)
     ->daily()
     ->name('ticket-auto-close')
     ->withoutOverlapping();
 
-Schedule::job(new PurgeClosedTickets(config('panel.ticket_purge_closed_after_months')))
+Schedule::job(new PurgeClosedTickets)
     ->daily()
     ->name('ticket-purge-closed')
     ->withoutOverlapping();
@@ -35,7 +33,7 @@ Schedule::command('activitylog:clean')->weekly()->name('activitylog-clean')->wit
 
 Schedule::job(new PruneExpiredBlockedIps)->daily()->name('blocked-ips-prune-expired')->withoutOverlapping();
 
-Schedule::job(new PruneRevokedDevices(config('panel.user_device_revoked_retention_months')))
+Schedule::job(new PruneRevokedDevices)
     ->monthly()
     ->name('devices-prune-revoked')
     ->withoutOverlapping();

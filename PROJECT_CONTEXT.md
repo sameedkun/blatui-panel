@@ -650,7 +650,7 @@ rather than colliding with generic titles.
 - `PurgeExpiredAccounts` job — hourly, `withoutOverlapping()`, 1 retry (idempotent purge, next
   hourly run catches stragglers on failure), 300s timeout.
 - `SyncSubscriptionStatuses` job — hourly, `withoutOverlapping()`, 1 retry, 300s timeout; scheduled
-  as `new SyncSubscriptionStatuses([PaymentProvider::Local])`. Delegates to
+  as `new SyncSubscriptionStatuses`; the job selects supported providers itself. Delegates to
   `SubscriptionLifecycleService::syncStatuses()` — see "Plans & Subscriptions" above.
 - `AutoCloseInactiveTickets` / `PurgeClosedTickets` jobs — both daily, `withoutOverlapping()`, 1
   retry, 300s timeout; delegate to `TicketLifecycleService` — see "Ticket lifecycle sweeps" above.
@@ -658,6 +658,10 @@ rather than colliding with generic titles.
 - `PruneRevokedDevices` job — monthly, `withoutOverlapping()`, 1 retry, 300s timeout; delegates to
   `DeviceService::pruneRevoked()` — see "Device Management & IP Blocking" above.
 - `activitylog:clean` Artisan command (Spatie's built-in pruning) — weekly.
+
+All jobs log terminal failures to the daily `jobs` channel (`storage/logs/jobs-*.log`) with their
+class name and exception. Scheduled jobs read their own operational configuration at execution
+time, leaving `routes/console.php` responsible only for cadence and overlap protection.
 
 ## Directory map
 

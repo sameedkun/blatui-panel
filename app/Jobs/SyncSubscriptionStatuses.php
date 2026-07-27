@@ -6,6 +6,8 @@ use App\Enum\PaymentProvider;
 use App\Services\SubscriptionLifecycleService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Thin scheduled trigger for the subscription-status sweep. All logic lives in
@@ -25,11 +27,16 @@ class SyncSubscriptionStatuses implements ShouldQueue
 
     public int $timeout = 300;
 
-    /** @param  array<int, PaymentProvider>  $providers */
-    public function __construct(public readonly array $providers = [PaymentProvider::Local]) {}
-
     public function handle(SubscriptionLifecycleService $lifecycle): void
     {
-        $lifecycle->syncStatuses($this->providers);
+        $lifecycle->syncStatuses([PaymentProvider::Local]);
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        Log::channel('jobs')->error('Job failed: SyncSubscriptionStatuses', [
+            'job' => self::class,
+            'exception' => $exception,
+        ]);
     }
 }

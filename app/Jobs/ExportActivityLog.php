@@ -5,8 +5,10 @@ namespace App\Jobs;
 use App\Support\ActivityLogQuery;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
+use Throwable;
 
 /**
  * Streams a large, filtered activity-log export to a CSV on disk so the web
@@ -49,6 +51,14 @@ class ExportActivityLog implements ShouldQueue
         rewind($handle);
         $disk->put($path, stream_get_contents($handle));
         fclose($handle);
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        Log::channel('jobs')->error('Job failed: ExportActivityLog', [
+            'job' => self::class,
+            'exception' => $exception,
+        ]);
     }
 
     /** @return array<int, string> */

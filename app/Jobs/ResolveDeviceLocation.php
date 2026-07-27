@@ -7,6 +7,8 @@ use App\Services\DeviceService;
 use App\Services\LocationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Resolves city/country/country_code for a device's IP via {@see LocationService}
@@ -41,5 +43,13 @@ class ResolveDeviceLocation implements ShouldQueue
         }
 
         $devices->updateLocation($device, $location->getLocationFromIP($this->ip));
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        Log::channel('jobs')->error('Job failed: ResolveDeviceLocation', [
+            'job' => self::class,
+            'exception' => $exception,
+        ]);
     }
 }

@@ -6,6 +6,8 @@ use App\Http\Middleware\CheckBlockedIp;
 use App\Models\BlockedIp;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Increments hit counters off the request path — {@see CheckBlockedIp}
@@ -30,5 +32,13 @@ class RecordBlockedIpHit implements ShouldQueue
             ->active()
             ->get()
             ->each->recordHit();
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        Log::channel('jobs')->error('Job failed: RecordBlockedIpHit', [
+            'job' => self::class,
+            'exception' => $exception,
+        ]);
     }
 }

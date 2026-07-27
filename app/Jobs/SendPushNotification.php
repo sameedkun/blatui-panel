@@ -11,6 +11,8 @@ use App\Services\OneSignalService;
 use App\Support\ActivityLogger;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Sends a {@see Notification} as a OneSignal push broadcast and records the
@@ -63,5 +65,13 @@ class SendPushNotification implements ShouldQueue
                 'error' => $result['error'] ?? 'Unknown error',
             ], causer: null, context: ActivityContext::Queue);
         }
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        Log::channel('jobs')->error('Job failed: SendPushNotification', [
+            'job' => self::class,
+            'exception' => $exception,
+        ]);
     }
 }
