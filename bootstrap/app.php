@@ -3,6 +3,7 @@
 use App\Http\Middleware\CheckBlockedIp;
 use App\Http\Middleware\EnsureDeviceIsValid;
 use App\Http\Middleware\EnsurePanelAccess;
+use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -31,6 +32,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Runs before every API route's own middleware (e.g. auth:sanctum),
         // since it needs to reject a blocked IP before authentication even runs.
         $middleware->api(prepend: [CheckBlockedIp::class]);
+
+        $middleware->web(append: [SetLocale::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

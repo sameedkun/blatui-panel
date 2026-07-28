@@ -78,6 +78,8 @@ via Livewire's wire protocol.
 "log out other devices" on the account page work (session gets invalidated when the stamped
 password hash no longer matches after `Auth::logoutOtherDevices()`).
 
+`SetLocale` middleware (`App\Http\Middleware\SetLocale`) is stacked on the `web` group — it reads the 1-year `locale` cookie and calls `App::setLocale()`. Switched via the `<livewire:admin.components.language-switcher />` topbar header component using BlatUI dropdown. Flat localization files live in `lang/en/*.php`.
+
 ## Livewire architecture
 
 Three abstract bases in `app/Livewire/Admin/`, each composing focused traits from

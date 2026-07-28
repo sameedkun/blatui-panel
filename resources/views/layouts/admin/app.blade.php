@@ -40,6 +40,9 @@
                         <x-lucide-moon class="size-4 hidden dark:block" aria-hidden="true" />
                     </x-ui.button>
 
+                    {{-- Language Switcher --}}
+                    <livewire:admin.components.language-switcher />
+
                     {{-- Settings --}}
                     @if (auth()->user()->canAccessModule('settings'))
                         <a href="{{ route('admin.settings.index') }}" aria-label="Settings" wire:navigate>

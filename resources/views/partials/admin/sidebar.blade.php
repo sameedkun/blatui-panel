@@ -23,13 +23,13 @@
                 <x-ui.sidebar-menu-item>
                     <x-ui.sidebar-menu-button href="{{ route('admin.dashboard') }}" :isActive="request()->routeIs('admin.dashboard')">
                         <x-lucide-layout-dashboard />
-                        <span>Dashboard</span>
+                        <span>{{ __('navigation.modules.dashboard') }}</span>
                     </x-ui.sidebar-menu-button>
                 </x-ui.sidebar-menu-item>
             @endcan
 
-            @canany(['users.view', 'guests.view', 'plans.view', 'subscriptions.view', 'devices.view'])
-                <x-ui.sidebar-group-label>Management</x-ui.sidebar-group-label>
+            @canany(['users.view', 'guests.view', 'plans.view', 'subscriptions.view', 'devices.view', 'blocked-ips.view'])
+                <x-ui.sidebar-group-label>{{ __('navigation.groups.management') }}</x-ui.sidebar-group-label>
 
                 <x-ui.sidebar-menu>
 
@@ -37,7 +37,7 @@
                         <x-ui.sidebar-menu-item>
                             <x-ui.sidebar-menu-button href="{{ route('admin.users.index') }}" :isActive="request()->routeIs('admin.users.*')">
                                 <x-lucide-users />
-                                <span>Users</span>
+                                <span>{{ __('navigation.modules.users') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan
@@ -46,7 +46,7 @@
                         <x-ui.sidebar-menu-item>
                             <x-ui.sidebar-menu-button href="{{ route('admin.guests.index') }}" :isActive="request()->routeIs('admin.guests.*')">
                                 <x-lucide-user />
-                                <span>Guests</span>
+                                <span>{{ __('navigation.modules.guests') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan
@@ -55,7 +55,7 @@
                         <x-ui.sidebar-menu-item>
                             <x-ui.sidebar-menu-button href="{{ route('admin.plans.index') }}" :isActive="request()->routeIs('admin.plans.*')">
                                 <x-lucide-credit-card />
-                                <span>Plans</span>
+                                <span>{{ __('navigation.modules.plans') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan
@@ -64,7 +64,7 @@
                         <x-ui.sidebar-menu-item>
                             <x-ui.sidebar-menu-button href="{{ route('admin.subscriptions.index') }}" :isActive="request()->routeIs('admin.subscriptions.*')">
                                 <x-lucide-receipt />
-                                <span>Subscriptions</span>
+                                <span>{{ __('navigation.modules.subscriptions') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan
@@ -73,7 +73,7 @@
                         <x-ui.sidebar-menu-item>
                             <x-ui.sidebar-menu-button href="{{ route('admin.devices.index') }}" :isActive="request()->routeIs('admin.devices.*')">
                                 <x-lucide-smartphone />
-                                <span>Devices</span>
+                                <span>{{ __('navigation.modules.devices') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan
@@ -82,7 +82,7 @@
                         <x-ui.sidebar-menu-item>
                             <x-ui.sidebar-menu-button href="{{ route('admin.blocked-ips.index') }}" :isActive="request()->routeIs('admin.blocked-ips.*')">
                                 <x-lucide-shield-alert />
-                                <span>Blocked IPs</span>
+                                <span>{{ __('navigation.modules.blocked_ips') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan
@@ -91,14 +91,14 @@
             @endcanany
 
             @canany(['languages.view', 'feedback.view', 'notifications.view'])
-                <x-ui.sidebar-group-label>Application</x-ui.sidebar-group-label>
+                <x-ui.sidebar-group-label>{{ __('navigation.groups.app') }}</x-ui.sidebar-group-label>
 
                 <x-ui.sidebar-menu>
                     @can('languages.view')
                         <x-ui.sidebar-menu-item>
                             <x-ui.sidebar-menu-button href="{{ route('admin.languages.index') }}" :isActive="request()->routeIs('admin.languages.*')">
                                 <x-lucide-globe />
-                                <span>Languages</span>
+                                <span>{{ __('navigation.modules.languages') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan
@@ -107,7 +107,7 @@
                         <x-ui.sidebar-menu-item>
                             <x-ui.sidebar-menu-button href="{{ route('admin.feedback.index') }}" :isActive="request()->routeIs('admin.feedback.*')">
                                 <x-lucide-message-square-quote />
-                                <span>Feedback</span>
+                                <span>{{ __('navigation.modules.feedback') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan
@@ -116,7 +116,7 @@
                         <x-ui.sidebar-menu-item>
                             <x-ui.sidebar-menu-button href="{{ route('admin.notifications.index') }}" :isActive="request()->routeIs('admin.notifications.*')">
                                 <x-lucide-bell />
-                                <span>Notifications</span>
+                                <span>{{ __('navigation.modules.notifications') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan
@@ -124,14 +124,14 @@
             @endcanany
 
             @canany(['tickets.view', 'ticket_categories.view'])
-                <x-ui.sidebar-group-label>Support</x-ui.sidebar-group-label>
+                <x-ui.sidebar-group-label>{{ __('navigation.groups.support') }}</x-ui.sidebar-group-label>
 
                 <x-ui.sidebar-menu>
                     @can('tickets.view')
                         <x-ui.sidebar-menu-item>
                             <x-ui.sidebar-menu-button href="{{ route('admin.tickets.index') }}" :isActive="request()->routeIs('admin.tickets.*')">
                                 <x-lucide-life-buoy />
-                                <span>Tickets</span>
+                                <span>{{ __('navigation.modules.tickets') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan
@@ -140,7 +140,7 @@
                         <x-ui.sidebar-menu-item>
                             <x-ui.sidebar-menu-button href="{{ route('admin.ticket-categories.index') }}" :isActive="request()->routeIs('admin.ticket-categories.*')">
                                 <x-lucide-tags />
-                                <span>Categories</span>
+                                <span>{{ __('navigation.modules.ticket_categories') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan
@@ -148,7 +148,7 @@
             @endcanany
 
             @if (auth()->user()->canAny(['staff.view', 'roles.view', 'activity_logs.view']) || auth()->user()->canAccessModule('settings'))
-                <x-ui.sidebar-group-label>Administration</x-ui.sidebar-group-label>
+                <x-ui.sidebar-group-label>{{ __('navigation.groups.administration') }}</x-ui.sidebar-group-label>
 
                 <x-ui.sidebar-menu>
 
@@ -156,7 +156,7 @@
                         <x-ui.sidebar-menu-item>
                             <x-ui.sidebar-menu-button href="{{ route('admin.staff.index') }}" :isActive="request()->routeIs('admin.staff.*')">
                                 <x-lucide-shield-user />
-                                <span>Staff</span>
+                                <span>{{ __('navigation.modules.staff') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan
@@ -165,7 +165,7 @@
                         <x-ui.sidebar-menu-item>
                             <x-ui.sidebar-menu-button href="{{ route('admin.roles.index') }}" :isActive="request()->routeIs('admin.roles.*')">
                                 <x-lucide-key />
-                                <span>Roles</span>
+                                <span>{{ __('navigation.modules.roles') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan
@@ -174,7 +174,7 @@
                         <x-ui.sidebar-menu-item>
                             <x-ui.sidebar-menu-button href="{{ route('admin.activity-logs.index') }}" :isActive="request()->routeIs('admin.activity-logs.*')">
                                 <x-lucide-clipboard-list />
-                                <span>Activity Logs</span>
+                                <span>{{ __('navigation.modules.activity_logs') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan
@@ -183,7 +183,7 @@
                         <x-ui.sidebar-menu-item>
                             <x-ui.sidebar-menu-button href="{{ route('admin.settings.index') }}" :isActive="request()->routeIs('admin.settings.*')">
                                 <x-lucide-settings />
-                                <span>Settings</span>
+                                <span>{{ __('navigation.modules.settings') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endif
@@ -241,12 +241,12 @@
                         <x-ui.dropdown-menu-separator />
                         <x-ui.dropdown-menu-item href="{{ route('admin.account') }}">
                             <x-lucide-user class="size-4" />
-                            My Account
+                            {{ __('navigation.modules.account') }}
                         </x-ui.dropdown-menu-item>
                         @can('settings.view')
                             <x-ui.dropdown-menu-item href="{{ route('admin.settings.general') }}">
                                 <x-lucide-settings class="size-4" />
-                                Settings
+                                {{ __('navigation.modules.settings') }}
                             </x-ui.dropdown-menu-item>
                         @endcan
                         <x-ui.dropdown-menu-separator />
