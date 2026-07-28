@@ -104,7 +104,7 @@ class SubscriptionService
                 'ends_at' => now(),
                 'is_recurring' => false,
                 'cancelled_by' => CancelledBy::System,
-                'cancelled_reason' => 'Upgraded to: ' . $newPrice->plan->slug,
+                'cancelled_reason' => 'Upgraded to: '.$newPrice->plan->slug,
             ]);
 
             ActivityLogger::log(ActivityModule::User, ActivityAction::Assigned, $user, [
@@ -131,6 +131,25 @@ class SubscriptionService
             return true;
         }
 
+        $this->cancelSubscription($sub, $cancelledBy, $reason, $immediately);
+
+        return true;
+    }
+
+    /**
+     * Cancel a specific subscription row directly, rather than looking one up
+     * off a user's current {@see Subscription}. Used by
+     * {@see cancelActive()} and by callers (e.g. account merge) that already
+     * hold the exact row to cancel and can't rely on `$user->activeSubscription`
+     * resolving to it (a user may end up owning more than one active-looking
+     * row mid-merge).
+     */
+    public function cancelSubscription(
+        Subscription $sub,
+        CancelledBy $cancelledBy = CancelledBy::User,
+        ?string $reason = null,
+        bool $immediately = false
+    ): void {
         $reasonText = $reason ?: 'Cancelled';
 
         $data = [
@@ -141,13 +160,13 @@ class SubscriptionService
         ];
 
         // if immediate or already expired then end now, otherwise keep access until period end
-        if ($immediately || now()->gte($sub->ends_at)) {
+        if ($immediately || ($sub->ends_at !== null && now()->gte($sub->ends_at))) {
             $data['ends_at'] = now();
         }
 
         $sub->update($data);
 
-        ActivityLogger::log(ActivityModule::User, ActivityAction::Cancelled, $user, [
+        ActivityLogger::log(ActivityModule::User, ActivityAction::Cancelled, $sub->user, [
             'type' => 'subscription_cancelled',
             'plan' => $sub->plan->name,
             'cancelled_by' => $cancelledBy->value,
@@ -155,8 +174,6 @@ class SubscriptionService
             'immediately' => $immediately,
             'access_until' => $sub->ends_at?->toIso8601String(),
         ]);
-
-        return true;
     }
 
     /**

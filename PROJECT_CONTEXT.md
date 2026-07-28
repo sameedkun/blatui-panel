@@ -134,9 +134,11 @@ conversion, or merge logic inline in a Livewire component.**
   - Guests: `purgeGuestByAdmin()` skips straight to `purge()` — no request/cancel phase at all.
   - `purge()` is transactional and idempotent (`if (! $user->exists) return;`), snapshots the
     account into the audit-log properties before `forceDelete()`, and cleans up related rows
-    (`deleteRelatedData()` — explicitly deletes `subscriptions`/`personal_access_tokens`/`sessions`
-    rows; `user_devices` isn't listed there since its `user_id` FK is `cascadeOnDelete()`, so the
-    subsequent `forceDelete()` already removes those rows without needing an explicit query).
+    (`deleteRelatedData()` — explicitly deletes `blocked_ips`/`personal_access_tokens`/`sessions`
+    rows; `subscriptions` and `user_devices` aren't listed there since both have a `user_id` FK
+    that's `cascadeOnDelete()`, so the subsequent `forceDelete()` already removes those rows
+    without needing an explicit query — `subscription_receipts` cascades transitively off
+    `subscriptions` the same way).
   - Scheduled purges use an explicit `causer: null` + `context: Scheduler` (no `auth()` session
     exists in that context); admin-triggered purges auto-resolve the causer/context.
 - **`GuestConversionService`** — flips a guest in place into an app user (same row/id).
@@ -755,11 +757,13 @@ tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogT
     looks like leftover/aspirational code.
 - Several TODOs mark intentionally-deferred wiring: email verification notifications on guest
   conversion, password-reset-link dispatch on admin-initiated conversion, and
-  `AccountMergeService::migrateRelatedData()` — reassigning a guest's `subscriptions`/
-  `user_devices` rows to the destination account on merge isn't wired up yet, even though both
-  tables now exist. (`AccountDeletionService::deleteRelatedData()` is no longer on this list — it
-  now explicitly cleans up `subscriptions`, and `user_devices` needs no explicit query since its
-  `user_id` FK cascade-deletes when the account is force-deleted.)
+  `AccountMergeService::migrateRelatedData()`'s `user_devices` reassignment — a guest's devices
+  aren't moved to the destination account on merge yet. Its `subscriptions` reassignment *is*
+  wired up: every guest subscription is reassigned to the destination up front (so history
+  survives the guest's `forceDelete()`), and if both accounts have an active subscription the
+  destination's wins and the guest's is cancelled — except a `local` (no real gateway) app
+  subscription always loses to a real external guest subscription, which is reassigned and
+  linked via `previous_subscription_id` instead.
 - There is deliberately no login/device-registration API endpoint yet — see "Device Management &
   IP Blocking" above. `DeviceService::register()` is a ready wiring point for whenever one is built.
 - `Users/Show.php` has three scaffolded-but-inert actions (`verifyEmailManually`,

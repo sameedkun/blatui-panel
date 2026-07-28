@@ -200,24 +200,26 @@ class AccountDeletionService
      * Remove rows owned by the account. Each table is guarded so the pipeline
      * stays idempotent and tolerates data that is missing or already deleted.
      *
-     * `user_devices` isn't listed here — its `user_id` FK is `cascadeOnDelete()`
-     * at the DB level, so the forceDelete() below already removes those rows;
-     * explicit cleanup would be redundant. Its tokens are still cleaned up
-     * below (deleting the token first is what the model's own revoke/block
-     * hooks do too), same reasoning as sessions.
+     * `subscriptions` and `user_devices` aren't listed here — both have a
+     * `user_id` FK that's `cascadeOnDelete()` at the DB level, so the
+     * forceDelete() below already removes those rows; explicit cleanup would
+     * be redundant. (`subscription_receipts` cascades transitively off
+     * `subscriptions` the same way.)
      *
-     * `blocked_ips` IS listed here, unlike `user_devices` — its `user_id` FK is
+     * `blocked_ips` IS listed here, unlike those two — its `user_id` FK is
      * `restrictOnDelete()`, not `cascadeOnDelete()` (InnoDB refuses a cascading
      * action on a column a stored generated column depends on — see the
      * migration), so this explicit delete is what actually prevents the
      * subsequent forceDelete() from being blocked by that FK.
+     *
+     * `personal_access_tokens` and `sessions` are also listed here — neither
+     * has a real FK constraint at all (`personal_access_tokens.tokenable` is
+     * a polymorphic `morphs()` column, `sessions.user_id` is a plain nullable
+     * column), so nothing at the DB level cleans them up; without this they'd
+     * be orphaned forever.
      */
     protected function deleteRelatedData(User $user): void
     {
-        if (Schema::hasTable('subscriptions')) {
-            DB::table('subscriptions')->where('user_id', $user->id)->delete();
-        }
-
         if (Schema::hasTable('blocked_ips')) {
             DB::table('blocked_ips')->where('user_id', $user->id)->delete();
         }
