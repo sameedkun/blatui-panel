@@ -4,67 +4,67 @@
 
 <x-admin.reason-dialog
     id="ban-user"
-    title="Ban User"
-    description='Optionally provide a reason. Defaults to "Banned by administrator."'
+    :title="__('users.dialogs.ban_user')"
+    :description="__('users.dialogs.ban_user_desc')"
     model="banReason"
     confirm="confirmBan"
-    confirm-label="Ban User"
+    :confirm-label="__('users.dialogs.ban_user')"
     cancel="$wire.set('banningUserId', null)"
-    placeholder="Reason for the ban (optional)"
+    :placeholder="__('users.dialogs.ban_reason_placeholder')"
 />
 
 <x-admin.confirm-dialog
     id="delete-user"
-    title="Delete User"
+    :title="__('users.dialogs.delete_user')"
     confirm="$wire.delete()"
     cancel="$wire.set('deletingId', null)"
-    confirm-label="Delete"
+    :confirm-label="__('common.delete')"
     variant="destructive"
 >
-    This will soft-delete the user. They can be restored later.
+    {{ __('users.dialogs.delete_user_desc') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="restore-user"
-    title="Restore User"
+    :title="__('users.dialogs.restore_user')"
     confirm="$wire.restore()"
     cancel="$wire.set('restoringId', null)"
-    confirm-label="Restore"
+    :confirm-label="__('common.restore')"
 >
-    This will restore the user's account.
+    {{ __('users.dialogs.restore_user_desc') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="force-delete-user"
-    title="Permanently Delete"
+    :title="__('users.dialogs.force_delete_user')"
     confirm="$wire.forceDelete()"
     cancel="$wire.set('forceDeleteId', null)"
-    confirm-label="Delete Permanently"
+    :confirm-label="__('users.actions.force_delete')"
     variant="destructive"
 >
-    This action <strong>cannot be undone</strong>. The user and all associated data will be permanently removed.
+    {!! __('users.dialogs.force_delete_user_desc') !!}
 </x-admin.confirm-dialog>
 
 <x-admin.reason-dialog
     id="schedule-deletion"
-    title="Schedule Account Deletion"
-    description="The account stays live during the grace period, then is permanently purged. You can stop it before then."
+    :title="__('users.dialogs.schedule_deletion')"
+    :description="__('users.dialogs.schedule_deletion_desc')"
     model="deletionReason"
     confirm="confirmScheduleDeletion"
-    confirm-label="Schedule Deletion"
+    :confirm-label="__('users.actions.schedule_deletion')"
     variant="destructive"
     cancel="$wire.set('schedulingId', null)"
-    placeholder="Reason for deletion (optional)"
+    :placeholder="__('users.dialogs.reason_optional')"
 />
 
 <x-admin.reason-dialog
     id="instant-purge"
-    title="Purge Account Now"
-    description="This permanently deletes the account immediately, skipping the grace period."
+    :title="__('users.dialogs.instant_purge')"
+    :description="__('users.dialogs.instant_purge_desc')"
     model="purgeReason"
     confirm="instantPurge"
-    confirm-label="Purge Permanently"
+    :confirm-label="__('users.actions.purge')"
     variant="destructive"
     cancel="$wire.set('purgingId', null)"
-    placeholder="Reason (optional)"
+    :placeholder="__('users.dialogs.reason_optional')"
 />

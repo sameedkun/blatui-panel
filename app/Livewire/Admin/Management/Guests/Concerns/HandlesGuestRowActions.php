@@ -68,7 +68,7 @@ trait HandlesGuestRowActions
 
         $this->banningUserId = null;
         $this->banReason = '';
-        $this->toastSuccess("Guest {$guest->name} has been banned.");
+        $this->toastSuccess(__('guests.toasts.guest_banned', ['name' => $guest->name]));
     }
 
     public function unban(int $userId): void
@@ -82,7 +82,7 @@ trait HandlesGuestRowActions
 
         $this->logActivity(ActivityModule::Guest, ActivityAction::Unbanned, $guest);
 
-        $this->toastSuccess("{$guest->name} has been unbanned.");
+        $this->toastSuccess(__('guests.toasts.guest_unbanned', ['name' => $guest->name]));
     }
 
     public function confirmDelete(int $userId): void
@@ -112,7 +112,7 @@ trait HandlesGuestRowActions
         $deletions->purgeGuestByAdmin($guest);
 
         $this->deletingId = null;
-        $this->toastSuccess("{$name} has been permanently deleted.");
+        $this->toastSuccess(__('guests.toasts.guest_deleted', ['name' => $name]));
     }
 
     public function confirmRestore(int $userId): void
@@ -138,7 +138,7 @@ trait HandlesGuestRowActions
         $this->logActivity(ActivityModule::Guest, ActivityAction::Restored, $guest);
 
         $this->restoringId = null;
-        $this->toastSuccess("{$guest->name} has been restored.");
+        $this->toastSuccess(__('guests.toasts.guest_restored', ['name' => $guest->name]));
     }
 
     public function confirmForceDelete(int $userId): void
@@ -166,7 +166,7 @@ trait HandlesGuestRowActions
         $guest->forceDelete();
 
         $this->forceDeleteId = null;
-        $this->toastSuccess("{$name} has been permanently deleted.");
+        $this->toastSuccess(__('guests.toasts.guest_permanently_deleted', ['name' => $name]));
     }
 
     /**

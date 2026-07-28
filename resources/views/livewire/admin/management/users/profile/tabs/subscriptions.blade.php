@@ -20,8 +20,8 @@
                     <x-lucide-credit-card class="size-4.5" />
                 </div>
                 <div>
-                    <h3 class="text-base font-semibold text-foreground">Current Subscription</h3>
-                    <p class="text-xs text-muted-foreground">Manage user's active billing plan and recurring status.</p>
+                    <h3 class="text-base font-semibold text-foreground">{{ __('subscriptions.active_subscription') }}</h3>
+                    <p class="text-xs text-muted-foreground">{{ __('subscriptions.active_subscription_desc') }}</p>
                 </div>
             </div>
 
@@ -30,7 +30,7 @@
                     <x-ui.button variant="outline" size="sm" wire:click="openAssignPlanDialog"
                         class="gap-1.5 text-xs shadow-2xs">
                         <x-lucide-credit-card class="size-3.5" />
-                        <span>{{ $active ? 'Change Plan' : 'Assign Plan' }}</span>
+                        <span>{{ __('users.actions.assign_plan') }}</span>
                     </x-ui.button>
 
                     @if ($active)
@@ -38,20 +38,20 @@
                             <x-ui.button variant="outline" size="sm" wire:click="openCancelAtPeriodEndDialog"
                                 class="gap-1.5 text-xs shadow-2xs">
                                 <x-lucide-clock class="size-3.5" />
-                                <span>Cancel at Period End</span>
+                                <span>{{ __('users.actions.cancel_at_period_end') }}</span>
                             </x-ui.button>
                         @endif
 
                         <x-ui.button variant="destructive" size="sm" wire:click="openCancelImmediatelyDialog"
                             class="gap-1.5 text-xs shadow-2xs">
                             <x-lucide-circle-slash class="size-3.5" />
-                            <span>Cancel Immediately</span>
+                            <span>{{ __('users.actions.cancel_immediately') }}</span>
                         </x-ui.button>
                     @elseif ($reactivatable)
                         <x-ui.button variant="outline" size="sm" wire:click="reactivateSubscription"
                             class="gap-1.5 text-xs shadow-2xs">
                             <x-lucide-refresh-cw class="size-3.5" />
-                            <span>Reactivate</span>
+                            <span>{{ __('subscriptions.actions.reactivate') }}</span>
                         </x-ui.button>
                     @endif
                 </div>
@@ -80,7 +80,7 @@
                                                 class="size-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
                                         </a>
                                     @else
-                                        <span class="text-lg font-bold text-foreground">Deleted Plan</span>
+                                        <span class="text-lg font-bold text-foreground">{{ __('common.deleted_plan') }}</span>
                                     @endif
 
                                     @if ($active->plan?->is_best_deal)
@@ -110,7 +110,7 @@
                                             class="text-xs">{{ $active->status->label() }}</x-ui.badge>
                                     @endif
                                     <span>•</span>
-                                    <span>Gateway: {{ $active->provider->label() }}</span>
+                                    <span>{{ __('subscriptions.gateway', ['provider' => $active->provider->label()]) }}</span>
                                 </div>
                             </div>
                         </div>
@@ -132,7 +132,7 @@
                 {{-- Parameter Cards Grid --}}
                 <div class="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-4">
                     <div class="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-1">
-                        <dt class="text-xs font-medium text-muted-foreground">Started On</dt>
+                        <dt class="text-xs font-medium text-muted-foreground">{{ __('subscriptions.fields.starts_at') }}</dt>
                         <dd class="text-xs font-semibold text-foreground">
                             <x-ui.local-time :value="$active->starts_at" format="MMM D, YYYY" />
                         </dd>
@@ -140,7 +140,7 @@
 
                     @if ($active->trial_ends_at)
                         <div class="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-1">
-                            <dt class="text-xs font-medium text-muted-foreground">Trial Ends</dt>
+                            <dt class="text-xs font-medium text-muted-foreground">{{ __('subscriptions.fields.trial_ends_at') }}</dt>
                             <dd class="text-xs font-semibold text-foreground">
                                 <x-ui.local-time :value="$active->trial_ends_at" format="MMM D, YYYY" />
                             </dd>
@@ -149,7 +149,7 @@
 
                     <div class="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-1">
                         <dt class="text-xs font-medium text-muted-foreground">
-                            {{ $active->cancelled_by ? 'Access Until' : 'Renews / Expiration' }}</dt>
+                            {{ $active->cancelled_by ? __('subscriptions.access_until') : __('subscriptions.renews_on') }}</dt>
                         <dd class="text-xs font-semibold text-foreground">
                             @if ($active->ends_at)
                                 <x-ui.local-time :value="$active->ends_at" format="MMM D, YYYY" />
@@ -161,7 +161,7 @@
 
                     @if ($active->grace_ends_at)
                         <div class="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-1">
-                            <dt class="text-xs font-medium text-muted-foreground">Grace Ends</dt>
+                            <dt class="text-xs font-medium text-muted-foreground">{{ __('subscriptions.fields.grace_ends_at') }}</dt>
                             <dd class="text-xs font-semibold text-foreground">
                                 <x-ui.local-time :value="$active->grace_ends_at" format="MMM D, YYYY" />
                             </dd>
@@ -169,14 +169,14 @@
                     @endif
 
                     <div class="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-1">
-                        <dt class="text-xs font-medium text-muted-foreground">Auto-Renewal</dt>
+                        <dt class="text-xs font-medium text-muted-foreground">{{ __('subscriptions.auto_renewal') }}</dt>
                         <dd class="text-xs font-semibold text-foreground">
-                            {{ $active->is_recurring ? 'Enabled' : 'Disabled' }}
+                            {{ $active->is_recurring ? __('common.enabled') : __('common.disabled') }}
                         </dd>
                     </div>
 
                     <div class="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-1">
-                        <dt class="text-xs font-medium text-muted-foreground">Total Paid</dt>
+                        <dt class="text-xs font-medium text-muted-foreground">{{ __('subscriptions.total_paid') }}</dt>
                         <dd class="text-xs font-semibold text-foreground">
                             {{ $active->amount_paid !== null ? $active->currency . ' ' . number_format((float) $active->amount_paid, 2) : '—' }}
                         </dd>
@@ -210,14 +210,14 @@
                     <x-lucide-credit-card class="size-5 text-muted-foreground/50" />
                 </div>
                 <div>
-                    <p class="text-sm font-medium text-foreground">No Active Subscription</p>
-                    <p class="text-xs text-muted-foreground">This user is currently not subscribed to any plan.</p>
+                    <p class="text-sm font-medium text-foreground">{{ __('subscriptions.no_active') }}</p>
+                    <p class="text-xs text-muted-foreground">{{ __('subscriptions.no_active_desc') }}</p>
                 </div>
                 @can('users.manage')
                     <x-ui.button variant="outline" size="sm" wire:click="openAssignPlanDialog"
                         class="mt-1 gap-1.5 text-xs">
                         <x-lucide-plus class="size-3.5" />
-                        <span>Assign Plan</span>
+                        <span>{{ __('users.actions.assign_plan') }}</span>
                     </x-ui.button>
                 @endcan
             </div>
@@ -227,8 +227,8 @@
     {{-- History --}}
     <x-ui.card class="p-0 overflow-hidden">
         <div class="border-b border-border/50 p-4">
-            <h3 class="text-sm font-semibold text-foreground">Subscription History</h3>
-            <p class="text-xs text-muted-foreground">Log of past subscriptions, tier changes, and renewals.</p>
+            <h3 class="text-sm font-semibold text-foreground">{{ __('subscriptions.history') }}</h3>
+            <p class="text-xs text-muted-foreground">{{ __('subscriptions.history_desc', ['name' => $record->name]) }}</p>
         </div>
 
         <div class="overflow-x-auto">
@@ -236,11 +236,11 @@
                 <thead>
                     <tr
                         class="border-b border-border bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
-                        <th class="px-4 py-3 text-left font-semibold">Plan</th>
-                        <th class="px-4 py-3 text-left font-semibold">Status</th>
-                        <th class="hidden px-4 py-3 text-left font-semibold md:table-cell">Started</th>
-                        <th class="hidden px-4 py-3 text-left font-semibold md:table-cell">Ended</th>
-                        <th class="px-4 py-3 text-right font-semibold">Amount Paid</th>
+                        <th class="px-4 py-3 text-left font-semibold">{{ __('subscriptions.fields.plan') }}</th>
+                        <th class="px-4 py-3 text-left font-semibold">{{ __('subscriptions.fields.status') }}</th>
+                        <th class="hidden px-4 py-3 text-left font-semibold md:table-cell">{{ __('subscriptions.fields.starts_at') }}</th>
+                        <th class="hidden px-4 py-3 text-left font-semibold md:table-cell">{{ __('subscriptions.fields.ends_at') }}</th>
+                        <th class="px-4 py-3 text-right font-semibold">{{ __('subscriptions.total_paid') }}</th>
                         <th class="w-10 px-4 py-3"></th>
                     </tr>
                 </thead>
@@ -309,7 +309,7 @@
                             <td colspan="6" class="px-4 py-12 text-center text-muted-foreground">
                                 <div class="flex flex-col items-center justify-center gap-2">
                                     <x-lucide-credit-card class="size-8 text-muted-foreground/30" />
-                                    <p class="text-sm font-medium">No subscription history.</p>
+                                    <p class="text-sm font-medium">{{ __('subscriptions.no_history') }}</p>
                                 </div>
                             </td>
                         </tr>

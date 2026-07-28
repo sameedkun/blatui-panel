@@ -26,17 +26,17 @@
                 <p class="truncate text-sm text-muted-foreground">{{ $record->email }}</p>
 
                 <div class="mt-2 flex flex-wrap items-center gap-1.5">
-                    <x-ui.badge variant="secondary">Guest</x-ui.badge>
+                    <x-ui.badge variant="secondary">{{ __('guests.singular') }}</x-ui.badge>
 
                     @if ($state === 'trashed')
                         <x-ui.badge variant="destructive">
                             <x-lucide-trash-2 class="size-3" />
-                            Deleted
+                            {{ __('guests.status_labels.deleted') }}
                         </x-ui.badge>
                     @endif
 
                     @if ($banned)
-                        <x-ui.badge variant="destructive">Banned</x-ui.badge>
+                        <x-ui.badge variant="destructive">{{ __('guests.status_labels.banned') }}</x-ui.badge>
                     @endif
                 </div>
             </div>
@@ -54,14 +54,14 @@
                         @can('guests.unban')
                             <x-ui.button variant="outline" wire:click="unban({{ $record->id }})">
                                 <x-lucide-shield-check class="size-4" />
-                                Unban
+                                {{ __('guests.actions.unban') }}
                             </x-ui.button>
                         @endcan
                     @else
                         @can('guests.ban')
                             <x-ui.button variant="outline" wire:click="openBanDialog({{ $record->id }})">
                                 <x-lucide-ban class="size-4" />
-                                Ban
+                                {{ __('guests.actions.ban') }}
                             </x-ui.button>
                         @endcan
                     @endif
@@ -74,7 +74,7 @@
                 <x-admin.dropdown align="end" width="w-64">
                     <x-slot:trigger>
                         <x-ui.button variant="outline">
-                            Actions
+                            {{ __('common.actions') }}
                             <x-lucide-chevron-down class="size-4" />
                         </x-ui.button>
                     </x-slot:trigger>
@@ -89,7 +89,7 @@
                 <x-admin.dropdown align="end" width="w-64">
                     <x-slot:trigger>
                         <x-ui.button variant="outline">
-                            Actions
+                            {{ __('common.actions') }}
                             <x-lucide-chevron-down class="size-4" />
                         </x-ui.button>
                     </x-slot:trigger>
@@ -99,14 +99,14 @@
                             @can('guests.unban')
                                 <x-admin.dropdown-item @click="$wire.unban({{ $record->id }})">
                                     <x-lucide-shield-check class="size-4" />
-                                    Unban
+                                    {{ __('guests.actions.unban') }}
                                 </x-admin.dropdown-item>
                             @endcan
                         @else
                             @can('guests.ban')
                                 <x-admin.dropdown-item @click="$wire.openBanDialog({{ $record->id }})">
                                     <x-lucide-ban class="size-4" />
-                                    Ban
+                                    {{ __('guests.actions.ban') }}
                                 </x-admin.dropdown-item>
                             @endcan
                         @endif

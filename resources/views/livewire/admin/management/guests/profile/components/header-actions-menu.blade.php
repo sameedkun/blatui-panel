@@ -19,14 +19,14 @@
     @can('guests.restore')
         <x-admin.dropdown-item @click="$wire.confirmRestore({{ $record->id }})">
             <x-lucide-rotate-ccw class="size-4" />
-            Restore
+            {{ __('common.restore') }}
         </x-admin.dropdown-item>
     @endcan
 
     @can('guests.force-delete')
         <x-admin.dropdown-item variant="destructive" @click="$wire.confirmForceDelete({{ $record->id }})">
             <x-lucide-trash-2 class="size-4" />
-            Force Delete
+            {{ __('common.force_delete') }}
         </x-admin.dropdown-item>
     @endcan
 @else
@@ -34,14 +34,14 @@
         @can('users.convert')
             <x-admin.dropdown-item @click="$wire.openConvertDialog({{ $record->id }})">
                 <x-lucide-user-plus class="size-4" />
-                Convert to App User
+                {{ __('guests.actions.convert') }}
             </x-admin.dropdown-item>
         @endcan
 
         @can('users.merge')
             <x-admin.dropdown-item @click="$wire.openMergeDialog({{ $record->id }})">
                 <x-lucide-merge class="size-4" />
-                Merge into Existing Account
+                {{ __('guests.actions.merge') }}
             </x-admin.dropdown-item>
         @endcan
     @endif
@@ -51,7 +51,7 @@
 
         <x-admin.dropdown-item variant="destructive" @click="$wire.confirmDelete({{ $record->id }})">
             <x-lucide-trash class="size-4" />
-            Delete
+            {{ __('common.delete') }}
         </x-admin.dropdown-item>
     @endcan
 @endif

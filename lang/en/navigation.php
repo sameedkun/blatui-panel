@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'home' => 'Home',
     'groups' => [
         'management' => 'Management',
         'administration' => 'Administration',

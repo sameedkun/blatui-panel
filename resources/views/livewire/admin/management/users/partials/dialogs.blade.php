@@ -9,113 +9,113 @@
 
 <x-admin.reason-dialog
     id="bulk-ban"
-    title="Ban {{ count($selectedIds) }} Users"
-    description='Optionally provide a reason. Defaults to "Banned by administrator."'
+    :title="__('users.dialogs.bulk_ban_title', ['count' => count($selectedIds)])"
+    :description="__('users.dialogs.ban_user_desc')"
     model="bulkBanReason"
     confirm="executeBulkBan"
-    confirm-label="Ban Users"
+    :confirm-label="__('users.dialogs.ban_user')"
     cancel="$wire.cancelBulkAction()"
-    placeholder="Reason for the ban (optional)"
+    :placeholder="__('users.dialogs.ban_reason_placeholder')"
 />
 
 <x-admin.confirm-dialog
     id="bulk-unban"
-    title="Unban {{ count($selectedIds) }} Users"
+    :title="__('users.dialogs.bulk_unban_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkUnban()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Unban"
+    :confirm-label="__('users.actions.unban')"
 >
-    This will lift the ban on all selected users.
+    {{ __('users.dialogs.bulk_unban_desc') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="bulk-delete"
-    title="Delete {{ count($selectedIds) }} Users"
+    :title="__('users.dialogs.bulk_delete_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkDelete()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Delete"
+    :confirm-label="__('common.delete')"
     variant="destructive"
 >
-    Users will be soft-deleted and can be restored later.
+    {{ __('users.dialogs.bulk_delete_desc') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="bulk-restore"
-    title="Restore {{ count($selectedIds) }} Users"
+    :title="__('users.dialogs.bulk_restore_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkRestore()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Restore"
+    :confirm-label="__('common.restore')"
 >
-    All selected deleted users will be restored.
+    {{ __('users.dialogs.bulk_restore_desc') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="bulk-force-delete"
-    title="Permanently Delete {{ count($selectedIds) }} Users"
+    :title="__('users.dialogs.bulk_force_delete_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkForceDelete()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Delete Permanently"
+    :confirm-label="__('users.actions.force_delete')"
     variant="destructive"
 >
-    This action <strong>cannot be undone</strong>. All selected users will be permanently removed.
+    {!! __('users.dialogs.bulk_force_delete_desc') !!}
 </x-admin.confirm-dialog>
 
 {{-- ── Account deletion (grace period) ────────────────────────────────────── --}}
 
 <x-admin.reason-dialog
     id="schedule-deletion"
-    title="Schedule Account Deletion"
-    description="The account stays live during the grace period, then is permanently purged. You can stop it before then."
+    :title="__('users.dialogs.schedule_deletion')"
+    :description="__('users.dialogs.schedule_deletion_desc')"
     model="deletionReason"
     confirm="confirmScheduleDeletion"
-    confirm-label="Schedule Deletion"
+    :confirm-label="__('users.actions.schedule_deletion')"
     variant="destructive"
     cancel="$wire.set('schedulingId', null)"
-    placeholder="Reason for deletion (optional)"
+    :placeholder="__('users.dialogs.reason_optional')"
 />
 
 <x-admin.reason-dialog
     id="instant-purge"
-    title="Purge Account Now"
-    description="This permanently deletes the account immediately, skipping the grace period."
+    :title="__('users.dialogs.instant_purge')"
+    :description="__('users.dialogs.instant_purge_desc')"
     model="purgeReason"
     confirm="instantPurge"
-    confirm-label="Purge Permanently"
+    :confirm-label="__('users.actions.purge')"
     variant="destructive"
     cancel="$wire.set('purgingId', null)"
-    placeholder="Reason (optional)"
+    :placeholder="__('users.dialogs.reason_optional')"
 />
 
 <x-admin.reason-dialog
     id="bulk-schedule-deletion"
-    title="Schedule {{ count($selectedIds) }} Accounts for Deletion"
-    description="Each account stays live during the grace period, then is permanently purged."
+    :title="__('users.dialogs.bulk_schedule_deletion_title', ['count' => count($selectedIds)])"
+    :description="__('users.dialogs.bulk_schedule_deletion_desc')"
     model="bulkDeletionReason"
     confirm="executeBulkScheduleDeletion"
-    confirm-label="Schedule Deletion"
+    :confirm-label="__('users.actions.schedule_deletion')"
     variant="destructive"
     cancel="$wire.cancelBulkAction()"
-    placeholder="Reason for deletion (optional)"
+    :placeholder="__('users.dialogs.reason_optional')"
 />
 
 <x-admin.confirm-dialog
     id="bulk-stop-deletion"
-    title="Stop Deletion for {{ count($selectedIds) }} Accounts"
+    :title="__('users.dialogs.bulk_stop_deletion_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkStopDeletion()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Stop Deletion"
+    :confirm-label="__('users.actions.stop_deletion')"
 >
-    This cancels the pending deletion for all selected accounts.
+    {{ __('users.dialogs.bulk_stop_deletion_desc') }}
 </x-admin.confirm-dialog>
 
 <x-admin.reason-dialog
     id="bulk-instant-purge"
-    title="Purge {{ count($selectedIds) }} Accounts Now"
-    description="This permanently deletes all selected accounts immediately, skipping the grace period."
+    :title="__('users.dialogs.bulk_instant_purge_title', ['count' => count($selectedIds)])"
+    :description="__('users.dialogs.bulk_instant_purge_desc')"
     model="bulkPurgeReason"
     confirm="executeBulkInstantPurge"
-    confirm-label="Purge Permanently"
+    :confirm-label="__('users.actions.purge')"
     variant="destructive"
     cancel="$wire.cancelBulkAction()"
-    placeholder="Reason (optional)"
+    :placeholder="__('users.dialogs.reason_optional')"
 />

@@ -4,6 +4,10 @@ return [
     'title' => 'Support Tickets',
     'singular' => 'Ticket',
     'subtitle' => 'Customer support desk, conversation threads, and auto-assignment.',
+    'subtitle_user' => 'Tickets opened by :name, newest first.',
+    'unassigned' => 'Unassigned',
+    'no_tickets' => 'No support tickets.',
+    'no_tickets_user_desc' => ':name hasn\'t opened any tickets yet.',
     'actions' => [
         'create' => 'New Ticket',
         'reply' => 'Send Reply',
@@ -16,9 +20,11 @@ return [
         'change_category' => 'Change Category',
     ],
     'fields' => [
+        'ticket' => 'Ticket',
         'subject' => 'Subject',
         'requester' => 'Requester',
         'category' => 'Category',
+        'agent' => 'Agent',
         'assigned_to' => 'Assigned Agent',
         'status' => 'Status',
         'priority' => 'Priority',

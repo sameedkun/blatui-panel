@@ -94,12 +94,12 @@ class Show extends BaseShow
     {
         return [
             'overview' => [
-                'label' => 'Overview',
+                'label' => __('users.tabs.overview'),
                 'icon' => 'user',
                 'view' => 'livewire.admin.management.users.profile.tabs.overview',
             ],
             'subscriptions' => [
-                'label' => 'Subscriptions',
+                'label' => __('users.tabs.subscriptions'),
                 'icon' => 'credit-card',
                 'view' => 'livewire.admin.management.users.profile.tabs.subscriptions',
                 'data' => fn (): array => [
@@ -108,7 +108,7 @@ class Show extends BaseShow
                 ],
             ],
             'devices' => [
-                'label' => 'Devices',
+                'label' => __('users.tabs.devices'),
                 'icon' => 'smartphone',
                 'view' => 'livewire.admin.management.users.profile.tabs.devices',
                 'permission' => 'devices.view',
@@ -117,7 +117,7 @@ class Show extends BaseShow
                 ],
             ],
             'activity' => [
-                'label' => 'Activity',
+                'label' => __('users.tabs.activity'),
                 'icon' => 'activity',
                 'view' => 'livewire.admin.management.users.profile.tabs.activity',
                 'permission' => 'activity_logs.view',
@@ -127,7 +127,7 @@ class Show extends BaseShow
                 ],
             ],
             'tickets' => [
-                'label' => 'Tickets',
+                'label' => __('users.tabs.tickets'),
                 'icon' => 'ticket',
                 'view' => 'livewire.admin.management.users.profile.tabs.tickets',
                 'permission' => 'tickets.view',
@@ -210,7 +210,7 @@ class Show extends BaseShow
 
         $this->blockingDeviceUlid = null;
         $this->blockDeviceReason = '';
-        $this->toastSuccess("{$device->displayName()} has been blocked.");
+        $this->toastSuccess(__('users.toasts.device_blocked', ['name' => $device->displayName()]));
     }
 
     public function unblockDevice(string $ulid, DeviceService $devices): void
@@ -220,7 +220,7 @@ class Show extends BaseShow
         $device = $this->findDevice($ulid);
         $devices->unblock($device);
 
-        $this->toastSuccess("{$device->displayName()} has been unblocked.", 'The user must log in again to reconnect it.');
+        $this->toastSuccess(__('users.toasts.device_unblocked', ['name' => $device->displayName()]), __('users.toasts.device_unblocked_desc'));
     }
 
     public function confirmRevokeDevice(string $ulid): void
@@ -241,7 +241,7 @@ class Show extends BaseShow
         $devices->revoke($device);
 
         $this->revokingDeviceUlid = null;
-        $this->toastSuccess("{$device->displayName()} has been revoked.");
+        $this->toastSuccess(__('users.toasts.device_revoked', ['name' => $device->displayName()]));
     }
 
     public function confirmRevokeAllDevices(): void
@@ -259,7 +259,7 @@ class Show extends BaseShow
         $count = $devices->revokeAll($this->record);
 
         $this->revokingAllDevices = false;
-        $this->toastSuccess("{$count} ".str('device')->plural($count).' revoked.');
+        $this->toastSuccess(__('users.toasts.devices_revoked', ['count' => $count]));
     }
 
     // -------------------------------------------------------------------------
@@ -350,7 +350,7 @@ class Show extends BaseShow
         $this->assignPlanId = null;
         $this->assignPriceId = null;
 
-        $this->toastSuccess("{$user->name} is now on the {$subscription->plan->name} plan.");
+        $this->toastSuccess(__('users.toasts.plan_assigned', ['name' => $user->name, 'plan' => $subscription->plan->name]));
     }
 
     public function openCancelImmediatelyDialog(): void
@@ -369,7 +369,7 @@ class Show extends BaseShow
         $active = $user->activeSubscription;
 
         if (! $active) {
-            $this->toastError('This user has no active subscription.');
+            $this->toastError(__('users.toasts.no_active_subscription'));
 
             return;
         }
@@ -378,7 +378,7 @@ class Show extends BaseShow
         $service->cancelActive($user, CancelledBy::Admin, trim($this->cancelReason) ?: null, true);
 
         $this->cancelReason = '';
-        $this->toastSuccess("{$planName} subscription cancelled immediately.");
+        $this->toastSuccess(__('users.toasts.subscription_cancelled_immediately', ['plan' => $planName]));
     }
 
     public function openCancelAtPeriodEndDialog(): void
@@ -397,7 +397,7 @@ class Show extends BaseShow
         $active = $user->activeSubscription;
 
         if (! $active) {
-            $this->toastError('This user has no active subscription.');
+            $this->toastError(__('users.toasts.no_active_subscription'));
 
             return;
         }
@@ -407,7 +407,7 @@ class Show extends BaseShow
         $service->cancelActive($user, CancelledBy::Admin, trim($this->cancelReason) ?: null, false);
 
         $this->cancelReason = '';
-        $this->toastSuccess("{$planName} subscription will end on ".$endsAt?->format('M d, Y').'.');
+        $this->toastSuccess(__('users.toasts.subscription_cancelled_period_end', ['plan' => $planName, 'date' => $endsAt?->format('M d, Y')]));
     }
 
     public function reactivateSubscription(SubscriptionService $service): void
@@ -416,7 +416,7 @@ class Show extends BaseShow
 
         try {
             $subscription = $service->reactivate($this->record);
-            $this->toastSuccess("{$subscription->plan->name} subscription reactivated.");
+            $this->toastSuccess(__('users.toasts.subscription_reactivated', ['plan' => $subscription->plan->name]));
         } catch (InvalidArgumentException $e) {
             $this->toastError($e->getMessage());
         }
@@ -437,7 +437,7 @@ class Show extends BaseShow
         $name = $user->name;
         $deletions->instantPurgeByAdmin($user, trim($this->purgeReason) ?: null);
 
-        session()->flash('toast', ['type' => 'success', 'title' => "{$name} has been permanently deleted."]);
+        session()->flash('toast', ['type' => 'success', 'title' => __('users.toasts.user_permanently_deleted', ['name' => $name])]);
 
         return $this->redirect(route('admin.users.index'));
     }
@@ -459,7 +459,7 @@ class Show extends BaseShow
 
         $user->forceDelete();
 
-        session()->flash('toast', ['type' => 'success', 'title' => "{$name} has been permanently deleted."]);
+        session()->flash('toast', ['type' => 'success', 'title' => __('users.toasts.user_permanently_deleted', ['name' => $name])]);
 
         return $this->redirect(route('admin.users.index'));
     }
@@ -477,7 +477,7 @@ class Show extends BaseShow
         $user = $this->record;
 
         if ($user->hasVerifiedEmail()) {
-            $this->toastInfo('Already verified', "{$user->name}'s email is already verified.");
+            $this->toastInfo(__('users.toasts.already_verified'), __('users.toasts.already_verified_desc', ['name' => $user->name]));
 
             return;
         }
@@ -486,7 +486,7 @@ class Show extends BaseShow
 
         event(new Verified($user));
 
-        $this->toastSuccess("{$user->name}'s email has been verified.");
+        $this->toastSuccess(__('users.toasts.email_verified', ['name' => $user->name]));
     }
 
     public function resendVerificationEmail(): void
@@ -496,7 +496,7 @@ class Show extends BaseShow
         $user = $this->record;
 
         if ($user->hasVerifiedEmail()) {
-            $this->toastInfo('Already verified', "{$user->name}'s email is already verified.");
+            $this->toastInfo(__('users.toasts.already_verified'), __('users.toasts.already_verified_desc', ['name' => $user->name]));
 
             return;
         }
@@ -505,7 +505,7 @@ class Show extends BaseShow
 
         $this->logActivity(ActivityModule::User, ActivityAction::Sent, $user, ['type' => 'email_verification']);
 
-        $this->toastSuccess("Verification email sent to {$user->email}.");
+        $this->toastSuccess(__('users.toasts.verification_sent', ['email' => $user->email]));
     }
 
     public function sendPasswordResetLink(): void
@@ -517,14 +517,14 @@ class Show extends BaseShow
         $status = Password::sendResetLink(['email' => $user->email]);
 
         if ($status !== Password::RESET_LINK_SENT) {
-            $this->toastError('Could not send reset link', __($status));
+            $this->toastError(__('users.toasts.could_not_send_reset'), __($status));
 
             return;
         }
 
         $this->logActivity(ActivityModule::User, ActivityAction::Sent, $user, ['type' => 'password_reset']);
 
-        $this->toastSuccess("Password reset link sent to {$user->email}.");
+        $this->toastSuccess(__('users.toasts.password_reset_sent', ['email' => $user->email]));
     }
 
     /**
@@ -537,11 +537,11 @@ class Show extends BaseShow
     public function statCards(): array
     {
         return [
-            ['label' => 'Plan', 'icon' => 'credit-card', 'value' => $this->record->activeSubscription?->plan?->name ?? 'Free'],
-            ['label' => 'Devices', 'icon' => 'smartphone', 'value' => $this->deviceCount()],
-            ['label' => 'Tickets', 'icon' => 'ticket', 'value' => $this->ticketCount()],
-            ['label' => 'Activity', 'icon' => 'activity', 'value' => $this->recordActivityCount()],
-            ['label' => 'Joined', 'icon' => 'calendar', 'value' => $this->record->registration_date?->format('M d, Y') ?? '—'],
+            ['label' => __('users.fields.plan'), 'icon' => 'credit-card', 'value' => $this->record->activeSubscription?->plan?->name ?? __('users.status_labels.free')],
+            ['label' => __('users.tabs.devices'), 'icon' => 'smartphone', 'value' => $this->deviceCount()],
+            ['label' => __('users.tabs.tickets'), 'icon' => 'ticket', 'value' => $this->ticketCount()],
+            ['label' => __('users.tabs.activity'), 'icon' => 'activity', 'value' => $this->recordActivityCount()],
+            ['label' => __('users.fields.created_at'), 'icon' => 'calendar', 'value' => $this->record->registration_date?->format('M d, Y') ?? '—'],
         ];
     }
 
@@ -578,7 +578,7 @@ class Show extends BaseShow
             'stats' => $this->statCards(),
             'planOptions' => $this->planOptions(),
             'priceOptions' => $this->priceOptionsFor($this->assignPlanId),
-        ]);
+        ])->title(__('users.title').' — '.$this->title());
     }
 
     /** @return array<string, mixed> */

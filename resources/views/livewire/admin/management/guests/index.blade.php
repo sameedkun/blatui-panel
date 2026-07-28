@@ -1,7 +1,7 @@
 <div class="flex flex-col gap-6">
 
     {{-- Page header --}}
-    <x-admin.page-header title="Guests" description="Manage all registered guest accounts." :breadcrumbs="[['label' => 'Home', 'url' => route('admin.dashboard')], ['label' => 'Guests']]">
+    <x-admin.page-header :title="__('guests.title')" :description="__('guests.subtitle')" :breadcrumbs="[['label' => __('navigation.home'), 'url' => route('admin.dashboard')], ['label' => __('guests.title')]]">
         {{-- No create button for guests --}}
     </x-admin.page-header>
 
@@ -16,7 +16,7 @@
 
     {{-- Toolbar --}}
     <x-admin.filter-bar :config="$filterBarConfig" :filters="$filters" :has-active-filters="$this->hasActiveFilters()"
-        search-placeholder="Search name, email, ID..." />
+        :search-placeholder="__('common.search')" />
 
     {{-- Table --}}
     @php
@@ -40,7 +40,7 @@
                     </th>
                     <th class="px-4 py-3 text-left">
                         <button wire:click="sort('name')" class="flex items-center gap-1 font-medium text-foreground">
-                            Guest
+                            {{ __('guests.singular') }}
                             @if ($sortBy === 'name')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -48,11 +48,11 @@
                             @endif
                         </button>
                     </th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Status</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('common.status') }}</th>
                     <th class="hidden px-4 py-3 text-left md:table-cell">
                         <button wire:click="sort('registration_date')"
                             class="flex items-center gap-1 font-medium text-foreground">
-                            Registered
+                            {{ __('guests.fields.registered') }}
                             @if ($sortBy === 'registration_date')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -60,7 +60,7 @@
                             @endif
                         </button>
                     </th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground xl:table-cell">Last Login</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground xl:table-cell">{{ __('guests.fields.last_login') }}</th>
                     <th class="w-10 px-4 py-3"></th>
                 </tr>
             </thead>
@@ -113,15 +113,15 @@
                                 @if ($user->trashed())
                                     <x-ui.badge variant="destructive">
                                         <x-lucide-trash-2 class="size-3" />
-                                        Deleted
+                                        {{ __('guests.status_labels.deleted') }}
                                     </x-ui.badge>
                                 @endif
 
                                 @if ($user->banned_at)
-                                    <x-ui.badge variant="destructive">Banned</x-ui.badge>
+                                    <x-ui.badge variant="destructive">{{ __('guests.status_labels.banned') }}</x-ui.badge>
                                 @elseif (! $user->trashed())
                                     <x-ui.badge variant="default"
-                                        class="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0">Active</x-ui.badge>
+                                        class="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0">{{ __('guests.status_labels.active') }}</x-ui.badge>
                                 @endif
                             </div>
                         </td>
@@ -136,7 +136,7 @@
                             @if ($user->last_login)
                                 <x-ui.local-time :value="$user->last_login" show-diff="true" />
                             @else
-                                Never
+                                {{ __('guests.status_labels.never') }}
                             @endif
                         </td>
 
@@ -144,11 +144,11 @@
                         <td class="px-4 py-3 text-right">
                             <div class="flex items-center justify-end gap-1">
                                 @can('guests.view')
-                                    <x-admin.tooltip text="View profile">
+                                    <x-admin.tooltip :text="__('guests.actions.view_profile')">
                                         <x-ui.button variant="ghost" size="icon" class="size-8"
                                             href="{{ route('admin.guests.show', $user) }}">
                                             <x-lucide-eye class="size-4" />
-                                            <span class="sr-only">View profile</span>
+                                            <span class="sr-only">{{ __('guests.actions.view_profile') }}</span>
                                         </x-ui.button>
                                     </x-admin.tooltip>
                                 @endcan
@@ -158,7 +158,7 @@
                                     <x-slot:trigger>
                                         <x-ui.button variant="ghost" size="icon" class="size-8">
                                             <x-lucide-ellipsis class="size-4" />
-                                            <span class="sr-only">Actions</span>
+                                            <span class="sr-only">{{ __('common.actions') }}</span>
                                         </x-ui.button>
                                     </x-slot:trigger>
 
@@ -167,12 +167,12 @@
                                             @if (!$user->banned_at)
                                                 <x-admin.dropdown-item @click="$wire.openBanDialog({{ $user->id }})">
                                                     <x-lucide-ban class="size-4" />
-                                                    Ban
+                                                    {{ __('guests.actions.ban') }}
                                                 </x-admin.dropdown-item>
                                             @else
                                                 <x-admin.dropdown-item @click="$wire.unban({{ $user->id }})">
                                                     <x-lucide-shield-check class="size-4" />
-                                                    Unban
+                                                    {{ __('guests.actions.unban') }}
                                                 </x-admin.dropdown-item>
                                             @endif
                                         @endcan
@@ -182,14 +182,14 @@
                                             <x-admin.dropdown-item variant="destructive"
                                                 @click="$wire.confirmDelete({{ $user->id }})">
                                                 <x-lucide-trash class="size-4" />
-                                                Delete
+                                                {{ __('common.delete') }}
                                             </x-admin.dropdown-item>
                                         @endcan
                                     @else
                                         @can('guests.restore')
                                             <x-admin.dropdown-item @click="$wire.confirmRestore({{ $user->id }})">
                                                 <x-lucide-rotate-ccw class="size-4" />
-                                                Restore
+                                                {{ __('common.restore') }}
                                             </x-admin.dropdown-item>
                                         @endcan
 
@@ -198,7 +198,7 @@
                                             <x-admin.dropdown-item variant="destructive"
                                                 @click="$wire.confirmForceDelete({{ $user->id }})">
                                                 <x-lucide-trash-2 class="size-4" />
-                                                Permanently Delete
+                                                {{ __('common.force_delete') }}
                                             </x-admin.dropdown-item>
                                         @endcan
                                     @endif
@@ -212,10 +212,10 @@
                     <tr>
                         <td colspan="6" class="px-4 py-16 text-center text-muted-foreground">
                             <x-lucide-user class="mx-auto mb-2 size-8 opacity-30" />
-                            <p class="text-sm">No guests found.</p>
+                            <p class="text-sm">{{ __('guests.status_labels.no_guests_found') }}</p>
                             @if ($this->hasActiveFilters())
                                 <button wire:click="resetFilters"
-                                    class="mt-1 text-xs underline hover:no-underline">Clear filters</button>
+                                    class="mt-1 text-xs underline hover:no-underline">{{ __('guests.status_labels.clear_filters') }}</button>
                             @endif
                         </td>
                     </tr>
@@ -239,7 +239,7 @@
             </x-admin.tooltip>
 
             <div class="mx-1 h-4 w-px bg-border"></div>
-            <span class="px-1 text-sm font-medium">{{ count($selectedIds) }} selected</span>
+            <span class="px-1 text-sm font-medium">{{ count($selectedIds) }} {{ __('guests.status_labels.selected') }}</span>
             <div class="mx-1 h-4 w-px bg-border"></div>
 
             @foreach ($this->availableBulkActions as $action)

@@ -6,9 +6,9 @@
 <x-ui.dialog id="assign-plan">
     <x-ui.dialog-content class="sm:max-w-md">
         <x-ui.dialog-header>
-            <x-ui.dialog-title>Assign / Change Plan</x-ui.dialog-title>
+            <x-ui.dialog-title>{{ __('users.dialogs.assign_plan_title') }}</x-ui.dialog-title>
             <x-ui.dialog-description>
-                Manually assigns this user to a plan and price. Any existing active subscription is replaced (prorated if upgrading).
+                {{ __('users.dialogs.assign_plan_desc') }}
             </x-ui.dialog-description>
         </x-ui.dialog-header>
 
@@ -20,9 +20,9 @@
             id — a TypeError against these ?int properties. Plain options sidestep it.
         --}}
         <x-ui.field>
-            <x-ui.field-label required>Plan</x-ui.field-label>
+            <x-ui.field-label required>{{ __('users.fields.plan') }}</x-ui.field-label>
             <select wire:model.live="assignPlanId" class="blat-select h-9 w-full">
-                <option value="" @selected($assignPlanId === null)>Select a plan</option>
+                <option value="" @selected($assignPlanId === null)>{{ __('users.dialogs.select_plan') }}</option>
                 @foreach ($planOptions as $id => $name)
                     <option value="{{ $id }}" @selected((int) $assignPlanId === $id)>{{ $name }}</option>
                 @endforeach
@@ -33,9 +33,9 @@
         </x-ui.field>
 
         <x-ui.field>
-            <x-ui.field-label required>Price</x-ui.field-label>
+            <x-ui.field-label required>{{ __('plans.fields.prices') ?? 'Price' }}</x-ui.field-label>
             <select wire:model="assignPriceId" class="blat-select h-9 w-full">
-                <option value="" disabled @selected($assignPriceId === null)>Select a price</option>
+                <option value="" disabled @selected($assignPriceId === null)>{{ __('users.dialogs.select_price') }}</option>
                 @foreach ($priceOptions as $id => $label)
                     <option value="{{ $id }}" @selected((int) $assignPriceId === $id)>{{ $label }}</option>
                 @endforeach
@@ -46,8 +46,8 @@
         </x-ui.field>
 
         <x-ui.dialog-footer>
-            <x-ui.button variant="outline" @click="open = false">Cancel</x-ui.button>
-            <x-ui.button @click="open = false" wire:click="assignPlan">Save</x-ui.button>
+            <x-ui.button variant="outline" @click="open = false">{{ __('common.cancel') }}</x-ui.button>
+            <x-ui.button @click="open = false" wire:click="assignPlan">{{ __('common.save') }}</x-ui.button>
         </x-ui.dialog-footer>
     </x-ui.dialog-content>
 </x-ui.dialog>
@@ -56,26 +56,26 @@
 
 <x-admin.reason-dialog
     id="cancel-immediately"
-    title="Cancel Subscription Immediately"
-    description="Access ends right away — the plan's features stop applying to this account as soon as you confirm."
+    :title="__('users.dialogs.cancel_immediately_title')"
+    :description="__('users.dialogs.cancel_immediately_desc')"
     model="cancelReason"
     confirm="cancelImmediately"
-    confirm-label="Cancel Immediately"
+    :confirm-label="__('users.actions.cancel_immediately')"
     variant="destructive"
     cancel="$wire.set('cancelReason', '')"
-    placeholder="Reason (optional)"
+    :placeholder="__('users.dialogs.reason_optional')"
 />
 
 {{-- ── Cancel at period end ────────────────────────────────────────────────── --}}
 
 <x-admin.reason-dialog
     id="cancel-at-period-end"
-    title="Cancel at Period End"
-    description="Auto-renew turns off, but the user keeps full access until the current billing period ends."
+    :title="__('users.dialogs.cancel_period_end_title')"
+    :description="__('users.dialogs.cancel_period_end_desc')"
     model="cancelReason"
     confirm="cancelAtPeriodEnd"
-    confirm-label="Cancel at Period End"
+    :confirm-label="__('users.actions.cancel_at_period_end')"
     variant="default"
     cancel="$wire.set('cancelReason', '')"
-    placeholder="Reason (optional)"
+    :placeholder="__('users.dialogs.reason_optional')"
 />

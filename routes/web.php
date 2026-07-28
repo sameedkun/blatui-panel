@@ -3,11 +3,11 @@
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return 'Hello World';
 });
 
 Route::post('/locale/{locale}', function (string $locale) {
-    abort_unless(in_array($locale, ['en', 'ur'], true), 404);
+    abort_unless(in_array($locale, ['en', 'tr'], true), 404);
 
     return back()->withCookie(cookie('locale', $locale, 60 * 24 * 365));
 })->name('locale.switch');

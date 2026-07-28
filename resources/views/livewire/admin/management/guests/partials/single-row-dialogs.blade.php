@@ -4,43 +4,43 @@
 
 <x-admin.reason-dialog
     id="ban-user"
-    title="Ban Guest"
-    description='Optionally provide a reason. Defaults to "Banned by administrator."'
+    :title="__('guests.dialogs.ban_guest')"
+    :description="__('guests.dialogs.ban_guest_desc')"
     model="banReason"
     confirm="confirmBan"
-    confirm-label="Ban Guest"
+    :confirm-label="__('guests.dialogs.ban_guest')"
     cancel="$wire.set('banningUserId', null)"
-    placeholder="Reason for the ban (optional)"
+    :placeholder="__('guests.dialogs.ban_reason_placeholder')"
 />
 
 <x-admin.confirm-dialog
     id="delete-user"
-    title="Delete Guest"
+    :title="__('guests.dialogs.delete_guest')"
     confirm="$wire.delete()"
     cancel="$wire.set('deletingId', null)"
-    confirm-label="Delete Permanently"
+    :confirm-label="__('common.force_delete')"
     variant="destructive"
 >
-    This permanently deletes the guest and all associated data. This <strong>cannot be undone</strong>.
+    {{ __('guests.dialogs.delete_guest_desc') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="restore-user"
-    title="Restore Guest"
+    :title="__('guests.dialogs.restore_guest')"
     confirm="$wire.restore()"
     cancel="$wire.set('restoringId', null)"
-    confirm-label="Restore"
+    :confirm-label="__('common.restore')"
 >
-    This will restore the guest's account.
+    {{ __('guests.dialogs.restore_guest_desc') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="force-delete-user"
-    title="Permanently Delete"
+    :title="__('guests.dialogs.force_delete_guest')"
     confirm="$wire.forceDelete()"
     cancel="$wire.set('forceDeleteId', null)"
-    confirm-label="Delete Permanently"
+    :confirm-label="__('common.force_delete')"
     variant="destructive"
 >
-    This action <strong>cannot be undone</strong>. The guest and all associated data will be permanently removed.
+    {{ __('guests.dialogs.force_delete_guest_desc') }}
 </x-admin.confirm-dialog>

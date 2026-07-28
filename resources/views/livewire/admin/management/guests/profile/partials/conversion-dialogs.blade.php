@@ -5,16 +5,15 @@
 <x-ui.dialog id="convert-user">
     <x-ui.dialog-content class="sm:max-w-md">
         <x-ui.dialog-header>
-            <x-ui.dialog-title>Convert to App User</x-ui.dialog-title>
+            <x-ui.dialog-title>{{ __('guests.dialogs.convert_title') }}</x-ui.dialog-title>
             <x-ui.dialog-description>
-                This guest becomes a real app user in place — same account, same history.
-                They'll receive a password-reset link to set their own credentials.
+                {{ __('guests.dialogs.convert_desc') }}
             </x-ui.dialog-description>
         </x-ui.dialog-header>
 
         <div class="space-y-4">
             <x-ui.field>
-                <x-ui.field-label for="convert-email" required>Email</x-ui.field-label>
+                <x-ui.field-label for="convert-email" required>{{ __('guests.fields.email') }}</x-ui.field-label>
                 <x-ui.input id="convert-email" type="email" wire:model="convertEmail" placeholder="you@example.com"
                     aria-invalid="{{ $errors->has('convertEmail') ? 'true' : 'false' }}" />
                 @error('convertEmail')
@@ -23,23 +22,22 @@
             </x-ui.field>
 
             <x-ui.field>
-                <x-ui.field-label for="convert-name">Name</x-ui.field-label>
+                <x-ui.field-label for="convert-name">{{ __('users.fields.name') }}</x-ui.field-label>
                 <x-ui.input id="convert-name" wire:model="convertName" placeholder="Full name" />
             </x-ui.field>
 
             <div class="flex items-start gap-2">
                 <x-ui.checkbox id="convert-mark-verified" wire:model="convertMarkEmailVerified" class="mt-0.5" />
                 <div>
-                    <x-ui.label for="convert-mark-verified" class="cursor-pointer">Mark email as verified</x-ui.label>
-                    <p class="text-xs text-muted-foreground">Skips the verification email — use only when the admin
-                        already confirmed this address belongs to the account holder.</p>
+                    <x-ui.label for="convert-mark-verified" class="cursor-pointer">{{ __('guests.dialogs.mark_email_verified') }}</x-ui.label>
+                    <p class="text-xs text-muted-foreground">{{ __('guests.dialogs.mark_email_verified_help') }}</p>
                 </div>
             </div>
         </div>
 
         <x-ui.dialog-footer>
-            <x-ui.button variant="outline" @click="open = false; $wire.set('convertingId', null)">Cancel</x-ui.button>
-            <x-ui.button wire:click="confirmConvert">Convert</x-ui.button>
+            <x-ui.button variant="outline" @click="open = false; $wire.set('convertingId', null)">{{ __('common.cancel') }}</x-ui.button>
+            <x-ui.button wire:click="confirmConvert">{{ __('guests.actions.convert') }}</x-ui.button>
         </x-ui.dialog-footer>
     </x-ui.dialog-content>
 </x-ui.dialog>
@@ -47,16 +45,15 @@
 <x-ui.dialog id="merge-guest">
     <x-ui.dialog-content class="sm:max-w-md">
         <x-ui.dialog-header>
-            <x-ui.dialog-title>Merge into Existing Account</x-ui.dialog-title>
+            <x-ui.dialog-title>{{ __('guests.dialogs.merge_title') }}</x-ui.dialog-title>
             <x-ui.dialog-description>
-                Merges this guest's identity into another app account. The guest record is
-                permanently removed; the destination account survives. This <strong>cannot be undone</strong>.
+                {{ __('guests.dialogs.merge_desc') }}
             </x-ui.dialog-description>
         </x-ui.dialog-header>
 
         <div class="space-y-4">
             <x-ui.field>
-                <x-ui.field-label for="merge-search" required>Destination account</x-ui.field-label>
+                <x-ui.field-label for="merge-search" required>{{ __('guests.dialogs.merge_destination') }}</x-ui.field-label>
 
                 @if ($mergeDestinationId)
                     @php $mergeDestination = \App\Models\User::find($mergeDestinationId); @endphp
@@ -66,12 +63,12 @@
                             <p class="truncate text-xs text-muted-foreground">{{ $mergeDestination?->email }}</p>
                         </div>
                         <x-ui.button type="button" variant="ghost" size="sm" wire:click="clearMergeDestination">
-                            Change
+                            {{ __('guests.dialogs.change_destination') }}
                         </x-ui.button>
                     </div>
                 @else
                     <x-ui.input id="merge-search" wire:model.live.debounce.300ms="mergeSearch"
-                        placeholder="Search app users by name or email..." autocomplete="off"
+                        :placeholder="__('guests.dialogs.merge_search_placeholder')" autocomplete="off"
                         aria-invalid="{{ $errors->has('mergeDestinationId') ? 'true' : 'false' }}" />
 
                     @if (trim($mergeSearch) !== '')
@@ -84,7 +81,7 @@
                                     <span class="text-xs text-muted-foreground">{{ $candidate->email }}</span>
                                 </button>
                             @empty
-                                <p class="px-3 py-2 text-sm text-muted-foreground">No app users found.</p>
+                                <p class="px-3 py-2 text-sm text-muted-foreground">{{ __('guests.dialogs.no_candidates_found') }}</p>
                             @endforelse
                         </x-ui.scroll-area>
                     @endif
@@ -96,9 +93,9 @@
             </x-ui.field>
 
             <x-ui.field>
-                <x-ui.field-label for="merge-reason" required>Reason</x-ui.field-label>
+                <x-ui.field-label for="merge-reason" required>{{ __('guests.dialogs.merge_reason') }}</x-ui.field-label>
                 <x-ui.textarea id="merge-reason" wire:model="mergeReason" rows="3"
-                    placeholder="Why are these the same person?" />
+                    :placeholder="__('guests.dialogs.merge_reason_placeholder')" />
                 @error('mergeReason')
                     <x-ui.field-error>{{ $message }}</x-ui.field-error>
                 @enderror
@@ -106,8 +103,8 @@
         </div>
 
         <x-ui.dialog-footer>
-            <x-ui.button variant="outline" @click="open = false; $wire.set('mergingId', null)">Cancel</x-ui.button>
-            <x-ui.button variant="destructive" wire:click="confirmMerge">Merge</x-ui.button>
+            <x-ui.button variant="outline" @click="open = false; $wire.set('mergingId', null)">{{ __('common.cancel') }}</x-ui.button>
+            <x-ui.button variant="destructive" wire:click="confirmMerge">{{ __('guests.actions.merge') }}</x-ui.button>
         </x-ui.dialog-footer>
     </x-ui.dialog-content>
 </x-ui.dialog>

@@ -101,12 +101,12 @@ class Show extends BaseShow
     {
         return [
             'overview' => [
-                'label' => 'Overview',
+                'label' => __('guests.tabs.overview'),
                 'icon' => 'user',
                 'view' => 'livewire.admin.management.guests.profile.tabs.overview',
             ],
             'subscriptions' => [
-                'label' => 'Subscriptions',
+                'label' => __('guests.tabs.subscriptions'),
                 'icon' => 'credit-card',
                 'view' => 'livewire.admin.management.users.profile.tabs.subscriptions',
                 'data' => fn (): array => [
@@ -115,7 +115,7 @@ class Show extends BaseShow
                 ],
             ],
             'activity' => [
-                'label' => 'Activity',
+                'label' => __('guests.tabs.activity'),
                 'icon' => 'activity',
                 'view' => 'livewire.admin.management.users.profile.tabs.activity',
                 'permission' => 'activity_logs.view',
@@ -225,7 +225,7 @@ class Show extends BaseShow
         $this->assignPlanId = null;
         $this->assignPriceId = null;
 
-        $this->toastSuccess("{$guest->name} is now on the {$subscription->plan->name} plan.");
+        $this->toastSuccess(__('users.toasts.plan_assigned', ['name' => $guest->name, 'plan' => $subscription->plan->name]));
     }
 
     public function openCancelImmediatelyDialog(): void
@@ -244,7 +244,7 @@ class Show extends BaseShow
         $active = $guest->activeSubscription;
 
         if (! $active) {
-            $this->toastError('This guest has no active subscription.');
+            $this->toastError(__('users.toasts.no_active_subscription'));
 
             return;
         }
@@ -253,7 +253,7 @@ class Show extends BaseShow
         $service->cancelActive($guest, CancelledBy::Admin, trim($this->cancelReason) ?: null, true);
 
         $this->cancelReason = '';
-        $this->toastSuccess("{$planName} subscription cancelled immediately.");
+        $this->toastSuccess(__('users.toasts.subscription_cancelled_immediately', ['plan' => $planName]));
     }
 
     public function openCancelAtPeriodEndDialog(): void
@@ -272,7 +272,7 @@ class Show extends BaseShow
         $active = $guest->activeSubscription;
 
         if (! $active) {
-            $this->toastError('This guest has no active subscription.');
+            $this->toastError(__('users.toasts.no_active_subscription'));
 
             return;
         }
@@ -282,7 +282,7 @@ class Show extends BaseShow
         $service->cancelActive($guest, CancelledBy::Admin, trim($this->cancelReason) ?: null, false);
 
         $this->cancelReason = '';
-        $this->toastSuccess("{$planName} subscription will end on ".$endsAt?->format('M d, Y').'.');
+        $this->toastSuccess(__('users.toasts.subscription_cancelled_period_end', ['plan' => $planName, 'date' => $endsAt?->format('M d, Y')]));
     }
 
     public function reactivateSubscription(SubscriptionService $service): void
@@ -291,7 +291,7 @@ class Show extends BaseShow
 
         try {
             $subscription = $service->reactivate($this->record);
-            $this->toastSuccess("{$subscription->plan->name} subscription reactivated.");
+            $this->toastSuccess(__('users.toasts.subscription_reactivated', ['plan' => $subscription->plan->name]));
         } catch (InvalidArgumentException $e) {
             $this->toastError($e->getMessage());
         }
@@ -313,7 +313,7 @@ class Show extends BaseShow
         $name = $guest->name;
         $deletions->purgeGuestByAdmin($guest);
 
-        session()->flash('toast', ['type' => 'success', 'title' => "{$name} has been permanently deleted."]);
+        session()->flash('toast', ['type' => 'success', 'title' => __('guests.toasts.guest_deleted', ['name' => $name])]);
 
         return $this->redirect(route('admin.guests.index'));
     }
@@ -335,7 +335,7 @@ class Show extends BaseShow
 
         $guest->forceDelete();
 
-        session()->flash('toast', ['type' => 'success', 'title' => "{$name} has been permanently deleted."]);
+        session()->flash('toast', ['type' => 'success', 'title' => __('guests.toasts.guest_permanently_deleted', ['name' => $name])]);
 
         return $this->redirect(route('admin.guests.index'));
     }
@@ -374,7 +374,7 @@ class Show extends BaseShow
         $name = $guest->name;
         $conversions->convertByAdmin($guest, $this->convertEmail, trim($this->convertName) ?: null, $this->convertMarkEmailVerified);
 
-        session()->flash('toast', ['type' => 'success', 'title' => "{$name} has been converted to an app user."]);
+        session()->flash('toast', ['type' => 'success', 'title' => __('guests.toasts.guest_converted', ['name' => $name])]);
 
         return $this->redirect(route('admin.users.show', $guest));
     }
@@ -443,7 +443,7 @@ class Show extends BaseShow
 
         $conversions->mergeByAdmin($guest, $destination, $this->mergeReason);
 
-        session()->flash('toast', ['type' => 'success', 'title' => "{$guestName} has been merged into {$destination->name}."]);
+        session()->flash('toast', ['type' => 'success', 'title' => __('guests.toasts.guest_merged', ['guest' => $guestName, 'destination' => $destination->name])]);
 
         return $this->redirect(route('admin.users.show', $destination));
     }
@@ -458,9 +458,9 @@ class Show extends BaseShow
     public function statCards(): array
     {
         return [
-            ['label' => 'Plan', 'icon' => 'credit-card', 'value' => $this->record->activeSubscription?->plan?->name ?? 'Free'],
-            ['label' => 'Activity', 'icon' => 'activity', 'value' => $this->recordActivityCount()],
-            ['label' => 'Joined', 'icon' => 'calendar', 'value' => $this->record->registration_date?->format('M d, Y') ?? '—'],
+            ['label' => __('users.fields.plan'), 'icon' => 'credit-card', 'value' => $this->record->activeSubscription?->plan?->name ?? __('users.status_labels.free')],
+            ['label' => __('guests.tabs.activity'), 'icon' => 'activity', 'value' => $this->recordActivityCount()],
+            ['label' => __('users.fields.registered'), 'icon' => 'calendar', 'value' => $this->record->registration_date?->format('M d, Y') ?? '—'],
         ];
     }
 
@@ -481,7 +481,7 @@ class Show extends BaseShow
             'stats' => $this->statCards(),
             'planOptions' => $this->planOptions(),
             'priceOptions' => $this->priceOptionsFor($this->assignPlanId),
-        ]);
+        ])->title(__('guests.title').' — '.$this->title());
     }
 
     /** Pull fresh attributes so header badges reflect an action taken this request. */

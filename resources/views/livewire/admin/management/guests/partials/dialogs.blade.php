@@ -9,53 +9,53 @@
 
 <x-admin.reason-dialog
     id="bulk-ban"
-    title="Ban {{ count($selectedIds) }} Guests"
-    description='Optionally provide a reason. Defaults to "Banned by administrator."'
+    :title="__('guests.dialogs.bulk_ban_title', ['count' => count($selectedIds)])"
+    :description="__('guests.dialogs.ban_guest_desc')"
     model="bulkBanReason"
     confirm="executeBulkBan"
-    confirm-label="Ban Guests"
+    :confirm-label="__('guests.actions.ban')"
     cancel="$wire.cancelBulkAction()"
-    placeholder="Reason for the ban (optional)"
+    :placeholder="__('guests.dialogs.ban_reason_placeholder')"
 />
 
 <x-admin.confirm-dialog
     id="bulk-unban"
-    title="Unban {{ count($selectedIds) }} Guests"
+    :title="__('guests.dialogs.bulk_unban_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkUnban()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Unban"
+    :confirm-label="__('guests.actions.unban')"
 >
-    This will lift the ban on all selected guests.
+    {{ __('guests.dialogs.bulk_unban_desc') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="bulk-delete"
-    title="Delete {{ count($selectedIds) }} Guests"
+    :title="__('guests.dialogs.bulk_delete_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkDelete()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Delete Permanently"
+    :confirm-label="__('common.force_delete')"
     variant="destructive"
 >
-    This permanently deletes all selected guests and their associated data. This <strong>cannot be undone</strong>.
+    {{ __('guests.dialogs.bulk_delete_desc') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="bulk-restore"
-    title="Restore {{ count($selectedIds) }} Guests"
+    :title="__('guests.dialogs.bulk_restore_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkRestore()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Restore"
+    :confirm-label="__('common.restore')"
 >
-    All selected deleted guests will be restored.
+    {{ __('guests.dialogs.bulk_restore_desc') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="bulk-force-delete"
-    title="Permanently Delete {{ count($selectedIds) }} Guests"
+    :title="__('guests.dialogs.bulk_force_delete_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkForceDelete()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Delete Permanently"
+    :confirm-label="__('common.force_delete')"
     variant="destructive"
 >
-    This action <strong>cannot be undone</strong>. All selected guests will be permanently removed.
+    {{ __('guests.dialogs.bulk_force_delete_desc') }}
 </x-admin.confirm-dialog>

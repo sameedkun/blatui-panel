@@ -768,10 +768,7 @@ tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogT
   linked via `previous_subscription_id` instead.
 - There is deliberately no login/device-registration API endpoint yet — see "Device Management &
   IP Blocking" above. `DeviceService::register()` is a ready wiring point for whenever one is built.
-- `Users/Show.php` has three scaffolded-but-inert actions (`verifyEmailManually`,
-  `resendVerificationEmail`, `sendPasswordResetLink`) that toast "not yet available" rather than
-  perform the action — wiring points for when Laravel's real verification/password-broker flows
-  are integrated.
+- `Users/Show.php` actions (`verifyEmailManually`, `resendVerificationEmail`, `sendPasswordResetLink`) are fully wired up to Laravel's email verification and password reset broker flows.
 - Staff module has no `show` route/page and no `delete` route — staff are only listed/created/edited.
 - Mail-sending data layer (`EmailDomain`, `EmailSender`, `SmtpSetting` models; `MailPurpose` enum —
   `Default`/`Auth`/`Notifications`/`Support`/`Billing`/`Marketing`; `EmailSendersSeeder` seeds one

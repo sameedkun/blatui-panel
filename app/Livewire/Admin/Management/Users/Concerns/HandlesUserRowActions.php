@@ -4,8 +4,6 @@ namespace App\Livewire\Admin\Management\Users\Concerns;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
-use App\Livewire\Admin\Concerns\HasToast;
-use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Models\User;
 use App\Services\AccountDeletionService;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -77,7 +75,7 @@ trait HandlesUserRowActions
 
         $this->banningUserId = null;
         $this->banReason = '';
-        $this->toastSuccess("User {$user->name} has been banned.");
+        $this->toastSuccess(__('users.toasts.user_banned', ['name' => $user->name]));
     }
 
     public function unban(int $userId): void
@@ -91,7 +89,7 @@ trait HandlesUserRowActions
 
         $this->logActivity(ActivityModule::User, ActivityAction::Unbanned, $user);
 
-        $this->toastSuccess("{$user->name} has been unbanned.");
+        $this->toastSuccess(__('users.toasts.user_unbanned', ['name' => $user->name]));
     }
 
     public function confirmDelete(int $userId): void
@@ -118,7 +116,7 @@ trait HandlesUserRowActions
         $this->logActivity(ActivityModule::User, ActivityAction::Deleted, $user);
 
         $this->deletingId = null;
-        $this->toastSuccess("{$name} has been deleted.");
+        $this->toastSuccess(__('users.toasts.user_deleted', ['name' => $name]));
     }
 
     public function confirmRestore(int $userId): void
@@ -144,7 +142,7 @@ trait HandlesUserRowActions
         $this->logActivity(ActivityModule::User, ActivityAction::Restored, $user);
 
         $this->restoringId = null;
-        $this->toastSuccess("{$user->name} has been restored.");
+        $this->toastSuccess(__('users.toasts.user_restored', ['name' => $user->name]));
     }
 
     public function confirmForceDelete(int $userId): void
@@ -172,7 +170,7 @@ trait HandlesUserRowActions
         $user->forceDelete();
 
         $this->forceDeleteId = null;
-        $this->toastSuccess("{$name} has been permanently deleted.");
+        $this->toastSuccess(__('users.toasts.user_permanently_deleted', ['name' => $name]));
     }
 
     public function openScheduleDeletionDialog(int $userId): void
@@ -198,7 +196,7 @@ trait HandlesUserRowActions
 
         $this->schedulingId = null;
         $this->deletionReason = '';
-        $this->toastSuccess("{$user->name} is scheduled for deletion.");
+        $this->toastSuccess(__('users.toasts.user_scheduled_deletion', ['name' => $user->name]));
     }
 
     public function stopDeletion(int $userId, AccountDeletionService $deletions): void
@@ -210,7 +208,7 @@ trait HandlesUserRowActions
 
         $deletions->cancelByAdmin($user);
 
-        $this->toastSuccess("Deletion cancelled for {$user->name}.");
+        $this->toastSuccess(__('users.toasts.user_deletion_cancelled', ['name' => $user->name]));
     }
 
     public function confirmInstantPurge(int $userId): void
@@ -237,7 +235,7 @@ trait HandlesUserRowActions
 
         $this->purgingId = null;
         $this->purgeReason = '';
-        $this->toastSuccess("{$name} has been permanently deleted.");
+        $this->toastSuccess(__('users.toasts.user_permanently_deleted', ['name' => $name]));
     }
 
     /**

@@ -26,13 +26,13 @@
             <option value="50">50</option>
             <option value="100">100</option>
         </x-ui.select>
-        <span>Rows per page</span>
+        <span>{{ __('pagination.rows_per_page') }}</span>
     </div>
 
     {{-- Page counter + navigation --}}
     <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
         <span class="whitespace-nowrap text-sm text-muted-foreground">
-            Page {{ $paginator->currentPage() }} of {{ $paginator->lastPage() }}
+            {{ __('pagination.page_x_of_y', ['current' => $paginator->currentPage(), 'total' => $paginator->lastPage()]) }}
         </span>
         {{ $paginator->links($linksView) }}
     </div>

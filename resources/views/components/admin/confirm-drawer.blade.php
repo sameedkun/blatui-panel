@@ -31,7 +31,7 @@
             <x-ui.drawer-description>{{ $slot }}</x-ui.drawer-description>
         </x-ui.drawer-header>
         <x-ui.drawer-footer class="flex-row justify-end">
-            <x-ui.button variant="outline" @click="open = false; {!! $cancel !!}">Cancel</x-ui.button>
+            <x-ui.button variant="outline" @click="open = false; {!! $cancel !!}">{{ __('common.cancel') }}</x-ui.button>
             <x-ui.button
                 variant="{{ $variant }}"
                 @click="open = false"

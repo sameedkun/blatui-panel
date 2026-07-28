@@ -34,22 +34,22 @@
                     @if ($state === 'trashed')
                         <x-ui.badge variant="destructive">
                             <x-lucide-trash-2 class="size-3" />
-                            Deleted
+                            {{ __('common.delete') }}
                         </x-ui.badge>
                     @endif
 
                     @if ($banned)
-                        <x-ui.badge variant="destructive">Banned</x-ui.badge>
+                        <x-ui.badge variant="destructive">{{ __('users.status_labels.banned') }}</x-ui.badge>
                     @endif
 
                     @if ($record->email_verified_at)
                         <x-ui.badge variant="default"
                             class="border-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
                             <x-lucide-badge-check class="size-3" />
-                            Verified
+                            {{ __('users.status_labels.verified') }}
                         </x-ui.badge>
                     @else
-                        <x-ui.badge variant="outline">Unverified</x-ui.badge>
+                        <x-ui.badge variant="outline">{{ __('users.status_labels.unverified') }}</x-ui.badge>
                     @endif
 
                     @if ($state === 'pending')
@@ -76,7 +76,7 @@
                     @can('users.edit')
                         <x-ui.button variant="outline" href="{{ route('admin.users.edit', $record) }}">
                             <x-lucide-pencil class="size-4" />
-                            Edit
+                            {{ __('common.edit') }}
                         </x-ui.button>
                     @endcan
                 @endif
@@ -86,14 +86,14 @@
                         @can('users.unban')
                             <x-ui.button variant="outline" wire:click="unban({{ $record->id }})">
                                 <x-lucide-shield-check class="size-4" />
-                                Unban
+                                {{ __('users.actions.unban') }}
                             </x-ui.button>
                         @endcan
                     @else
                         @can('users.ban')
                             <x-ui.button variant="outline" wire:click="openBanDialog({{ $record->id }})">
                                 <x-lucide-ban class="size-4" />
-                                Ban
+                                {{ __('users.actions.ban') }}
                             </x-ui.button>
                         @endcan
                     @endif
@@ -106,7 +106,7 @@
                 <x-admin.dropdown align="end" width="w-64">
                     <x-slot:trigger>
                         <x-ui.button variant="outline">
-                            Actions
+                            {{ __('common.actions') }}
                             <x-lucide-chevron-down class="size-4" />
                         </x-ui.button>
                     </x-slot:trigger>
@@ -121,7 +121,7 @@
                 <x-admin.dropdown align="end" width="w-64">
                     <x-slot:trigger>
                         <x-ui.button variant="outline">
-                            Actions
+                            {{ __('common.actions') }}
                             <x-lucide-chevron-down class="size-4" />
                         </x-ui.button>
                     </x-slot:trigger>
@@ -130,7 +130,7 @@
                         @can('users.edit')
                             <x-admin.dropdown-item href="{{ route('admin.users.edit', $record) }}">
                                 <x-lucide-pencil class="size-4" />
-                                Edit
+                                {{ __('common.edit') }}
                             </x-admin.dropdown-item>
                         @endcan
                     @endif
@@ -140,14 +140,14 @@
                             @can('users.unban')
                                 <x-admin.dropdown-item @click="$wire.unban({{ $record->id }})">
                                     <x-lucide-shield-check class="size-4" />
-                                    Unban
+                                    {{ __('users.actions.unban') }}
                                 </x-admin.dropdown-item>
                             @endcan
                         @else
                             @can('users.ban')
                                 <x-admin.dropdown-item @click="$wire.openBanDialog({{ $record->id }})">
                                     <x-lucide-ban class="size-4" />
-                                    Ban
+                                    {{ __('users.actions.ban') }}
                                 </x-admin.dropdown-item>
                             @endcan
                         @endif

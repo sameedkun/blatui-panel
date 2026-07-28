@@ -8,8 +8,8 @@
     <x-ui.card class="p-0 overflow-hidden">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 p-4">
             <div>
-                <h3 class="text-sm font-semibold text-foreground">Devices</h3>
-                <p class="text-xs text-muted-foreground">Every device {{ $record->name }} has logged in from.</p>
+                <h3 class="text-sm font-semibold text-foreground">{{ __('users.tabs.devices') }}</h3>
+                <p class="text-xs text-muted-foreground">{{ __('users.devices_tab.subtitle', ['name' => $record->name]) }}</p>
             </div>
 
             @can('devices.revoke')
@@ -17,7 +17,7 @@
                     <x-ui.button variant="outline" size="sm" wire:click="confirmRevokeAllDevices"
                         class="gap-1.5 text-xs shadow-2xs">
                         <x-lucide-shield-off class="size-3.5" />
-                        Revoke All
+                        {{ __('users.actions.revoke_all_devices') }}
                     </x-ui.button>
                 @endif
             @endcan
@@ -28,11 +28,11 @@
                 <thead>
                     <tr
                         class="border-b border-border bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
-                        <th class="px-4 py-3 text-left font-semibold">Device</th>
-                        <th class="hidden px-4 py-3 text-left font-semibold md:table-cell">Platform</th>
-                        <th class="hidden px-4 py-3 text-left font-semibold lg:table-cell">Location / IP</th>
-                        <th class="px-4 py-3 text-left font-semibold">Last Seen</th>
-                        <th class="px-4 py-3 text-left font-semibold">Status</th>
+                        <th class="px-4 py-3 text-left font-semibold">{{ __('users.devices_tab.device') }}</th>
+                        <th class="hidden px-4 py-3 text-left font-semibold md:table-cell">{{ __('users.devices_tab.platform') }}</th>
+                        <th class="hidden px-4 py-3 text-left font-semibold lg:table-cell">{{ __('users.devices_tab.location_ip') }}</th>
+                        <th class="px-4 py-3 text-left font-semibold">{{ __('users.devices_tab.last_seen') }}</th>
+                        <th class="px-4 py-3 text-left font-semibold">{{ __('users.fields.status') }}</th>
                         @canany(['devices.block', 'devices.unblock', 'devices.revoke'])
                             <th class="w-10 px-4 py-3"></th>
                         @endcanany
@@ -84,7 +84,7 @@
                                             @can('devices.revoke')
                                                 <x-admin.dropdown-item @click="$wire.confirmRevokeDevice('{{ $device->ulid }}')">
                                                     <x-lucide-shield-off class="size-4" />
-                                                    Revoke
+                                                    {{ __('users.actions.revoke_device') }}
                                                 </x-admin.dropdown-item>
                                             @endcan
                                         @endif
@@ -93,14 +93,14 @@
                                             @can('devices.unblock')
                                                 <x-admin.dropdown-item @click="$wire.unblockDevice('{{ $device->ulid }}')">
                                                     <x-lucide-shield-check class="size-4" />
-                                                    Unblock
+                                                    {{ __('users.actions.unblock_device') }}
                                                 </x-admin.dropdown-item>
                                             @endcan
                                         @else
                                             @can('devices.block')
                                                 <x-admin.dropdown-item variant="destructive" @click="$wire.openBlockDeviceDialog('{{ $device->ulid }}')">
                                                     <x-lucide-shield-ban class="size-4" />
-                                                    Block
+                                                    {{ __('users.actions.block_device') }}
                                                 </x-admin.dropdown-item>
                                             @endcan
                                         @endif
@@ -113,8 +113,8 @@
                             <td colspan="6" class="px-4 py-12 text-center text-muted-foreground">
                                 <div class="flex flex-col items-center justify-center gap-2">
                                     <x-lucide-smartphone class="size-8 text-muted-foreground/30" />
-                                    <p class="text-sm font-medium">No devices.</p>
-                                    <p class="text-xs">{{ $record->name }} hasn't logged in from any device yet.</p>
+                                    <p class="text-sm font-medium">{{ __('users.devices_tab.no_devices') }}</p>
+                                    <p class="text-xs">{{ __('users.devices_tab.no_devices_desc', ['name' => $record->name]) }}</p>
                                 </div>
                             </td>
                         </tr>

@@ -3,35 +3,34 @@
 
 <x-admin.reason-dialog
     id="block-user-device"
-    title="Block Device"
-    description="A blocked device is signed out immediately and can never be reactivated by logging in again — only an admin can lift the block."
+    :title="__('users.dialogs.block_device_title')"
+    :description="__('users.dialogs.block_device_desc')"
     model="blockDeviceReason"
     confirm="blockDevice"
-    confirm-label="Block Device"
-    label="Reason"
-    placeholder="Why is this device being blocked?"
+    :confirm-label="__('users.actions.block_device')"
+    :label="__('common.reason')"
+    :placeholder="__('users.dialogs.block_device_reason_placeholder')"
     cancel="$wire.set('blockingDeviceUlid', null)"
 />
 
 <x-admin.confirm-dialog
     id="revoke-user-device"
-    title="Revoke Device"
+    :title="__('users.dialogs.revoke_device_title')"
     confirm="$wire.revokeDevice()"
     cancel="$wire.set('revokingDeviceUlid', null)"
-    confirm-label="Revoke"
+    :confirm-label="__('users.actions.revoke_device')"
     variant="destructive"
 >
-    This immediately signs the device out. It can log back in again later, subject to the account's device limit.
+    {{ __('users.dialogs.revoke_device_desc') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="revoke-all-user-devices"
-    title="Revoke All Devices"
+    :title="__('users.dialogs.revoke_all_devices_title')"
     confirm="$wire.revokeAllDevices()"
     cancel="$wire.set('revokingAllDevices', false)"
-    confirm-label="Revoke All"
+    :confirm-label="__('users.actions.revoke_all_devices')"
     variant="destructive"
 >
-    This immediately signs out all <strong>{{ $this->activeDeviceCount() }}</strong> active
-    {{ str('device')->plural($this->activeDeviceCount()) }} on {{ $record->name }}'s account.
+    {{ __('users.dialogs.revoke_all_devices_desc') }}
 </x-admin.confirm-dialog>

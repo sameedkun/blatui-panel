@@ -12,10 +12,8 @@ use App\Services\AccountDeletionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 
 #[Layout('layouts.admin.app')]
-#[Title('Users')]
 class Index extends BaseIndex
 {
     use HandlesUserRowActions;
@@ -70,9 +68,9 @@ class Index extends BaseIndex
     {
         return [
             'status' => [
-                'label' => 'Status',
+                'label' => __('users.filters.status'),
                 'type' => 'multi-select',
-                'options' => ['active' => 'Active', 'banned' => 'Banned'],
+                'options' => ['active' => __('users.filters.active'), 'banned' => __('users.filters.banned')],
                 'apply' => function (Builder $q, array $values): Builder {
                     return $q->where(function (Builder $sub) use ($values): void {
                         foreach ($values as $v) {
@@ -86,9 +84,9 @@ class Index extends BaseIndex
                 },
             ],
             'email_verified' => [
-                'label' => 'Email Verified',
+                'label' => __('users.filters.email_verified'),
                 'type' => 'select',
-                'options' => ['verified' => 'Verified', 'unverified' => 'Not verified'],
+                'options' => ['verified' => __('users.filters.verified'), 'unverified' => __('users.filters.unverified')],
                 'apply' => fn (Builder $q, string $v): Builder => match ($v) {
                     'verified' => $q->whereNotNull('email_verified_at'),
                     'unverified' => $q->whereNull('email_verified_at'),
@@ -96,9 +94,9 @@ class Index extends BaseIndex
                 },
             ],
             'social' => [
-                'label' => 'Social',
+                'label' => __('users.filters.social'),
                 'type' => 'multi-select',
-                'options' => ['google' => 'Google', 'apple' => 'Apple'],
+                'options' => ['google' => __('users.filters.google'), 'apple' => __('users.filters.apple')],
                 'apply' => function (Builder $q, array $values): Builder {
                     return $q->where(function (Builder $sub) use ($values): void {
                         foreach ($values as $v) {
@@ -112,12 +110,12 @@ class Index extends BaseIndex
                 },
             ],
             'registered_from' => [
-                'label' => 'Registered from',
+                'label' => __('users.filters.registered_from'),
                 'type' => 'date',
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('registration_date', '>=', $v),
             ],
             'registered_to' => [
-                'label' => 'Registered to',
+                'label' => __('users.filters.registered_to'),
                 'type' => 'date',
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('registration_date', '<=', $v.' 23:59:59'),
             ],
@@ -130,30 +128,30 @@ class Index extends BaseIndex
     {
         return [
             [
-                'label' => 'Total Users',
+                'label' => __('users.stats.total_users'),
                 'value' => fn () => User::appUsers()->count(),
                 'icon' => 'users',
-                'description' => 'All registered accounts',
+                'description' => __('users.stats.all_registered_accounts'),
             ],
             [
-                'label' => 'Active',
+                'label' => __('users.stats.active'),
                 'value' => fn () => User::appUsers()->whereNull('banned_at')->count(),
                 'icon' => 'user-check',
-                'description' => 'Not banned',
+                'description' => __('users.stats.not_banned'),
             ],
             [
-                'label' => 'Banned',
+                'label' => __('users.stats.banned'),
                 'value' => fn () => User::appUsers()->whereNotNull('banned_at')->count(),
                 'icon' => 'user-x',
-                'description' => 'Banned accounts',
+                'description' => __('users.stats.banned_accounts'),
             ],
             [
-                'label' => 'New This Month',
+                'label' => __('users.stats.new_this_month'),
                 'value' => fn () => User::appUsers()->whereMonth('registration_date', now()->month)
                     ->whereYear('registration_date', now()->year)
                     ->count(),
                 'icon' => 'user-plus',
-                'description' => 'Joined this month',
+                'description' => __('users.stats.joined_this_month'),
             ],
         ];
     }
@@ -164,22 +162,22 @@ class Index extends BaseIndex
     {
         return [
             'status' => [
-                'label' => 'Status',
+                'label' => __('users.filters.status'),
                 'type' => 'multi-select',
-                'options' => ['active' => 'Active', 'banned' => 'Banned'],
+                'options' => ['active' => __('users.filters.active'), 'banned' => __('users.filters.banned')],
             ],
             'email_verified' => [
-                'label' => 'Email',
+                'label' => __('users.filters.email'),
                 'type' => 'select',
-                'options' => ['verified' => 'Verified', 'unverified' => 'Not verified'],
+                'options' => ['verified' => __('users.filters.verified'), 'unverified' => __('users.filters.unverified')],
             ],
             'social' => [
-                'label' => 'Social',
+                'label' => __('users.filters.social'),
                 'type' => 'multi-select',
-                'options' => ['google' => 'Google', 'apple' => 'Apple'],
+                'options' => ['google' => __('users.filters.google'), 'apple' => __('users.filters.apple')],
             ],
             'registered' => [
-                'label' => 'Registered',
+                'label' => __('users.filters.registered'),
                 'type' => 'date-range',
                 'from_key' => 'registered_from',
                 'to_key' => 'registered_to',
@@ -424,6 +422,6 @@ class Index extends BaseIndex
             'pageIds' => $users->pluck('id')->map(fn ($id) => (string) $id)->toArray(),
             'stats' => $this->resolveStats(),
             'filterBarConfig' => $this->filterBarConfig(),
-        ]);
+        ])->title(__('users.title'));
     }
 }

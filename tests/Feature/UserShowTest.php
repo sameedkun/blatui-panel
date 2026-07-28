@@ -29,6 +29,17 @@ class UserShowTest extends TestCase
         return $admin;
     }
 
+    public function test_profile_page_title_uses_the_request_locale_and_user_name(): void
+    {
+        $this->actingAsSuperAdmin();
+        $user = User::factory()->app()->create(['name' => 'Jane Doe']);
+
+        $response = $this->withCookie('locale', 'tr')->get(route('admin.users.show', $user));
+
+        $response->assertOk();
+        $response->assertSee('<title>'.__('users.title').' — '.$user->name.' — '.config('app.name').'</title>', false);
+    }
+
     /** Staff granted exactly the given abilities (plus panel access). */
     private function staffWith(array $abilities): User
     {

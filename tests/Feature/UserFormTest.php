@@ -25,6 +25,16 @@ class UserFormTest extends TestCase
         return $admin;
     }
 
+    public function test_create_page_title_uses_the_request_locale(): void
+    {
+        $this->actingAsSuperAdmin();
+
+        $response = $this->withCookie('locale', 'tr')->get(route('admin.users.create'));
+
+        $response->assertOk();
+        $response->assertSee('<title>'.__('users.create_user').' — '.config('app.name').'</title>', false);
+    }
+
     public function test_creating_a_user_without_auto_verify_sends_a_verification_email(): void
     {
         Notification::fake();

@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Admin;
 
-use App\Livewire\Admin\Concerns\HasShowTabs;
 use App\Livewire\Admin\Concerns\HasToast;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -60,10 +59,11 @@ abstract class BaseShow extends Component
     {
         $parts = explode('.', $this->indexRoute());
         $resource = $parts[count($parts) - 2] ?? '';
+        $resourceTitle = __("{$resource}.title");
 
         return [
-            ['label' => 'Home', 'url' => route('admin.dashboard')],
-            ['label' => Str::headline($resource), 'url' => route($this->indexRoute())],
+            ['label' => __('navigation.home'), 'url' => route('admin.dashboard')],
+            ['label' => $resourceTitle !== "{$resource}.title" ? $resourceTitle : Str::headline($resource), 'url' => route($this->indexRoute())],
             ['label' => $this->title()],
         ];
     }

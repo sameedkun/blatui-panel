@@ -49,7 +49,7 @@ class Form extends BaseForm
 
     public function title(): string
     {
-        return $this->isEditing ? 'Edit User' : 'Create User';
+        return $this->isEditing ? __('users.edit_user') : __('users.create_user');
     }
 
     public function mount(?User $user = null): void
@@ -135,7 +135,7 @@ class Form extends BaseForm
                 Password::sendResetLink(['email' => $user->email]);
             }
 
-            return $this->redirectWithSuccess("{$user->name} updated successfully.");
+            return $this->redirectWithSuccess(__('users.toasts.user_updated', ['name' => $user->name]));
         }
 
         $user = User::create([
@@ -154,11 +154,12 @@ class Form extends BaseForm
             $user->sendEmailVerificationNotification();
         }
 
-        return $this->redirectWithSuccess("{$user->name} created successfully.");
+        return $this->redirectWithSuccess(__('users.toasts.user_created', ['name' => $user->name]));
     }
 
     public function render(): View
     {
-        return view('livewire.admin.management.users.form');
+        return view('livewire.admin.management.users.form')
+            ->title($this->title());
     }
 }

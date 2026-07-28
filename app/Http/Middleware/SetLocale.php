@@ -14,7 +14,7 @@ class SetLocale
      *
      * @var array<string>
      */
-    protected array $supportedLocales = ['en', 'ur'];
+    protected array $supportedLocales = ['en', 'tr'];
 
     /**
      * Handle an incoming request.

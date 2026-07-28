@@ -19,10 +19,10 @@ class LanguageSwitcher extends Component
             'flag' => '🇬🇧',
             'native' => 'English',
         ],
-        'ur' => [
-            'name' => 'Urdu',
-            'flag' => '🇵🇰',
-            'native' => 'اردو',
+        'tr' => [
+            'name' => 'Turkish',
+            'flag' => '🇹🇷',
+            'native' => 'Türkçe',
         ],
     ];
 

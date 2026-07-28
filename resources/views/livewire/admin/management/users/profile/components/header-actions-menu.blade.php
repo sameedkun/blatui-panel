@@ -14,14 +14,14 @@
     @can('users.restore')
         <x-admin.dropdown-item @click="$wire.confirmRestore({{ $record->id }})">
             <x-lucide-rotate-ccw class="size-4" />
-            Restore
+            {{ __('common.restore') }}
         </x-admin.dropdown-item>
     @endcan
 
     @can('users.force-delete')
         <x-admin.dropdown-item variant="destructive" @click="$wire.confirmForceDelete({{ $record->id }})">
             <x-lucide-trash-2 class="size-4" />
-            Force Delete
+            {{ __('users.actions.force_delete') }}
         </x-admin.dropdown-item>
     @endcan
 @elseif ($isApp)
@@ -29,26 +29,26 @@
         @can('users.delete')
             <x-admin.dropdown-item @click="$wire.stopDeletion({{ $record->id }})">
                 <x-lucide-shield-check class="size-4" />
-                Stop Deletion
+                {{ __('users.actions.stop_deletion') }}
             </x-admin.dropdown-item>
         @endcan
 
         @can('users.force-delete')
             <x-admin.dropdown-item variant="destructive" @click="$wire.confirmInstantPurge({{ $record->id }})">
                 <x-lucide-trash-2 class="size-4" />
-                Instant Purge
+                {{ __('users.actions.purge') }}
             </x-admin.dropdown-item>
         @endcan
     @else
         @can('users.delete')
             <x-admin.dropdown-item @click="$wire.openScheduleDeletionDialog({{ $record->id }})">
                 <x-lucide-clock class="size-4" />
-                Schedule Deletion
+                {{ __('users.actions.schedule_deletion') }}
             </x-admin.dropdown-item>
 
             <x-admin.dropdown-item variant="destructive" @click="$wire.confirmDelete({{ $record->id }})">
                 <x-lucide-trash class="size-4" />
-                Soft Delete
+                {{ __('common.delete') }}
             </x-admin.dropdown-item>
         @endcan
     @endif
@@ -58,17 +58,17 @@
     @if ($unverified)
         <x-admin.dropdown-item class="text-muted-foreground" @click="$wire.verifyEmailManually">
             <x-lucide-badge-check class="size-4" />
-            Verify Email
+            {{ __('users.actions.verify_email') }}
         </x-admin.dropdown-item>
 
         <x-admin.dropdown-item class="text-muted-foreground" @click="$wire.resendVerificationEmail">
             <x-lucide-mail class="size-4" />
-            Resend Verification
+            {{ __('users.actions.resend_verification') }}
         </x-admin.dropdown-item>
     @endif
 
     <x-admin.dropdown-item class="text-muted-foreground" @click="$wire.sendPasswordResetLink">
         <x-lucide-key class="size-4" />
-        Send Password Reset
+        {{ __('users.actions.send_password_reset') }}
     </x-admin.dropdown-item>
 @endif

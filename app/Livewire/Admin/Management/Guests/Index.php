@@ -46,9 +46,9 @@ class Index extends BaseIndex
     {
         return [
             'status' => [
-                'label' => 'Status',
+                'label' => __('guests.filters.status'),
                 'type' => 'multi-select',
-                'options' => ['active' => 'Active', 'banned' => 'Banned'],
+                'options' => ['active' => __('guests.filters.active'), 'banned' => __('guests.filters.banned')],
                 'apply' => function (Builder $q, array $values): Builder {
                     return $q->where(function (Builder $sub) use ($values): void {
                         foreach ($values as $v) {
@@ -62,12 +62,12 @@ class Index extends BaseIndex
                 },
             ],
             'registered_from' => [
-                'label' => 'Registered from',
+                'label' => __('guests.filters.registered_from'),
                 'type' => 'date',
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('registration_date', '>=', $v),
             ],
             'registered_to' => [
-                'label' => 'Registered to',
+                'label' => __('guests.filters.registered_to'),
                 'type' => 'date',
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('registration_date', '<=', $v.' 23:59:59'),
             ],
@@ -80,31 +80,31 @@ class Index extends BaseIndex
     {
         return [
             [
-                'label' => 'Total Guests',
+                'label' => __('guests.stats.total_guests'),
                 'value' => fn () => User::guests()->count(),
                 'icon' => 'user',
-                'description' => 'All registered guest accounts',
+                'description' => __('guests.stats.all_registered_accounts'),
             ],
             [
-                'label' => 'Active',
+                'label' => __('guests.stats.active'),
                 'value' => fn () => User::guests()->whereNull('banned_at')->count(),
                 'icon' => 'user-check',
-                'description' => 'Not banned',
+                'description' => __('guests.stats.not_banned'),
             ],
             [
-                'label' => 'Banned',
+                'label' => __('guests.stats.banned'),
                 'value' => fn () => User::guests()->whereNotNull('banned_at')->count(),
                 'icon' => 'user-x',
-                'description' => 'Banned accounts',
+                'description' => __('guests.stats.banned_accounts'),
             ],
             [
-                'label' => 'New This Month',
+                'label' => __('guests.stats.new_this_month'),
                 'value' => fn () => User::guests()
                     ->whereMonth('registration_date', now()->month)
                     ->whereYear('registration_date', now()->year)
                     ->count(),
                 'icon' => 'user-plus',
-                'description' => 'Joined this month',
+                'description' => __('guests.stats.joined_this_month'),
             ],
         ];
     }
@@ -115,12 +115,12 @@ class Index extends BaseIndex
     {
         return [
             'status' => [
-                'label' => 'Status',
+                'label' => __('guests.filters.status'),
                 'type' => 'multi-select',
-                'options' => ['active' => 'Active', 'banned' => 'Banned'],
+                'options' => ['active' => __('guests.filters.active'), 'banned' => __('guests.filters.banned')],
             ],
             'registered' => [
-                'label' => 'Registered',
+                'label' => __('guests.filters.registered'),
                 'type' => 'date-range',
                 'from_key' => 'registered_from',
                 'to_key' => 'registered_to',
@@ -138,7 +138,7 @@ class Index extends BaseIndex
         return [
             [
                 'key' => 'ban',
-                'label' => 'Ban',
+                'label' => __('guests.actions.ban'),
                 'icon' => 'ban',
                 'confirm' => true,
                 'dialog_event' => 'open-dialog-bulk-ban',
@@ -146,14 +146,14 @@ class Index extends BaseIndex
             ],
             [
                 'key' => 'unban',
-                'label' => 'Unban',
+                'label' => __('guests.actions.unban'),
                 'icon' => 'shield-check',
                 'confirm' => true,
                 'permission' => 'guests.unban',
             ],
             [
                 'key' => 'delete',
-                'label' => 'Delete',
+                'label' => __('guests.actions.delete'),
                 'icon' => 'trash',
                 'confirm' => true,
                 'variant' => 'destructive',
@@ -187,7 +187,7 @@ class Index extends BaseIndex
         ]);
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} guests banned.");
+        $this->toastSuccess(__('guests.toasts.bulk_banned', ['count' => $count]));
     }
 
     public function executeBulkUnban(): void
@@ -205,7 +205,7 @@ class Index extends BaseIndex
         ]);
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} guests unbanned.");
+        $this->toastSuccess(__('guests.toasts.bulk_unbanned', ['count' => $count]));
     }
 
     /**
@@ -226,7 +226,7 @@ class Index extends BaseIndex
             });
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} guests permanently deleted.");
+        $this->toastSuccess(__('guests.toasts.bulk_deleted', ['count' => $count]));
     }
 
     public function executeBulkRestore(): void
@@ -244,7 +244,7 @@ class Index extends BaseIndex
         ]);
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} guests restored.");
+        $this->toastSuccess(__('guests.toasts.bulk_restored', ['count' => $count]));
     }
 
     public function executeBulkForceDelete(): void
@@ -263,7 +263,7 @@ class Index extends BaseIndex
         User::query()->guests()->withTrashed()->whereIn('id', $ids)->forceDelete();
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} guests permanently deleted.");
+        $this->toastSuccess(__('guests.toasts.bulk_permanently_deleted', ['count' => $count]));
     }
 
     // ── Render ────────────────────────────────────────────────────────────────
@@ -277,6 +277,6 @@ class Index extends BaseIndex
             'pageIds' => $users->reject(fn (User $user): bool => $user->trashed())->pluck('id')->map(fn ($id) => (string) $id)->toArray(),
             'stats' => $this->resolveStats(),
             'filterBarConfig' => $this->filterBarConfig(),
-        ]);
+        ])->title(__('guests.title'));
     }
 }

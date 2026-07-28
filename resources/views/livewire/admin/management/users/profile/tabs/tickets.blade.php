@@ -7,8 +7,8 @@
 
     <x-ui.card class="p-0 overflow-hidden">
         <div class="border-b border-border/50 p-4">
-            <h3 class="text-sm font-semibold text-foreground">Support Tickets</h3>
-            <p class="text-xs text-muted-foreground">Tickets opened by {{ $record->name }}, newest first.</p>
+            <h3 class="text-sm font-semibold text-foreground">{{ __('tickets.title') }}</h3>
+            <p class="text-xs text-muted-foreground">{{ __('tickets.subtitle_user', ['name' => $record->name]) }}</p>
         </div>
 
         <div class="overflow-x-auto">
@@ -16,12 +16,12 @@
                 <thead>
                     <tr
                         class="border-b border-border bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
-                        <th class="px-4 py-3 text-left font-semibold">Ticket</th>
-                        <th class="hidden px-4 py-3 text-left font-semibold sm:table-cell">Category</th>
-                        <th class="px-4 py-3 text-left font-semibold">Status</th>
-                        <th class="hidden px-4 py-3 text-left font-semibold md:table-cell">Priority</th>
-                        <th class="hidden px-4 py-3 text-left font-semibold lg:table-cell">Agent</th>
-                        <th class="hidden px-4 py-3 text-left font-semibold xl:table-cell">Created</th>
+                        <th class="px-4 py-3 text-left font-semibold">{{ __('tickets.fields.ticket') }}</th>
+                        <th class="hidden px-4 py-3 text-left font-semibold sm:table-cell">{{ __('tickets.fields.category') }}</th>
+                        <th class="px-4 py-3 text-left font-semibold">{{ __('tickets.fields.status') }}</th>
+                        <th class="hidden px-4 py-3 text-left font-semibold md:table-cell">{{ __('tickets.fields.priority') }}</th>
+                        <th class="hidden px-4 py-3 text-left font-semibold lg:table-cell">{{ __('tickets.fields.agent') }}</th>
+                        <th class="hidden px-4 py-3 text-left font-semibold xl:table-cell">{{ __('common.created_at') }}</th>
                         @can('tickets.manage')
                             <th class="w-10 px-4 py-3"></th>
                         @endcan
@@ -47,7 +47,7 @@
                                 @if ($ticket->category)
                                     <x-ui.badge variant="secondary">{{ $ticket->category->name }}</x-ui.badge>
                                 @else
-                                    <span class="text-xs text-muted-foreground">None</span>
+                                    <span class="text-xs text-muted-foreground">{{ __('common.none') }}</span>
                                 @endif
                             </td>
                             <td class="px-4 py-3.5">
@@ -60,7 +60,7 @@
                                 @if ($ticket->agent)
                                     <span class="text-xs font-medium">{{ $ticket->agent->name }}</span>
                                 @else
-                                    <span class="text-xs text-muted-foreground italic">Unassigned</span>
+                                    <span class="text-xs text-muted-foreground italic">{{ __('tickets.unassigned') }}</span>
                                 @endif
                             </td>
                             <td class="hidden px-4 py-3.5 text-xs text-muted-foreground xl:table-cell">
@@ -83,8 +83,8 @@
                             <td colspan="7" class="px-4 py-12 text-center text-muted-foreground">
                                 <div class="flex flex-col items-center justify-center gap-2">
                                     <x-lucide-life-buoy class="size-8 text-muted-foreground/30" />
-                                    <p class="text-sm font-medium">No support tickets.</p>
-                                    <p class="text-xs">{{ $record->name }} hasn't opened any tickets yet.</p>
+                                    <p class="text-sm font-medium">{{ __('tickets.no_tickets') }}</p>
+                                    <p class="text-xs">{{ __('tickets.no_tickets_user_desc', ['name' => $record->name]) }}</p>
                                 </div>
                             </td>
                         </tr>
