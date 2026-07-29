@@ -31,14 +31,14 @@
     @endcan
 @else
     @if ($record->isGuest() && ! $record->banned_at)
-        @can('users.convert')
+        @can('guests.convert')
             <x-admin.dropdown-item @click="$wire.openConvertDialog({{ $record->id }})">
                 <x-lucide-user-plus class="size-4" />
                 {{ __('guests.actions.convert') }}
             </x-admin.dropdown-item>
         @endcan
 
-        @can('users.merge')
+        @can('guests.merge')
             <x-admin.dropdown-item @click="$wire.openMergeDialog({{ $record->id }})">
                 <x-lucide-merge class="size-4" />
                 {{ __('guests.actions.merge') }}

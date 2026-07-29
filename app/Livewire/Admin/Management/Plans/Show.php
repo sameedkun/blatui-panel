@@ -87,7 +87,6 @@ class Show extends BaseShow
                 'label' => __('plans.tabs.activity'),
                 'icon' => 'activity',
                 'view' => 'livewire.admin.management.plans.show.tabs.activity',
-                'permission' => 'activity_logs.view',
                 'data' => fn (): array => [
                     'activities' => $this->recordActivity(),
                     'selectedActivity' => $this->selectedActivityDetail(),

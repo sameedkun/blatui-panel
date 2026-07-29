@@ -95,14 +95,19 @@
                     <div class="space-y-1">
                         <div class="flex flex-wrap items-center gap-2">
                             @if ($subscription->plan)
-                                <a href="{{ route('admin.plans.show', $subscription->plan) }}"
-                                    class="inline-flex items-center gap-1.5 text-base font-bold text-foreground hover:text-primary transition-colors group">
-                                    <span>{{ $subscription->plan->name }}</span>
-                                    <x-lucide-arrow-up-right
-                                        class="size-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
-                                </a>
+                                @can('plans.manage')
+                                    <a href="{{ route('admin.plans.show', $subscription->plan) }}"
+                                        class="inline-flex items-center gap-1.5 text-base font-bold text-foreground hover:text-primary transition-colors group">
+                                        <span>{{ $subscription->plan->name }}</span>
+                                        <x-lucide-arrow-up-right
+                                            class="size-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                                    </a>
+                                @else
+                                    <span class="text-base font-bold text-foreground">{{ $subscription->plan->name }}</span>
+                                @endcan
                             @else
-                                <span class="text-base font-bold text-foreground">{{ __('common.deleted_plan') }}</span>
+                                <span
+                                    class="text-base font-bold text-foreground">{{ __('common.deleted_plan') }}</span>
                             @endif
 
                             @if ($subscription->plan?->is_best_deal)
@@ -147,8 +152,9 @@
                         {{ number_format((float) $subscription->planPrice->amount, 2) }}
                     </p>
                     <p class="text-xs text-muted-foreground">
-                        / {{ trans_choice(
-                            'guests.billing_intervals.'.$subscription->planPrice->billing_interval->value,
+                        /
+                        {{ trans_choice(
+                            'guests.billing_intervals.' . $subscription->planPrice->billing_interval->value,
                             $subscription->planPrice->billing_period,
                             ['count' => $subscription->planPrice->billing_period],
                         ) }}

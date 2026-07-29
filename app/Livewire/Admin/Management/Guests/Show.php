@@ -118,7 +118,6 @@ class Show extends BaseShow
                 'label' => __('guests.tabs.activity'),
                 'icon' => 'activity',
                 'view' => 'livewire.admin.management.users.profile.tabs.activity',
-                'permission' => 'activity_logs.view',
                 'data' => fn (): array => [
                     'activities' => $this->recordActivity(),
                     'selectedActivity' => $this->selectedActivityDetail(),
@@ -358,7 +357,7 @@ class Show extends BaseShow
 
     public function openConvertDialog(int $userId): void
     {
-        $this->authorize('users.convert');
+        $this->authorize('guests.convert');
 
         $guest = User::query()->guests()->withTrashed()->findOrFail($userId);
         $this->assertLifecycleState($guest, ['active']);
@@ -378,7 +377,7 @@ class Show extends BaseShow
      */
     public function confirmConvert(GuestConversionService $conversions)
     {
-        $this->authorize('users.convert');
+        $this->authorize('guests.convert');
 
         $guest = User::query()->guests()->withTrashed()->findOrFail($this->convertingId);
         $this->assertLifecycleState($guest, ['active']);
@@ -404,7 +403,7 @@ class Show extends BaseShow
 
     public function openMergeDialog(int $userId): void
     {
-        $this->authorize('users.merge');
+        $this->authorize('guests.merge');
 
         $guest = User::query()->guests()->withTrashed()->findOrFail($userId);
         $this->assertLifecycleState($guest, ['active']);
@@ -451,7 +450,7 @@ class Show extends BaseShow
      */
     public function confirmMerge(GuestConversionService $conversions)
     {
-        $this->authorize('users.merge');
+        $this->authorize('guests.merge');
 
         $guest = User::query()->guests()->withTrashed()->findOrFail($this->mergingId);
         $this->assertLifecycleState($guest, ['active']);
@@ -474,7 +473,11 @@ class Show extends BaseShow
 
         session()->flash('toast', ['type' => 'success', 'title' => __('guests.toasts.guest_merged', ['guest' => $guestName, 'destination' => $destination->name])]);
 
-        return $this->redirect(route('admin.users.show', $destination));
+        $redirectRoute = auth()->user()->can('users.manage')
+        ? route('admin.users.show', $destination)
+        : route('admin.guests.index');
+
+        return $this->redirect($redirectRoute);
     }
 
     /**
@@ -496,9 +499,7 @@ class Show extends BaseShow
     /** Total audit-log rows for this record, or null (renders "Coming soon") without permission to see them. */
     protected function recordActivityCount(): ?string
     {
-        return auth()->user()->can('activity_logs.view')
-            ? (string) Activity::forSubject($this->record)->count()
-            : null;
+        return Activity::forSubject($this->record)->count();
     }
 
     public function render(): View
