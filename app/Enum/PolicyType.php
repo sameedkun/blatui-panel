@@ -19,10 +19,6 @@ enum PolicyType: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Privacy => 'Privacy Policy',
-            self::Terms => 'Terms of Service',
-            self::Refund => 'Refund Policy',
-        };
+        return __("settings.enums.policy_types.{$this->value}");
     }
 }

@@ -19,7 +19,7 @@ class General extends BaseSettings
 
     protected function successMessage(): string
     {
-        return 'General settings updated successfully.';
+        return __('settings.toasts.general_saved');
     }
 
     protected function loadSettings(): void
@@ -43,8 +43,22 @@ class General extends BaseSettings
         ];
     }
 
+    protected function messages(): array
+    {
+        return [
+            'site_name.required' => __('settings.validation.site_name_required'),
+            'site_name.string' => __('settings.validation.site_name_invalid'),
+            'site_name.max' => __('settings.validation.site_name_max', ['max' => 100]),
+            'environment.required' => __('settings.validation.environment_required'),
+            'environment.string' => __('settings.validation.environment_invalid'),
+            'timezone.required' => __('settings.validation.timezone_required'),
+            'timezone.string' => __('settings.validation.timezone_invalid'),
+        ];
+    }
+
     public function render(): View
     {
-        return view('livewire.admin.settings.general');
+        return view('livewire.admin.settings.general')
+            ->title(__('settings.pages.general_title'));
     }
 }

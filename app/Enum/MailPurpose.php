@@ -3,7 +3,6 @@
 namespace App\Enum;
 
 use App\Models\EmailSender;
-use Illuminate\Support\Str;
 
 /**
  * Fixed set of mail "purposes" an {@see EmailSender} row can be
@@ -21,6 +20,6 @@ enum MailPurpose: string
 
     public function label(): string
     {
-        return Str::headline($this->value);
+        return __("settings.enums.mail_purposes.{$this->value}");
     }
 }

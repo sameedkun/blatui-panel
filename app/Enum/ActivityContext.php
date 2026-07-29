@@ -18,4 +18,9 @@ enum ActivityContext: string
     case Queue = 'queue';
     case Console = 'console';
     case Webhook = 'webhook';
+
+    public function label(): string
+    {
+        return __("activity_logs.enums.contexts.{$this->value}");
+    }
 }

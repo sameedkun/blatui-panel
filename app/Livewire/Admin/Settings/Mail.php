@@ -89,7 +89,7 @@ class Mail extends BaseSettings
 
     protected function successMessage(): string
     {
-        return 'Mail settings saved.';
+        return __('settings.toasts.mail_saved');
     }
 
     protected function loadSettings(): void
@@ -120,6 +120,50 @@ class Mail extends BaseSettings
             'smtp_password' => [SmtpSetting::current()->exists ? 'nullable' : 'required', 'string'],
             'smtp_from_address' => ['required', 'email', 'max:255'],
             'smtp_from_name' => ['required', 'string', 'max:255'],
+        ];
+    }
+
+    protected function messages(): array
+    {
+        return [
+            'smtp_host.required' => __('settings.validation.smtp_host_required'),
+            'smtp_host.string' => __('settings.validation.smtp_host_invalid'),
+            'smtp_host.max' => __('settings.validation.smtp_host_max', ['max' => 255]),
+            'smtp_port.required' => __('settings.validation.smtp_port_required'),
+            'smtp_port.integer' => __('settings.validation.smtp_port_integer'),
+            'smtp_port.between' => __('settings.validation.smtp_port_between', ['min' => 1, 'max' => 65535]),
+            'smtp_encryption.in' => __('settings.validation.smtp_encryption_invalid'),
+            'smtp_username.required' => __('settings.validation.smtp_username_required'),
+            'smtp_username.string' => __('settings.validation.smtp_username_invalid'),
+            'smtp_username.max' => __('settings.validation.smtp_username_max', ['max' => 255]),
+            'smtp_password.required' => __('settings.validation.smtp_password_required'),
+            'smtp_password.string' => __('settings.validation.smtp_password_invalid'),
+            'smtp_from_address.required' => __('settings.validation.smtp_from_address_required'),
+            'smtp_from_address.email' => __('settings.validation.smtp_from_address_email'),
+            'smtp_from_address.max' => __('settings.validation.smtp_from_address_max', ['max' => 255]),
+            'smtp_from_name.required' => __('settings.validation.smtp_from_name_required'),
+            'smtp_from_name.string' => __('settings.validation.smtp_from_name_invalid'),
+            'smtp_from_name.max' => __('settings.validation.smtp_from_name_max', ['max' => 255]),
+            'domain_name.required' => __('settings.validation.domain_name_required'),
+            'domain_name.string' => __('settings.validation.domain_name_invalid'),
+            'domain_name.max' => __('settings.validation.domain_name_max', ['max' => 100]),
+            'domain_domain.required' => __('settings.validation.domain_required'),
+            'domain_domain.string' => __('settings.validation.domain_invalid'),
+            'domain_domain.max' => __('settings.validation.domain_max', ['max' => 255]),
+            'domain_domain.unique' => __('settings.validation.domain_unique'),
+            'domain_description.max' => __('settings.validation.domain_description_max', ['max' => 500]),
+            'domain_description.string' => __('settings.validation.domain_description_invalid'),
+            'sender_local_part.required' => __('settings.validation.sender_local_part_required'),
+            'sender_local_part.string' => __('settings.validation.sender_local_part_invalid'),
+            'sender_local_part.max' => __('settings.validation.sender_local_part_max', ['max' => 64]),
+            'sender_local_part.regex' => __('settings.validation.sender_local_part_format'),
+            'sender_from_name.required' => __('settings.validation.sender_from_name_required'),
+            'sender_from_name.string' => __('settings.validation.sender_from_name_invalid'),
+            'sender_from_name.max' => __('settings.validation.sender_from_name_max', ['max' => 255]),
+            'test_email_address.required' => __('settings.validation.test_email_required'),
+            'test_email_address.email' => __('settings.validation.test_email_invalid'),
+            'test_email_purpose.required' => __('settings.validation.test_purpose_required'),
+            'test_email_purpose.in' => __('settings.validation.test_purpose_invalid'),
         ];
     }
 
@@ -209,7 +253,9 @@ class Mail extends BaseSettings
 
         $this->editingDomainId = null;
         $this->dispatch('close-dialog-email-domain');
-        $this->toastSuccess($isCreate ? 'Domain added.' : 'Domain updated.');
+        $this->toastSuccess($isCreate
+            ? __('settings.toasts.domain_added')
+            : __('settings.toasts.domain_updated'));
     }
 
     public function confirmDeleteDomain(int $domainId): void
@@ -231,7 +277,7 @@ class Mail extends BaseSettings
         $this->logActivity(ActivityModule::Setting, ActivityAction::Deleted, null, ['area' => 'email_domain', 'domain' => $domainName]);
 
         $this->deletingDomainId = null;
-        $this->toastSuccess("Domain \"{$domainName}\" deleted.");
+        $this->toastSuccess(__('settings.toasts.domain_deleted', ['domain' => $domainName]));
     }
 
     // ── Senders (fixed one-per-purpose rows, edit only) ──────────────────────
@@ -282,7 +328,7 @@ class Mail extends BaseSettings
 
         $this->editingSenderId = null;
         $this->dispatch('close-dialog-email-sender');
-        $this->toastSuccess("{$sender->label} sender updated.");
+        $this->toastSuccess(__('settings.toasts.sender_updated', ['purpose' => $sender->key->label()]));
     }
 
     // ── Send test email ───────────────────────────────────────────────────────
@@ -312,13 +358,13 @@ class Mail extends BaseSettings
         };
 
         if ($from === null) {
-            $this->toastError("Mail driver \"{$driver}\" isn't supported here.");
+            $this->toastError(__('settings.toasts.unsupported_driver', ['driver' => $driver]));
 
             return;
         }
 
         if (! $from['address']) {
-            $this->toastError('No from-address is configured yet — save your settings first.');
+            $this->toastError(__('settings.toasts.missing_from_address'));
 
             return;
         }
@@ -329,7 +375,7 @@ class Mail extends BaseSettings
             );
         } catch (Throwable $e) {
             log()->error('Failed to send test email: '.$e->getMessage(), ['exception' => $e]);
-            $this->toastError('Failed to send: '.$e->getMessage());
+            $this->toastError(__('settings.toasts.test_failed', ['message' => $e->getMessage()]));
 
             return;
         }
@@ -339,7 +385,7 @@ class Mail extends BaseSettings
             'to' => $this->test_email_address,
         ]);
 
-        $this->toastSuccess("Test email sent to {$this->test_email_address}.");
+        $this->toastSuccess(__('settings.toasts.test_sent', ['email' => $this->test_email_address]));
     }
 
     /**
@@ -383,6 +429,6 @@ class Mail extends BaseSettings
         return view('livewire.admin.settings.mail', [
             'domains' => $this->domains(),
             'senders' => $this->senders(),
-        ]);
+        ])->title(__('settings.pages.mail_title'));
     }
 }

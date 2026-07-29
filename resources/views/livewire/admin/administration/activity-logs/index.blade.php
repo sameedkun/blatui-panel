@@ -1,5 +1,5 @@
 @php
-    use Illuminate\Support\Str;
+    use App\Support\ActivityPresenter;
 
     // Map an action verb to a badge treatment so the log scans fast.
     $actionBadge = function (?string $event): array {
@@ -16,14 +16,14 @@
 <div class="flex flex-col gap-6">
 
     {{-- Page header --}}
-    <x-admin.page-header title="Activity Logs"
-        description="Immutable audit trail of privileged actions — who did what, to whom."
-        :breadcrumbs="[['label' => 'Home', 'url' => route('admin.dashboard')], ['label' => 'Activity Logs']]">
+    <x-admin.page-header :title="__('activity_logs.title')"
+        :description="__('activity_logs.subtitle')"
+        :breadcrumbs="[['label' => __('activity_logs.breadcrumbs.home'), 'url' => route('admin.dashboard')], ['label' => __('activity_logs.breadcrumbs.activity_logs')]]">
         @can('activity_logs.export')
             <x-slot:actions>
                 <x-ui.button variant="primary" wire:click="export" wire:loading.attr="disabled" wire:target="export">
                     <x-lucide-download class="size-4" />
-                    Export
+                    {{ __('activity_logs.actions.export') }}
                 </x-ui.button>
             </x-slot:actions>
         @endcan
@@ -34,11 +34,11 @@
         <div class="flex items-center justify-between rounded-md border border-primary/40 bg-primary/5 px-4 py-2 text-sm">
             <span class="flex items-center gap-2">
                 <x-lucide-filter class="size-4 text-primary" />
-                Showing activity for
-                <span class="font-medium">{{ class_basename($subjectType) }} #{{ $subjectId }}</span>
+                {{ __('activity_logs.scope.showing_for') }}
+                <span class="font-medium">{{ ActivityPresenter::subjectTypeLabel($subjectType) }} #{{ $subjectId }}</span>
             </span>
             <button wire:click="clearSubject" class="text-xs text-muted-foreground underline hover:no-underline">
-                Clear
+                {{ __('activity_logs.actions.clear') }}
             </button>
         </div>
     @endif
@@ -47,16 +47,16 @@
     <div>
         <h2 class="mb-2 flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
             <x-lucide-shield-alert class="size-4" />
-            Security signals
-            <span class="font-normal text-muted-foreground/70">· last 24h</span>
+            {{ __('activity_logs.signals.title') }}
+            <span class="font-normal text-muted-foreground/70">· {{ __('activity_logs.signals.last_24_hours') }}</span>
         </h2>
         <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
-            <x-admin.stat-card label="Failed logins" :value="$signals['failed_logins']" icon="shield-x"
-                description="Rejected credentials (24h)" />
-            <x-admin.stat-card label="Destructive actions" :value="$signals['destructive']" icon="alert-triangle"
-                description="Bans, deletes, purges, role changes" />
-            <x-admin.stat-card label="Active admins" :value="$signals['active_causers']" icon="users"
-                description="Distinct causers (24h)" />
+            <x-admin.stat-card :label="__('activity_logs.signals.failed_logins')" :value="$signals['failed_logins']" icon="shield-x"
+                :description="__('activity_logs.signals.failed_logins_description')" />
+            <x-admin.stat-card :label="__('activity_logs.signals.destructive_actions')" :value="$signals['destructive']" icon="alert-triangle"
+                :description="__('activity_logs.signals.destructive_actions_description')" />
+            <x-admin.stat-card :label="__('activity_logs.signals.active_causers')" :value="$signals['active_causers']" icon="users"
+                :description="__('activity_logs.signals.active_causers_description')" />
         </div>
     </div>
 
@@ -64,15 +64,15 @@
     <div>
         <h2 class="mb-2 flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
             <x-lucide-activity class="size-4" />
-            Activity pulse
+            {{ __('activity_logs.pulse.title') }}
         </h2>
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <x-admin.stat-card label="Today" :value="$pulse['today']" icon="calendar-check"
-                description="Events since midnight" />
-            <x-admin.stat-card label="This week" :value="$pulse['week']" icon="calendar-range"
-                description="Events this week" />
-            <x-admin.stat-card label="This month" :value="$pulse['month']" icon="calendar-days"
-                description="Events this month" />
+            <x-admin.stat-card :label="__('activity_logs.pulse.today')" :value="$pulse['today']" icon="calendar-check"
+                :description="trans_choice('activity_logs.pulse.events', $pulse['today'], ['count' => number_format($pulse['today'])])" />
+            <x-admin.stat-card :label="__('activity_logs.pulse.this_week')" :value="$pulse['week']" icon="calendar-range"
+                :description="trans_choice('activity_logs.pulse.events', $pulse['week'], ['count' => number_format($pulse['week'])])" />
+            <x-admin.stat-card :label="__('activity_logs.pulse.this_month')" :value="$pulse['month']" icon="calendar-days"
+                :description="trans_choice('activity_logs.pulse.events', $pulse['month'], ['count' => number_format($pulse['month'])])" />
         </div>
     </div>
 
@@ -80,8 +80,8 @@
     @if (count($breakdown))
         <x-ui.card>
             <div class="mb-3 flex items-center justify-between">
-                <p class="text-sm font-medium">Events by module</p>
-                <span class="text-xs text-muted-foreground">{{ number_format($breakdownTotal) }} in view</span>
+                <p class="text-sm font-medium">{{ __('activity_logs.breakdown.title') }}</p>
+                <span class="text-xs text-muted-foreground">{{ __('activity_logs.breakdown.in_view', ['count' => number_format($breakdownTotal)]) }}</span>
             </div>
             <div class="flex flex-col gap-2">
                 @foreach ($breakdown as $row)
@@ -100,7 +100,7 @@
 
     {{-- Toolbar --}}
     <x-admin.filter-bar :config="$filterBarConfig" :filters="$filters" :has-active-filters="$this->hasActiveFilters()"
-        search-placeholder="Search description, properties…" />
+        :search-placeholder="__('activity_logs.filters.search_placeholder')" />
 
     {{-- Table --}}
     <div class="overflow-x-auto rounded-md border border-border">
@@ -109,7 +109,7 @@
                 <tr class="border-b border-border bg-muted/40">
                     <th class="px-4 py-3 text-left">
                         <button wire:click="sort('created_at')" class="flex items-center gap-1 font-medium text-foreground">
-                            When
+                            {{ __('activity_logs.table.when') }}
                             @if ($sortBy === 'created_at')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -117,11 +117,11 @@
                             @endif
                         </button>
                     </th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Causer</th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Action</th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground md:table-cell">Module</th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground lg:table-cell">Subject</th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground xl:table-cell">Context</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('activity_logs.table.causer') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('activity_logs.table.action') }}</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground md:table-cell">{{ __('activity_logs.table.module') }}</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground lg:table-cell">{{ __('activity_logs.table.subject') }}</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground xl:table-cell">{{ __('activity_logs.table.context') }}</th>
                     <th class="w-10 px-4 py-3"></th>
                 </tr>
             </thead>
@@ -150,7 +150,7 @@
                             @else
                                 <x-ui.badge variant="outline" class="gap-1">
                                     <x-lucide-server-cog class="size-3" />
-                                    System
+                                    {{ __('activity_logs.values.system') }}
                                 </x-ui.badge>
                             @endif
                         </td>
@@ -159,10 +159,10 @@
                         <td class="px-4 py-3">
                             <div class="flex items-center gap-1.5">
                                 <x-ui.badge :variant="$badge['variant']" class="{{ $badge['class'] }}">
-                                    {{ Str::headline($activity->event ?? '—') }}
+                                    {{ ActivityPresenter::actionLabel($activity->event) }}
                                 </x-ui.badge>
                                 @if (($props['bulk'] ?? false))
-                                    <x-admin.tooltip :text="'Bulk action · '.($props['count'] ?? '?').' records'">
+                                    <x-admin.tooltip :text="__('activity_logs.table.bulk_action', ['count' => $props['count'] ?? '?'])">
                                         <x-ui.badge variant="secondary" class="gap-1">
                                             <x-lucide-layers class="size-3" />
                                             {{ $props['count'] ?? '' }}
@@ -175,9 +175,9 @@
                         {{-- Module --}}
                         <td class="hidden px-4 py-3 md:table-cell">
                             <span class="text-muted-foreground">
-                                {{ Str::headline($props['module'] ?? '—') }}
+                                {{ ActivityPresenter::moduleLabel($props['module'] ?? null) }}
                                 @if (! empty($props['area']))
-                                    <span class="text-xs">· {{ Str::headline($props['area']) }}</span>
+                                    <span class="text-xs">· {{ ActivityPresenter::areaLabel($props['area']) }}</span>
                                 @endif
                             </span>
                         </td>
@@ -186,7 +186,7 @@
                         <td class="hidden px-4 py-3 lg:table-cell">
                             @if ($activity->subject_type)
                                 <span class="font-mono text-xs text-muted-foreground">
-                                    {{ class_basename($activity->subject_type) }} #{{ $activity->subject_id }}
+                                    {{ ActivityPresenter::subjectTypeLabel($activity->subject_type) }} #{{ $activity->subject_id }}
                                 </span>
                             @else
                                 <span class="text-xs text-muted-foreground/50">—</span>
@@ -195,7 +195,7 @@
 
                         {{-- Context --}}
                         <td class="hidden px-4 py-3 xl:table-cell">
-                            <x-ui.badge variant="outline">{{ Str::headline($props['context'] ?? '—') }}</x-ui.badge>
+                            <x-ui.badge variant="outline">{{ ActivityPresenter::contextLabel($props['context'] ?? null) }}</x-ui.badge>
                         </td>
 
                         {{-- View affordance --}}
@@ -208,10 +208,10 @@
                     <tr>
                         <td colspan="7" class="px-4 py-16 text-center text-muted-foreground">
                             <x-lucide-clipboard-list class="mx-auto mb-2 size-8 opacity-30" />
-                            <p class="text-sm">No activity found.</p>
+                            <p class="text-sm">{{ __('activity_logs.table.empty') }}</p>
                             @if ($this->hasActiveFilters())
                                 <button wire:click="resetFilters"
-                                    class="mt-1 text-xs underline hover:no-underline">Clear filters</button>
+                                    class="mt-1 text-xs underline hover:no-underline">{{ __('activity_logs.actions.clear_filters') }}</button>
                             @endif
                         </td>
                     </tr>

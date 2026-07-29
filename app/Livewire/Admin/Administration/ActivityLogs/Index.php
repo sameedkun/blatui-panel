@@ -11,10 +11,8 @@ use App\Livewire\Admin\BaseIndex;
 use App\Models\User;
 use App\Support\ActivityLogQuery;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Spatie\Activitylog\Models\Activity;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -30,7 +28,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * dropdowns are populated straight from their enums.
  */
 #[Layout('layouts.admin.app')]
-#[Title('Activity Logs')]
 class Index extends BaseIndex
 {
     public string $sortBy = 'created_at';
@@ -131,8 +128,8 @@ class Index extends BaseIndex
         $threshold = (int) config('panel.activity_log_export_queue_threshold', 5000);
 
         if ($query->clone()->count() > $threshold) {
-            ExportActivityLog::dispatch($this->exportState(), auth()->id());
-            $this->toastSuccess('This export is large and is being prepared in the background.');
+            ExportActivityLog::dispatch($this->exportState(), auth()->id(), app()->getLocale());
+            $this->toastSuccess(__('activity_logs.messages.export_queued'));
 
             return null;
         }
@@ -141,7 +138,7 @@ class Index extends BaseIndex
 
         return response()->streamDownload(function () use ($query): void {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['ID', 'Date', 'Category', 'Module', 'Action', 'Context', 'Causer', 'Subject', 'Description', 'Properties']);
+            fputcsv($handle, __('activity_logs.export.headers'));
 
             $query->with('causer')->orderBy('id', 'desc')->chunk(500, function ($activities) use ($handle): void {
                 foreach ($activities as $activity) {
@@ -193,7 +190,7 @@ class Index extends BaseIndex
     protected function moduleOptions(): array
     {
         return collect(ActivityModule::cases())
-            ->mapWithKeys(fn (ActivityModule $c): array => [$c->value => Str::headline($c->value)])
+            ->mapWithKeys(fn (ActivityModule $case): array => [$case->value => $case->label()])
             ->all();
     }
 
@@ -201,7 +198,7 @@ class Index extends BaseIndex
     protected function actionOptions(): array
     {
         return collect(ActivityAction::cases())
-            ->mapWithKeys(fn (ActivityAction $c): array => [$c->value => Str::headline($c->value)])
+            ->mapWithKeys(fn (ActivityAction $case): array => [$case->value => $case->label()])
             ->all();
     }
 
@@ -209,7 +206,7 @@ class Index extends BaseIndex
     protected function contextOptions(): array
     {
         return collect(ActivityContext::cases())
-            ->mapWithKeys(fn (ActivityContext $c): array => [$c->value => Str::headline($c->value)])
+            ->mapWithKeys(fn (ActivityContext $case): array => [$case->value => $case->label()])
             ->all();
     }
 
@@ -217,7 +214,7 @@ class Index extends BaseIndex
     protected function categoryOptions(): array
     {
         return collect(ActivityLogName::cases())
-            ->mapWithKeys(fn (ActivityLogName $c): array => [$c->value => Str::headline($c->value)])
+            ->mapWithKeys(fn (ActivityLogName $case): array => [$case->value => $case->label()])
             ->all();
     }
 
@@ -238,13 +235,17 @@ class Index extends BaseIndex
         $hasSystem = Activity::query()->whereNull('causer_id')->exists();
 
         return $hasSystem
-            ? ['system' => 'System'] + $admins   // sentinel first
+            ? ['system' => __('activity_logs.values.system')] + $admins   // sentinel first
             : $admins;
     }
 
     protected function rangeOptions(): array
     {
-        return ['today' => 'Today', '7d' => 'Last 7 days', '30d' => 'Last 30 days'];
+        return [
+            'today' => __('activity_logs.ranges.today'),
+            '7d' => __('activity_logs.ranges.last_7_days'),
+            '30d' => __('activity_logs.ranges.last_30_days'),
+        ];
     }
 
     // ── Filter bar UI config ──────────────────────────────────────────────────
@@ -253,37 +254,37 @@ class Index extends BaseIndex
     {
         return [
             'range' => [
-                'label' => 'Period',
+                'label' => __('activity_logs.filters.period'),
                 'type' => 'select',
                 'options' => $this->rangeOptions(),
             ],
             'module' => [
-                'label' => 'Module',
+                'label' => __('activity_logs.filters.module'),
                 'type' => 'multi-select',
                 'options' => $this->moduleOptions(),
             ],
             'action' => [
-                'label' => 'Action',
+                'label' => __('activity_logs.filters.action'),
                 'type' => 'multi-select',
                 'options' => $this->actionOptions(),
             ],
             'context' => [
-                'label' => 'Context',
+                'label' => __('activity_logs.filters.context'),
                 'type' => 'multi-select',
                 'options' => $this->contextOptions(),
             ],
             'category' => [
-                'label' => 'Category',
+                'label' => __('activity_logs.filters.category'),
                 'type' => 'multi-select',
                 'options' => $this->categoryOptions(),
             ],
             'causer' => [
-                'label' => 'Causer',
+                'label' => __('activity_logs.filters.causer'),
                 'type' => 'multi-select',
                 'options' => $this->causerOptions(),
             ],
             'custom' => [
-                'label' => 'Custom dates',
+                'label' => __('activity_logs.filters.custom_dates'),
                 'type' => 'date-range',
                 'from_key' => 'date_from',
                 'to_key' => 'date_to',
@@ -393,6 +394,6 @@ class Index extends BaseIndex
             'pulse' => $this->activityPulse(),
             'breakdown' => $breakdown,
             'breakdownTotal' => array_sum(array_column($breakdown, 'count')),
-        ]);
+        ])->title(__('activity_logs.title'));
     }
 }

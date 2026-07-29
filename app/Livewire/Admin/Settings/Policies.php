@@ -30,7 +30,7 @@ class Policies extends BaseSettings
 
     protected function successMessage(): string
     {
-        return 'Policies saved successfully.';
+        return __('settings.toasts.policies_saved');
     }
 
     protected function loadSettings(): void
@@ -120,6 +120,23 @@ class Policies extends BaseSettings
         return $rules;
     }
 
+    protected function messages(): array
+    {
+        return [
+            'deletion_grace_hours.required' => __('settings.validation.deletion_grace_required'),
+            'deletion_grace_hours.integer' => __('settings.validation.deletion_grace_integer'),
+            'deletion_grace_hours.min' => __('settings.validation.deletion_grace_min', ['min' => 1]),
+            'policies.*.title.required' => __('settings.validation.policy_title_required'),
+            'policies.*.title.string' => __('settings.validation.policy_title_invalid'),
+            'policies.*.title.max' => __('settings.validation.policy_title_max', ['max' => 255]),
+            'policies.*.version.required' => __('settings.validation.policy_version_required'),
+            'policies.*.version.string' => __('settings.validation.policy_version_invalid'),
+            'policies.*.version.max' => __('settings.validation.policy_version_max', ['max' => 50]),
+            'policies.*.content.required' => __('settings.validation.policy_content_required'),
+            'policies.*.content.string' => __('settings.validation.policy_content_invalid'),
+        ];
+    }
+
     /** Opens the read-only dialog showing one historical version's full content. */
     public function viewVersion(int $versionId): void
     {
@@ -152,6 +169,6 @@ class Policies extends BaseSettings
             'viewingVersion' => $this->viewingVersionId
                 ? PolicyVersion::with('policy')->find($this->viewingVersionId)
                 : null,
-        ]);
+        ])->title(__('settings.pages.policies_title'));
     }
 }

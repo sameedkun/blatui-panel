@@ -47,11 +47,11 @@ class SettingsPoliciesTest extends TestCase
         $this->get(route('admin.settings.policies'))->assertForbidden();
     }
 
-    public function test_page_403s_without_settings_policies_view(): void
+    public function test_parent_settings_view_grants_policies_view_access(): void
     {
-        $this->actingAs($this->staffWith(['settings.view'])); // no policies view
+        $this->actingAs($this->staffWith(['settings.view']));
 
-        $this->get(route('admin.settings.policies'))->assertForbidden();
+        $this->get(route('admin.settings.policies'))->assertOk();
     }
 
     public function test_page_loads_and_displays_seeded_policies(): void

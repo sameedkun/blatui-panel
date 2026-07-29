@@ -258,11 +258,11 @@ return [
     |
     */
     'groups' => [
-        'administration' => 'Administration',
         'management' => 'Management',
         'infrastructure' => 'Infrastructure',
         'app' => 'Application',
         'support' => 'Support',
+        'administration' => 'Administration',
         'settings' => 'Settings',
     ],
 

@@ -52,11 +52,11 @@ class SettingsMailTest extends TestCase
         $this->get(route('admin.settings.mail'))->assertForbidden();
     }
 
-    public function test_page_403s_without_settings_mail_view(): void
+    public function test_parent_settings_view_grants_mail_view_access(): void
     {
-        $this->actingAs($this->staffWith(['settings.view'])); // no settings.mail.view
+        $this->actingAs($this->staffWith(['settings.view']));
 
-        $this->get(route('admin.settings.mail'))->assertForbidden();
+        $this->get(route('admin.settings.mail'))->assertOk();
     }
 
     public function test_smtp_save_is_forbidden_without_settings_mail_edit(): void

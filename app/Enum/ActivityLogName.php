@@ -11,4 +11,9 @@ enum ActivityLogName: string
     case Audit = 'audit';
     case Authentication = 'authentication';
     case System = 'system';
+
+    public function label(): string
+    {
+        return __("activity_logs.enums.categories.{$this->value}");
+    }
 }

@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Support\ActivityLogQuery;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
@@ -25,19 +26,23 @@ class ExportActivityLog implements ShouldQueue
     /**
      * @param  array<string, mixed>  $state  Serialized filter state from the viewer.
      * @param  int|null  $requestedBy  The admin who requested the export.
+     * @param  string|null  $locale  The locale active when the export was requested.
      */
     public function __construct(
         public array $state,
         public ?int $requestedBy = null,
+        public ?string $locale = null,
     ) {}
 
     public function handle(): void
     {
+        App::setLocale($this->locale ?? config('app.locale'));
+
         $path = 'exports/activity-log-'.now()->format('Y-m-d_His').'-'.($this->requestedBy ?? 'system').'.csv';
         $disk = Storage::disk('local');
 
         $handle = fopen('php://temp', 'r+');
-        fputcsv($handle, ['ID', 'Date', 'Category', 'Module', 'Action', 'Context', 'Causer', 'Subject', 'Description', 'Properties']);
+        fputcsv($handle, __('activity_logs.export.headers'));
 
         ActivityLogQuery::build($this->state)
             ->with('causer')

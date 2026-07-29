@@ -24,4 +24,9 @@ enum ActivityModule: string
     case Setting = 'setting';
     case Device = 'device';
     case BlockedIp = 'blocked_ip';
+
+    public function label(): string
+    {
+        return __("activity_logs.enums.modules.{$this->value}");
+    }
 }

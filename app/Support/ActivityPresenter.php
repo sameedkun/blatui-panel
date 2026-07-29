@@ -2,6 +2,10 @@
 
 namespace App\Support;
 
+use App\Enum\ActivityAction;
+use App\Enum\ActivityContext;
+use App\Enum\ActivityLogName;
+use App\Enum\ActivityModule;
 use App\Enum\PolicyType;
 use App\Enum\TicketPriority;
 use App\Models\Feedback;
@@ -27,6 +31,70 @@ use Spatie\Permission\Models\Role;
  */
 class ActivityPresenter
 {
+    public static function actionLabel(?string $action): string
+    {
+        return ActivityAction::tryFrom((string) $action)?->label() ?? self::fallbackLabel($action);
+    }
+
+    public static function moduleLabel(?string $module): string
+    {
+        return ActivityModule::tryFrom((string) $module)?->label() ?? self::fallbackLabel($module);
+    }
+
+    public static function contextLabel(?string $context): string
+    {
+        return ActivityContext::tryFrom((string) $context)?->label() ?? self::fallbackLabel($context);
+    }
+
+    public static function categoryLabel(?string $category): string
+    {
+        return ActivityLogName::tryFrom((string) $category)?->label() ?? self::fallbackLabel($category);
+    }
+
+    public static function fieldLabel(string $field): string
+    {
+        $key = "activity_logs.fields.{$field}";
+        $translation = __($key);
+
+        return $translation === $key ? Str::headline($field) : $translation;
+    }
+
+    public static function areaLabel(string $area): string
+    {
+        $key = "activity_logs.areas.{$area}";
+        $translation = __($key);
+
+        return $translation === $key ? Str::headline($area) : $translation;
+    }
+
+    public static function subjectTypeLabel(?string $subjectType): string
+    {
+        if (! $subjectType) {
+            return '—';
+        }
+
+        $basename = class_basename($subjectType);
+        $key = 'activity_logs.subject_types.'.Str::snake($basename);
+        $translation = __($key);
+
+        return $translation === $key ? Str::headline($basename) : $translation;
+    }
+
+    public static function formatValue(mixed $value): string
+    {
+        return match (true) {
+            is_bool($value) => $value ? __('activity_logs.values.yes') : __('activity_logs.values.no'),
+            $value === null => '—',
+            is_array($value) => (string) json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            default => (string) $value,
+        };
+    }
+
+    protected static function fallbackLabel(?string $value): string
+    {
+        return $value ? Str::headline($value) : '—';
+    }
+
     /**
      * Orders an activity's raw properties for the full-detail dialog. MySQL's
      * JSON storage does not preserve insertion order (object members come
@@ -259,35 +327,13 @@ class ActivityPresenter
     protected static function title(string $kind, array $properties = []): string
     {
         if ($kind === 'setting_policy_updated') {
-            return self::policyLabel($properties).' Updated';
+            return __('activity_logs.presenter.policy_updated', ['policy' => self::policyLabel($properties)]);
         }
 
+        $key = "activity_logs.presenter.titles.{$kind}";
+        $translation = __($key);
+
         return match ($kind) {
-            'created' => 'Account Created',
-            'updated' => 'Profile Updated',
-            'password_changed' => 'Password Changed',
-            'deleted' => 'Account Deleted',
-            'restored' => 'Account Restored',
-            'force_deleted', 'purged' => 'Account Permanently Deleted',
-            'banned' => 'Account Banned',
-            'unbanned' => 'Account Unbanned',
-            'assigned' => 'Role Assigned',
-            'login' => 'Logged In',
-            'failed' => 'Failed Login',
-            'password_reset' => 'Password Reset',
-            'deletion_requested' => 'Deletion Scheduled',
-            'deletion_cancelled' => 'Deletion Cancelled',
-            'converted' => 'Converted To App User',
-            'merged' => 'Merged Into Another Account',
-            'setting_smtp' => 'SMTP Settings Updated',
-            'setting_domain_created' => 'Sending Domain Added',
-            'setting_domain_updated' => 'Sending Domain Updated',
-            'setting_domain_deleted' => 'Sending Domain Removed',
-            'setting_sender_updated' => 'Mail Purpose Updated',
-            'setting_test_email' => 'Test Email Sent',
-            'plan_created' => 'Plan Created',
-            'plan_updated' => 'Plan Updated',
-            'plan_deleted' => 'Plan Deleted',
             'ticket_created' => __('tickets.activity.ticket_created'),
             'ticket_updated' => __('tickets.activity.ticket_updated'),
             'ticket_assigned' => __('tickets.activity.ticket_assigned'),
@@ -295,20 +341,7 @@ class ActivityPresenter
             'ticket_category_created' => __('ticket_categories.activity.created'),
             'ticket_category_updated' => __('ticket_categories.activity.updated'),
             'ticket_category_deleted' => __('ticket_categories.activity.deleted'),
-            'subscription_assigned' => 'Plan Assigned',
-            'subscription_upgraded' => 'Plan Changed',
-            'subscription_cancelled' => 'Subscription Cancelled',
-            'subscription_reactivated' => 'Subscription Reactivated',
-            'subscription_trial_converted' => 'Trial Converted',
-            'subscription_entered_grace' => 'Entered Grace Period',
-            'subscription_expired' => 'Subscription Expired',
-            'device_blocked' => 'Device Blocked',
-            'device_unblocked' => 'Device Unblocked',
-            'device_revoked' => 'Device Revoked',
-            'blocked_ip_created' => 'IP Block Created',
-            'blocked_ip_updated' => 'IP Block Updated',
-            'blocked_ip_deleted' => 'IP Block Removed',
-            default => Str::headline($kind),
+            default => $translation === $key ? Str::headline($kind) : $translation,
         };
     }
 
@@ -346,34 +379,34 @@ class ActivityPresenter
         if (! in_array($kind, ['login', 'failed'], true)) {
             $performedByLabel = str_starts_with($kind, 'ticket_')
                 ? __('tickets.activity.performed_by')
-                : 'Performed by';
-            $rows[] = self::row($performedByLabel, self::performedBy($activity, $subject, str_starts_with($kind, 'ticket_')));
+                : __('activity_logs.fields.performed_by');
+            $rows[] = self::row($performedByLabel, self::performedBy($activity, $subject));
         }
 
         $rows = [...$rows, ...match ($kind) {
             'login' => [
-                self::row('Device', UserAgentParser::device($properties['user_agent'] ?? null)),
-                self::row('IP', $properties['ip'] ?? null),
+                self::row(__('activity_logs.fields.device'), UserAgentParser::device($properties['user_agent'] ?? null)),
+                self::row(__('activity_logs.fields.ip'), $properties['ip'] ?? null),
             ],
             'failed' => [
-                self::row('Reason', $properties['reason'] ?? 'Invalid credentials'),
-                self::row('IP', $properties['ip'] ?? null),
+                self::row(__('activity_logs.fields.reason'), $properties['reason'] ?? __('activity_logs.values.invalid_credentials')),
+                self::row(__('activity_logs.fields.ip'), $properties['ip'] ?? null),
             ],
             'banned' => [
-                self::row('Reason', $properties['ban_reason'] ?? null),
+                self::row(__('activity_logs.fields.reason'), $properties['ban_reason'] ?? null),
             ],
             'deletion_requested', 'deletion_cancelled', 'merged' => [
-                self::row('Reason', $properties['reason'] ?? null),
+                self::row(__('activity_logs.fields.reason'), $properties['reason'] ?? null),
             ],
             'converted' => [
-                self::row('Provider', isset($properties['provider']) ? Str::headline((string) $properties['provider']) : null),
+                self::row(__('activity_logs.fields.provider'), isset($properties['provider']) ? Str::headline((string) $properties['provider']) : null),
             ],
             'password_changed' => [
-                self::row('IP', $properties['ip'] ?? null),
+                self::row(__('activity_logs.fields.ip'), $properties['ip'] ?? null),
             ],
             'updated', 'plan_updated' => [
-                self::row('Changed', self::changedFields($properties)),
-                self::row('Password', ($properties['password_changed'] ?? false) ? 'Changed' : null),
+                self::row(__('activity_logs.fields.changed'), self::changedFields($properties)),
+                self::row(__('activity_logs.fields.password'), ($properties['password_changed'] ?? false) ? __('activity_logs.values.changed') : null),
             ],
             'ticket_category_updated' => [
                 self::row(__('ticket_categories.activity.changed'), self::changedTicketFields($properties, 'ticket_categories.fields')),
@@ -395,58 +428,58 @@ class ActivityPresenter
                 self::row(__('tickets.fields.agent'), $properties['agent'] ?? __('tickets.unassigned')),
             ],
             'setting_domain_created', 'setting_domain_updated', 'setting_domain_deleted' => [
-                self::row('Domain', $properties['domain'] ?? null),
+                self::row(__('activity_logs.fields.domain'), $properties['domain'] ?? null),
             ],
             'setting_sender_updated' => [
-                self::row('Purpose', isset($properties['purpose']) ? Str::headline((string) $properties['purpose']) : null),
+                self::row(__('activity_logs.fields.purpose'), isset($properties['purpose']) ? Str::headline((string) $properties['purpose']) : null),
             ],
             'setting_test_email' => [
-                self::row('Sent to', $properties['to'] ?? null),
+                self::row(__('activity_logs.fields.sent_to'), $properties['to'] ?? null),
             ],
             'setting_policy_updated' => [
-                self::row('Version', $properties['version'] ?? null),
+                self::row(__('activity_logs.fields.version'), $properties['version'] ?? null),
             ],
             'subscription_assigned' => [
-                self::row('Plan', $properties['plan'] ?? null),
-                self::row('Amount', self::formatAmount($properties)),
-                self::row('Provider', isset($properties['provider']) ? Str::headline((string) $properties['provider']) : null),
+                self::row(__('activity_logs.fields.plan'), $properties['plan'] ?? null),
+                self::row(__('activity_logs.fields.amount'), self::formatAmount($properties)),
+                self::row(__('activity_logs.fields.provider'), isset($properties['provider']) ? Str::headline((string) $properties['provider']) : null),
             ],
             'subscription_upgraded' => [
-                self::row('From', $properties['from_plan'] ?? null),
-                self::row('To', $properties['to_plan'] ?? null),
-                self::row('Credit applied', isset($properties['credit_applied']) && $properties['credit_applied'] > 0 ? self::formatAmount($properties, 'credit_applied') : null),
-                self::row('Amount charged', self::formatAmount($properties, 'amount_charged')),
+                self::row(__('activity_logs.fields.from'), $properties['from_plan'] ?? null),
+                self::row(__('activity_logs.fields.to'), $properties['to_plan'] ?? null),
+                self::row(__('activity_logs.fields.credit_applied'), isset($properties['credit_applied']) && $properties['credit_applied'] > 0 ? self::formatAmount($properties, 'credit_applied') : null),
+                self::row(__('activity_logs.fields.amount_charged'), self::formatAmount($properties, 'amount_charged')),
             ],
             'subscription_cancelled' => [
-                self::row('Plan', $properties['plan'] ?? null),
-                self::row('Cancelled by', isset($properties['cancelled_by']) ? Str::headline((string) $properties['cancelled_by']) : null),
-                self::row('Reason', $properties['reason'] ?? null),
-                self::row('Access', ($properties['immediately'] ?? false) ? 'Ended immediately' : 'Continues until period end'),
+                self::row(__('activity_logs.fields.plan'), $properties['plan'] ?? null),
+                self::row(__('activity_logs.fields.cancelled_by'), isset($properties['cancelled_by']) ? Str::headline((string) $properties['cancelled_by']) : null),
+                self::row(__('activity_logs.fields.reason'), $properties['reason'] ?? null),
+                self::row(__('activity_logs.fields.access'), ($properties['immediately'] ?? false) ? __('activity_logs.values.ended_immediately') : __('activity_logs.values.continues_until_period_end')),
             ],
             'subscription_reactivated' => [
-                self::row('Plan', $properties['plan'] ?? null),
+                self::row(__('activity_logs.fields.plan'), $properties['plan'] ?? null),
             ],
             'subscription_trial_converted', 'subscription_entered_grace' => [
-                self::row('Plan', $properties['plan'] ?? null),
+                self::row(__('activity_logs.fields.plan'), $properties['plan'] ?? null),
             ],
             'subscription_expired' => [
-                self::row('Plan', $properties['plan'] ?? null),
-                self::row('Reason', isset($properties['reason']) ? Str::headline((string) $properties['reason']) : null),
+                self::row(__('activity_logs.fields.plan'), $properties['plan'] ?? null),
+                self::row(__('activity_logs.fields.reason'), isset($properties['reason']) ? Str::headline((string) $properties['reason']) : null),
             ],
             'device_blocked' => [
-                self::row('Device', $properties['device_name'] ?? null),
-                self::row('Reason', $properties['reason'] ?? null),
+                self::row(__('activity_logs.fields.device'), $properties['device_name'] ?? null),
+                self::row(__('activity_logs.fields.reason'), $properties['reason'] ?? null),
             ],
             'device_unblocked', 'device_revoked' => [
-                self::row('Device', $properties['device_name'] ?? null),
+                self::row(__('activity_logs.fields.device'), $properties['device_name'] ?? null),
             ],
             'blocked_ip_created', 'blocked_ip_updated' => [
-                self::row('IP Address', $properties['ip_address'] ?? null),
-                self::row('Scope', isset($properties['scope']) ? Str::headline((string) $properties['scope']) : null),
-                self::row('Reason', $properties['reason'] ?? null),
+                self::row(__('activity_logs.fields.ip_address'), $properties['ip_address'] ?? null),
+                self::row(__('activity_logs.fields.scope'), isset($properties['scope']) ? Str::headline((string) $properties['scope']) : null),
+                self::row(__('activity_logs.fields.reason'), $properties['reason'] ?? null),
             ],
             'blocked_ip_deleted' => [
-                self::row('IP Address', $properties['ip_address'] ?? null),
+                self::row(__('activity_logs.fields.ip_address'), $properties['ip_address'] ?? null),
             ],
             default => [],
         }];
@@ -484,7 +517,7 @@ class ActivityPresenter
     {
         return collect($properties['attributes'] ?? [])
             ->keys()
-            ->map(fn (string $key): string => Str::headline($key))
+            ->map(fn (string $key): string => self::fieldLabel($key))
             ->all();
     }
 
@@ -506,22 +539,20 @@ class ActivityPresenter
      * self-service password change), "{name} (Admin)" for staff, else the
      * causer's plain name.
      */
-    protected static function performedBy(Activity $activity, ?Model $subject = null, bool $localizeForTickets = false): string
+    protected static function performedBy(Activity $activity, ?Model $subject = null): string
     {
         $causer = $activity->causer;
 
         if (! $causer instanceof User) {
-            return $localizeForTickets ? __('tickets.activity.system') : 'System';
+            return __('activity_logs.values.system');
         }
 
         if ($subject instanceof User && $causer->is($subject)) {
-            return $localizeForTickets ? __('tickets.activity.user') : 'User';
+            return __('activity_logs.values.user');
         }
 
         return $causer->isStaff()
-            ? ($localizeForTickets
-                ? __('tickets.activity.admin', ['name' => $causer->name])
-                : "{$causer->name} (Admin)")
+            ? __('activity_logs.values.admin', ['name' => $causer->name])
             : $causer->name;
     }
 

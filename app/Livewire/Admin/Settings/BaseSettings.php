@@ -4,11 +4,9 @@ namespace App\Livewire\Admin\Settings;
 
 use App\Livewire\Admin\Concerns\HasToast;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('livewire.admin.settings.index')]
-#[Title('Settings')]
 abstract class BaseSettings extends Component
 {
     use HasToast;

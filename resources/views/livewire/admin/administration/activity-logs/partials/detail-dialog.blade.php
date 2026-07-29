@@ -13,7 +13,6 @@
 --}}
 @php
     use App\Support\ActivityPresenter;
-    use Illuminate\Support\Str;
 
     $showScopeLink ??= true;
     $currentRecord ??= null;
@@ -30,7 +29,7 @@
 
     $formatValue = function ($value): string {
         if (is_bool($value)) {
-            return $value ? 'Yes' : 'No';
+            return $value ? __('activity_logs.values.yes') : __('activity_logs.values.no');
         }
         if (is_null($value)) {
             return '—';
@@ -63,9 +62,9 @@
             <x-ui.dialog-header>
                 <x-ui.dialog-title class="flex items-center gap-2">
                     <x-ui.badge :variant="$sBadge['variant']" class="{{ $sBadge['class'] }}">
-                        {{ Str::headline($activity->event ?? '—') }}
+                        {{ ActivityPresenter::actionLabel($activity->event) }}
                     </x-ui.badge>
-                    <span class="text-muted-foreground">{{ Str::headline($sProps['module'] ?? '') }}</span>
+                    <span class="text-muted-foreground">{{ ActivityPresenter::moduleLabel($sProps['module'] ?? null) }}</span>
                 </x-ui.dialog-title>
                 <x-ui.dialog-description>
                     <x-ui.local-time :value="$activity->created_at" show-diff="true" />
@@ -77,42 +76,42 @@
                 {{-- Facts grid --}}
                 <dl class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                     <div>
-                        <dt class="text-xs text-muted-foreground">Causer</dt>
+                        <dt class="text-xs text-muted-foreground">{{ __('activity_logs.detail.causer') }}</dt>
                         <dd class="font-medium">
                             @if ($activity->causer)
                                 {{ $activity->causer->name }}
                                 <span class="block text-xs font-normal text-muted-foreground">{{ $activity->causer->email }}</span>
                             @else
-                                System
+                                {{ __('activity_logs.values.system') }}
                             @endif
                         </dd>
                     </div>
                     <div>
-                        <dt class="text-xs text-muted-foreground">Subject</dt>
+                        <dt class="text-xs text-muted-foreground">{{ __('activity_logs.detail.subject') }}</dt>
                         <dd class="font-medium">
                             @if ($activity->subject_type)
                                 @if ($isCurrentRecord)
                                     <span class="inline-flex flex-wrap items-center gap-1.5 text-muted-foreground">
-                                        {{ class_basename($activity->subject_type) }} #{{ $activity->subject_id }}
+                                        {{ ActivityPresenter::subjectTypeLabel($activity->subject_type) }} #{{ $activity->subject_id }}
                                         <x-ui.badge variant="outline" class="gap-1 text-[10px] font-normal">
                                             <x-lucide-eye class="size-2.5" />
-                                            Viewing
+                                            {{ __('activity_logs.detail.viewing') }}
                                         </x-ui.badge>
                                     </span>
                                 @elseif ($subjectUrl)
                                     <a href="{{ $subjectUrl }}" class="text-primary underline hover:no-underline">
-                                        {{ class_basename($activity->subject_type) }} #{{ $activity->subject_id }}
+                                        {{ ActivityPresenter::subjectTypeLabel($activity->subject_type) }} #{{ $activity->subject_id }}
                                     </a>
                                 @elseif ($subject)
                                     {{-- Record exists but there's no page to link to for it (or the viewer lacks the permission). --}}
                                     <span class="font-mono text-xs">
-                                        {{ class_basename($activity->subject_type) }} #{{ $activity->subject_id }}
+                                        {{ ActivityPresenter::subjectTypeLabel($activity->subject_type) }} #{{ $activity->subject_id }}
                                     </span>
                                 @else
                                     <span class="font-mono text-xs">
-                                        {{ class_basename($activity->subject_type) }} #{{ $activity->subject_id }}
+                                        {{ ActivityPresenter::subjectTypeLabel($activity->subject_type) }} #{{ $activity->subject_id }}
                                     </span>
-                                    <span class="block text-xs font-normal text-muted-foreground">no longer exists</span>
+                                    <span class="block text-xs font-normal text-muted-foreground">{{ __('activity_logs.detail.no_longer_exists') }}</span>
                                 @endif
                             @else
                                 <span class="text-muted-foreground">—</span>
@@ -120,32 +119,32 @@
                         </dd>
                     </div>
                     <div>
-                        <dt class="text-xs text-muted-foreground">Category</dt>
-                        <dd><x-ui.badge variant="secondary">{{ Str::headline($activity->log_name ?? '—') }}</x-ui.badge></dd>
+                        <dt class="text-xs text-muted-foreground">{{ __('activity_logs.detail.category') }}</dt>
+                        <dd><x-ui.badge variant="secondary">{{ ActivityPresenter::categoryLabel($activity->log_name) }}</x-ui.badge></dd>
                     </div>
                     <div>
-                        <dt class="text-xs text-muted-foreground">Context</dt>
-                        <dd><x-ui.badge variant="outline">{{ Str::headline($sProps['context'] ?? '—') }}</x-ui.badge></dd>
+                        <dt class="text-xs text-muted-foreground">{{ __('activity_logs.detail.context') }}</dt>
+                        <dd><x-ui.badge variant="outline">{{ ActivityPresenter::contextLabel($sProps['context'] ?? null) }}</x-ui.badge></dd>
                     </div>
                 </dl>
 
                 {{-- Before → after diff --}}
                 @if (! empty($attributes))
                     <div>
-                        <p class="mb-1.5 text-xs font-semibold text-muted-foreground">Changes</p>
+                        <p class="mb-1.5 text-xs font-semibold text-muted-foreground">{{ __('activity_logs.detail.changes') }}</p>
                         <div class="overflow-hidden rounded-md border border-border">
                             <table class="w-full text-sm">
                                 <thead>
                                     <tr class="border-b border-border bg-muted/40 text-xs text-muted-foreground">
-                                        <th class="px-3 py-2 text-left font-medium">Field</th>
-                                        <th class="px-3 py-2 text-left font-medium">Before</th>
-                                        <th class="px-3 py-2 text-left font-medium">After</th>
+                                        <th class="px-3 py-2 text-left font-medium">{{ __('activity_logs.detail.field') }}</th>
+                                        <th class="px-3 py-2 text-left font-medium">{{ __('activity_logs.detail.before') }}</th>
+                                        <th class="px-3 py-2 text-left font-medium">{{ __('activity_logs.detail.after') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-border">
                                     @foreach ($attributes as $field => $newValue)
                                         <tr>
-                                            <td class="px-3 py-2 font-medium">{{ Str::headline($field) }}</td>
+                                            <td class="px-3 py-2 font-medium">{{ ActivityPresenter::fieldLabel($field) }}</td>
                                             <td class="px-3 py-2 text-muted-foreground line-through decoration-destructive/40">
                                                 {{ $formatValue($old[$field] ?? null) }}
                                             </td>
@@ -163,11 +162,11 @@
                 {{-- Remaining properties --}}
                 @if ($rest->isNotEmpty())
                     <div>
-                        <p class="mb-1.5 text-xs font-semibold text-muted-foreground">Properties</p>
+                        <p class="mb-1.5 text-xs font-semibold text-muted-foreground">{{ __('activity_logs.detail.properties') }}</p>
                         <dl class="space-y-2 rounded-md border border-border bg-muted/20 p-3 text-sm">
                             @foreach ($rest as $key => $value)
                                 <div class="flex gap-3">
-                                    <dt class="w-32 shrink-0 text-xs text-muted-foreground">{{ Str::headline($key) }}</dt>
+                                    <dt class="w-32 shrink-0 text-xs text-muted-foreground">{{ ActivityPresenter::fieldLabel($key) }}</dt>
                                     <dd class="min-w-0 flex-1 break-words font-mono text-xs">
                                         @if (is_array($value) && (isset($value['attributes']) || isset($value['old'])))
                                             {{ $formatValue($value['old'] ?? null) }}
@@ -191,7 +190,7 @@
                             wire:click="scopeToActivitySubject({{ $activity->id }})"
                             class="inline-flex items-center gap-1.5 text-xs text-primary underline hover:no-underline">
                             <x-lucide-filter class="size-3.5" />
-                            Show all activity for this record
+                            {{ __('activity_logs.actions.show_all_for_record') }}
                         </button>
                     </div>
                 @endif

@@ -1,51 +1,40 @@
-@component('layouts.admin.app', ['title' => 'Settings'])
+@component('layouts.admin.app', ['title' => $title ?? __('settings.title')])
     <div class="mx-auto flex w-full max-w-[1280px] flex-col gap-8">
-
-        <x-admin.page-header title="Settings" description="Manage your application settings, mail, and policies."
-            :breadcrumbs="[['label' => 'Home', 'url' => route('admin.dashboard')], ['label' => 'Settings']]" />
+        <x-admin.page-header :title="__('settings.title')" :description="__('settings.subtitle')"
+            :breadcrumbs="[['label' => __('settings.breadcrumbs.home'), 'url' => route('admin.dashboard')], ['label' => __('settings.breadcrumbs.settings')]]" />
 
         <div class="flex flex-col gap-6 lg:flex-row lg:gap-10">
-            
-            {{-- Navigation sidebar --}}
-            <aside class="lg:w-1/5 shrink-0">
-                <nav class="flex flex-row overflow-x-auto pb-2 lg:pb-0 lg:flex-col lg:items-stretch gap-1 shrink-0 bg-transparent text-muted-foreground w-full justify-start h-auto p-0 border-b lg:border-b-0 border-border mb-4 lg:mb-0">
-                    
-                    {{-- General --}}
+            <aside class="shrink-0 lg:w-1/5">
+                <nav class="mb-4 flex h-auto w-full shrink-0 flex-row justify-start gap-1 overflow-x-auto border-b border-border bg-transparent p-0 pb-2 text-muted-foreground lg:mb-0 lg:flex-col lg:items-stretch lg:border-b-0 lg:pb-0">
                     @can('settings.general.view')
                         <a href="{{ route('admin.settings.general') }}" wire:navigate
-                            class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors justify-start cursor-pointer whitespace-nowrap {{ request()->routeIs('admin.settings.general') ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground' }}">
+                            class="inline-flex cursor-pointer items-center justify-start gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors {{ request()->routeIs('admin.settings.general') ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground' }}">
                             <x-lucide-settings class="size-4" />
-                            General
+                            {{ __('settings.tabs.general') }}
                         </a>
                     @endcan
 
-                    {{-- Mail --}}
                     @can('settings.mail.view')
                         <a href="{{ route('admin.settings.mail') }}" wire:navigate
-                            class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors justify-start cursor-pointer whitespace-nowrap {{ request()->routeIs('admin.settings.mail') ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground' }}">
+                            class="inline-flex cursor-pointer items-center justify-start gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors {{ request()->routeIs('admin.settings.mail') ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground' }}">
                             <x-lucide-mail class="size-4" />
-                            Mail
+                            {{ __('settings.tabs.mail') }}
                         </a>
                     @endcan
 
-                    {{-- Policies --}}
                     @can('settings.policies.view')
                         <a href="{{ route('admin.settings.policies') }}" wire:navigate
-                            class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors justify-start cursor-pointer whitespace-nowrap {{ request()->routeIs('admin.settings.policies') ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground' }}">
+                            class="inline-flex cursor-pointer items-center justify-start gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors {{ request()->routeIs('admin.settings.policies') ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground' }}">
                             <x-lucide-scroll-text class="size-4" />
-                            Policies
+                            {{ __('settings.tabs.policies') }}
                         </a>
                     @endcan
-
                 </nav>
             </aside>
 
-            {{-- Content area --}}
-            <div class="flex-1 lg:max-w-4xl space-y-6">
+            <div class="flex-1 space-y-6 lg:max-w-4xl">
                 {{ $slot }}
             </div>
-            
         </div>
-
     </div>
 @endcomponent

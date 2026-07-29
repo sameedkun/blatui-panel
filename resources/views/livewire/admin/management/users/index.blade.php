@@ -195,7 +195,7 @@
                         {{-- Row actions --}}
                         <td class="px-4 py-3 text-right">
                             <div class="flex items-center justify-end gap-1">
-                                @can('users.view')
+                                @can('users.manage')
                                     <x-admin.tooltip :text="__('users.actions.view_profile')">
                                         <x-ui.button variant="ghost" size="icon" class="size-8"
                                             href="{{ route('admin.users.show', $user) }}">

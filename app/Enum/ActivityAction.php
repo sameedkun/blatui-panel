@@ -32,4 +32,9 @@ enum ActivityAction: string
     case Blocked = 'blocked';
     case Unblocked = 'unblocked';
     case Revoked = 'revoked';
+
+    public function label(): string
+    {
+        return __("activity_logs.enums.actions.{$this->value}");
+    }
 }
