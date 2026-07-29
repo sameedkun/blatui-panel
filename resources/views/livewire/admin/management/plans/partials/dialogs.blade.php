@@ -9,31 +9,31 @@
 
 <x-admin.confirm-dialog
     id="bulk-activate"
-    title="Activate {{ count($selectedIds) }} Plans"
+    :title="__('plans.dialogs.bulk_activate_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkActivate()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Activate"
+    :confirm-label="__('plans.actions.activate')"
 >
-    All selected plans will become visible for purchase.
+    {{ __('plans.dialogs.bulk_activate_description') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="bulk-deactivate"
-    title="Deactivate {{ count($selectedIds) }} Plans"
+    :title="__('plans.dialogs.bulk_deactivate_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkDeactivate()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Deactivate"
+    :confirm-label="__('plans.actions.deactivate')"
 >
-    All selected plans will be hidden from purchase. Existing subscriptions are unaffected.
+    {{ __('plans.dialogs.bulk_deactivate_description') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="bulk-delete"
-    title="Delete {{ count($selectedIds) }} Plans"
+    :title="__('plans.dialogs.bulk_delete_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkDelete()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Delete"
+    :confirm-label="__('plans.actions.delete')"
     variant="destructive"
 >
-    Plans with active subscriptions will be skipped — deactivate those instead. This action <strong>cannot be undone</strong> for the rest.
+    {{ __('plans.dialogs.bulk_delete_description') }}
 </x-admin.confirm-dialog>

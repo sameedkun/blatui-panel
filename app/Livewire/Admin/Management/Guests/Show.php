@@ -179,8 +179,15 @@ class Show extends BaseShow
             ->orderBy('amount')
             ->get()
             ->mapWithKeys(fn (PlanPrice $price): array => [
-                $price->id => "{$price->currency} {$price->amount} / {$price->billing_period} "
-                    .$price->billing_interval->label().($price->billing_period > 1 ? 's' : ''),
+                $price->id => __('guests.price_option', [
+                    'currency' => $price->currency,
+                    'amount' => $price->amount,
+                    'interval' => trans_choice(
+                        "guests.billing_intervals.{$price->billing_interval->value}",
+                        $price->billing_period,
+                        ['count' => $price->billing_period],
+                    ),
+                ]),
             ])
             ->all();
     }
@@ -210,10 +217,16 @@ class Show extends BaseShow
     {
         $this->authorize('guests.manage');
 
-        $this->validate([
-            'assignPlanId' => ['required', 'integer'],
-            'assignPriceId' => ['required', 'integer'],
-        ]);
+        $this->validate(
+            [
+                'assignPlanId' => ['required', 'integer'],
+                'assignPriceId' => ['required', 'integer'],
+            ],
+            [
+                'assignPlanId.required' => __('guests.validation.plan_required'),
+                'assignPriceId.required' => __('guests.validation.price_required'),
+            ],
+        );
 
         $price = PlanPrice::findOrFail($this->assignPriceId);
         $guest = $this->record;
@@ -225,7 +238,7 @@ class Show extends BaseShow
         $this->assignPlanId = null;
         $this->assignPriceId = null;
 
-        $this->toastSuccess(__('users.toasts.plan_assigned', ['name' => $guest->name, 'plan' => $subscription->plan->name]));
+        $this->toastSuccess(__('guests.toasts.plan_assigned', ['name' => $guest->name, 'plan' => $subscription->plan->name]));
     }
 
     public function openCancelImmediatelyDialog(): void
@@ -244,7 +257,7 @@ class Show extends BaseShow
         $active = $guest->activeSubscription;
 
         if (! $active) {
-            $this->toastError(__('users.toasts.no_active_subscription'));
+            $this->toastError(__('guests.toasts.no_active_subscription'));
 
             return;
         }
@@ -253,7 +266,7 @@ class Show extends BaseShow
         $service->cancelActive($guest, CancelledBy::Admin, trim($this->cancelReason) ?: null, true);
 
         $this->cancelReason = '';
-        $this->toastSuccess(__('users.toasts.subscription_cancelled_immediately', ['plan' => $planName]));
+        $this->toastSuccess(__('guests.toasts.subscription_cancelled_immediately', ['plan' => $planName]));
     }
 
     public function openCancelAtPeriodEndDialog(): void
@@ -272,7 +285,7 @@ class Show extends BaseShow
         $active = $guest->activeSubscription;
 
         if (! $active) {
-            $this->toastError(__('users.toasts.no_active_subscription'));
+            $this->toastError(__('guests.toasts.no_active_subscription'));
 
             return;
         }
@@ -282,7 +295,10 @@ class Show extends BaseShow
         $service->cancelActive($guest, CancelledBy::Admin, trim($this->cancelReason) ?: null, false);
 
         $this->cancelReason = '';
-        $this->toastSuccess(__('users.toasts.subscription_cancelled_period_end', ['plan' => $planName, 'date' => $endsAt?->format('M d, Y')]));
+        $this->toastSuccess(__('guests.toasts.subscription_cancelled_period_end', [
+            'plan' => $planName,
+            'date' => $endsAt?->translatedFormat('M d, Y'),
+        ]));
     }
 
     public function reactivateSubscription(SubscriptionService $service): void
@@ -291,9 +307,9 @@ class Show extends BaseShow
 
         try {
             $subscription = $service->reactivate($this->record);
-            $this->toastSuccess(__('users.toasts.subscription_reactivated', ['plan' => $subscription->plan->name]));
-        } catch (InvalidArgumentException $e) {
-            $this->toastError($e->getMessage());
+            $this->toastSuccess(__('guests.toasts.subscription_reactivated', ['plan' => $subscription->plan->name]));
+        } catch (InvalidArgumentException) {
+            $this->toastError(__('guests.toasts.subscription_cannot_reactivate'));
         }
     }
 
@@ -367,9 +383,16 @@ class Show extends BaseShow
         $guest = User::query()->guests()->withTrashed()->findOrFail($this->convertingId);
         $this->assertLifecycleState($guest, ['active']);
 
-        $this->validate([
-            'convertEmail' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($guest->id)],
-        ]);
+        $this->validate(
+            [
+                'convertEmail' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($guest->id)],
+            ],
+            [
+                'convertEmail.required' => __('guests.validation.convert_email_required'),
+                'convertEmail.email' => __('guests.validation.convert_email_email'),
+                'convertEmail.unique' => __('guests.validation.convert_email_unique'),
+            ],
+        );
 
         $name = $guest->name;
         $conversions->convertByAdmin($guest, $this->convertEmail, trim($this->convertName) ?: null, $this->convertMarkEmailVerified);
@@ -433,10 +456,16 @@ class Show extends BaseShow
         $guest = User::query()->guests()->withTrashed()->findOrFail($this->mergingId);
         $this->assertLifecycleState($guest, ['active']);
 
-        $this->validate([
-            'mergeDestinationId' => ['required', 'integer'],
-            'mergeReason' => ['required', 'string'],
-        ]);
+        $this->validate(
+            [
+                'mergeDestinationId' => ['required', 'integer'],
+                'mergeReason' => ['required', 'string'],
+            ],
+            [
+                'mergeDestinationId.required' => __('guests.validation.merge_destination_required'),
+                'mergeReason.required' => __('guests.validation.merge_reason_required'),
+            ],
+        );
 
         $destination = User::query()->appUsers()->findOrFail($this->mergeDestinationId);
         $guestName = $guest->name;
@@ -458,9 +487,9 @@ class Show extends BaseShow
     public function statCards(): array
     {
         return [
-            ['label' => __('users.fields.plan'), 'icon' => 'credit-card', 'value' => $this->record->activeSubscription?->plan?->name ?? __('users.status_labels.free')],
+            ['label' => __('guests.fields.plan'), 'icon' => 'credit-card', 'value' => $this->record->activeSubscription?->plan?->name ?? __('guests.status_labels.free')],
             ['label' => __('guests.tabs.activity'), 'icon' => 'activity', 'value' => $this->recordActivityCount()],
-            ['label' => __('users.fields.registered'), 'icon' => 'calendar', 'value' => $this->record->registration_date?->format('M d, Y') ?? '—'],
+            ['label' => __('guests.fields.registered'), 'icon' => 'calendar', 'value' => $this->record->registration_date?->translatedFormat('M d, Y') ?? '—'],
         ];
     }
 

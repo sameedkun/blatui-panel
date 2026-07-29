@@ -38,7 +38,9 @@ trait HandlesCategoryRowActions
             'attributes' => ['is_active' => $category->is_active],
         ]);
 
-        $this->toastSuccess($category->name.($category->is_active ? ' activated.' : ' deactivated.'));
+        $this->toastSuccess($category->is_active
+            ? __('ticket_categories.toasts.activated', ['name' => $category->name])
+            : __('ticket_categories.toasts.deactivated', ['name' => $category->name]));
     }
 
     public function confirmDelete(int $categoryId): void
@@ -48,7 +50,10 @@ trait HandlesCategoryRowActions
         $category = TicketCategory::findOrFail($categoryId);
 
         if ($this->hasTickets($category)) {
-            $this->toastError("{$category->name} has tickets and cannot be deleted.", 'Deactivate it instead.');
+            $this->toastError(
+                __('ticket_categories.toasts.cannot_delete', ['name' => $category->name]),
+                __('ticket_categories.toasts.deactivate_instead'),
+            );
 
             return;
         }
@@ -65,7 +70,10 @@ trait HandlesCategoryRowActions
 
         if ($this->hasTickets($category)) {
             $this->deletingId = null;
-            $this->toastError("{$category->name} has tickets and cannot be deleted.", 'Deactivate it instead.');
+            $this->toastError(
+                __('ticket_categories.toasts.cannot_delete', ['name' => $category->name]),
+                __('ticket_categories.toasts.deactivate_instead'),
+            );
 
             return;
         }
@@ -78,6 +86,6 @@ trait HandlesCategoryRowActions
         ]);
 
         $this->deletingId = null;
-        $this->toastSuccess("{$name} deleted.");
+        $this->toastSuccess(__('ticket_categories.toasts.deleted', ['name' => $name]));
     }
 }

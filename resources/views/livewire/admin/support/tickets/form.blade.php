@@ -1,9 +1,9 @@
 <div class="max-w-2xl">
 
-    <x-admin.page-header title="Log Ticket" description="Raise a support ticket on behalf of an existing app user — useful for phone or email support." :breadcrumbs="[
-        ['label' => 'Home', 'url' => route('admin.dashboard')],
-        ['label' => 'Tickets', 'url' => route('admin.tickets.index')],
-        ['label' => 'Create'],
+    <x-admin.page-header :title="__('tickets.form.title')" :description="__('tickets.form.description')" :breadcrumbs="[
+        ['label' => __('tickets.common.home'), 'url' => route('admin.dashboard')],
+        ['label' => __('tickets.title'), 'url' => route('admin.tickets.index')],
+        ['label' => __('tickets.form.create_breadcrumb')],
     ]" :back="route('admin.tickets.index')" />
 
     <x-ui.card class="mt-6">
@@ -11,7 +11,7 @@
             <form wire:submit="save" class="space-y-6">
 
                 <x-ui.field>
-                    <x-ui.field-label for="userSearch" required>Requester</x-ui.field-label>
+                    <x-ui.field-label for="userSearch" required>{{ __('tickets.fields.requester') }}</x-ui.field-label>
 
                     @if ($this->selectedUser)
                         <div class="flex items-center justify-between rounded-md border border-border bg-muted/20 p-3">
@@ -31,7 +31,7 @@
                             </div>
                             <x-ui.button variant="ghost" size="sm" type="button" wire:click="clearUser" class="shrink-0 text-muted-foreground hover:text-foreground">
                                 <x-lucide-x class="size-4" />
-                                <span class="sr-only">Change User</span>
+                                <span class="sr-only">{{ __('tickets.form.change_user') }}</span>
                             </x-ui.button>
                         </div>
                     @else
@@ -43,7 +43,7 @@
                                     type="text"
                                     wire:model.live.debounce.150ms="userSearch"
                                     @focus="open = true"
-                                    placeholder="Search app users by name or email..."
+                                    :placeholder="__('tickets.form.user_search')"
                                     class="pl-9"
                                     autocomplete="off"
                                 />
@@ -72,22 +72,24 @@
                                     </button>
                                 @empty
                                     <div class="px-3 py-4 text-center text-xs text-muted-foreground">
-                                        No app users found{{ $userSearch ? ' matching "'.e($userSearch).'"' : '' }}.
+                                        {{ $userSearch
+                                            ? __('tickets.form.no_users_matching', ['search' => $userSearch])
+                                            : __('tickets.form.no_users') }}
                                     </div>
                                 @endforelse
                             </div>
                         </div>
                     @endif
 
-                    <x-ui.field-description>The account this ticket is being raised on behalf of.</x-ui.field-description>
+                    <x-ui.field-description>{{ __('tickets.form.requester_description') }}</x-ui.field-description>
                     @error('requesterId')
                         <x-ui.field-error>{{ $message }}</x-ui.field-error>
                     @enderror
                 </x-ui.field>
 
                 <x-ui.field>
-                    <x-ui.field-label for="subject" required>Subject</x-ui.field-label>
-                    <x-ui.input id="subject" wire:model="subject" placeholder="e.g. Can't connect to the VPN"
+                    <x-ui.field-label for="subject" required>{{ __('tickets.fields.subject') }}</x-ui.field-label>
+                    <x-ui.input id="subject" wire:model="subject" :placeholder="__('tickets.form.subject_placeholder')"
                         aria-invalid="{{ $errors->has('subject') ? 'true' : 'false' }}" />
                     @error('subject')
                         <x-ui.field-error>{{ $message }}</x-ui.field-error>
@@ -96,16 +98,16 @@
 
                 <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                     <x-ui.field>
-                        <x-ui.field-label for="categoryId">Category</x-ui.field-label>
-                        <x-ui.select native id="categoryId" wire:model="categoryId" :options="$categoryOptions" placeholder="No category" />
-                        <x-ui.field-description>Drives auto-assignment to the category's agents.</x-ui.field-description>
+                        <x-ui.field-label for="categoryId">{{ __('tickets.fields.category') }}</x-ui.field-label>
+                        <x-ui.select native id="categoryId" wire:model="categoryId" :options="$categoryOptions" :placeholder="__('tickets.form.no_category')" />
+                        <x-ui.field-description>{{ __('tickets.form.category_description') }}</x-ui.field-description>
                         @error('categoryId')
                             <x-ui.field-error>{{ $message }}</x-ui.field-error>
                         @enderror
                     </x-ui.field>
 
                     <x-ui.field>
-                        <x-ui.field-label for="priority" required>Priority</x-ui.field-label>
+                        <x-ui.field-label for="priority" required>{{ __('tickets.fields.priority') }}</x-ui.field-label>
                         <x-ui.select native id="priority" wire:model="priority" :options="$priorityOptions" />
                         @error('priority')
                             <x-ui.field-error>{{ $message }}</x-ui.field-error>
@@ -114,9 +116,9 @@
                 </div>
 
                 <x-ui.field>
-                    <x-ui.field-label for="message" required>Message</x-ui.field-label>
+                    <x-ui.field-label for="message" required>{{ __('tickets.fields.message') }}</x-ui.field-label>
                     <x-ui.textarea id="message" wire:model="message" rows="5"
-                        placeholder="Describe the issue as reported by the requester..."
+                        :placeholder="__('tickets.form.message_placeholder')"
                         aria-invalid="{{ $errors->has('message') ? 'true' : 'false' }}" />
                     @error('message')
                         <x-ui.field-error>{{ $message }}</x-ui.field-error>
@@ -124,15 +126,15 @@
                 </x-ui.field>
 
                 <div class="flex items-center justify-end gap-3 border-t border-border pt-4">
-                    <x-ui.button variant="outline" href="{{ route('admin.tickets.index') }}" type="button">Cancel</x-ui.button>
+                    <x-ui.button variant="outline" href="{{ route('admin.tickets.index') }}" type="button">{{ __('tickets.common.cancel') }}</x-ui.button>
                     <x-ui.button type="submit" wire:loading.attr="disabled" wire:target="save">
                         <span wire:loading.remove wire:target="save" class="inline-flex items-center gap-2">
                             <x-lucide-life-buoy class="size-4" />
-                            Create Ticket
+                            {{ __('tickets.actions.create') }}
                         </span>
                         <span wire:loading.flex wire:target="save" class="items-center gap-2">
                             <x-ui.spinner class="size-4" />
-                            Creating…
+                            {{ __('tickets.form.creating') }}
                         </span>
                     </x-ui.button>
                 </div>

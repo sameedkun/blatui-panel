@@ -9,8 +9,8 @@
                 <x-lucide-receipt class="size-4" />
             </div>
             <div>
-                <h3 class="text-sm font-semibold text-foreground">Provider Receipts</h3>
-                <p class="text-xs text-muted-foreground">Webhooks and transaction events recorded for this subscription.</p>
+                <h3 class="text-sm font-semibold text-foreground">{{ __('subscriptions.receipts.title') }}</h3>
+                <p class="text-xs text-muted-foreground">{{ __('subscriptions.receipts.description') }}</p>
             </div>
         </div>
     </div>
@@ -19,11 +19,11 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b border-border bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
-                    <th class="px-4 py-3 text-left font-semibold">Event Type</th>
-                    <th class="px-4 py-3 text-left font-semibold">Gateway</th>
-                    <th class="hidden px-4 py-3 text-left font-semibold md:table-cell">Transaction ID</th>
-                    <th class="hidden px-4 py-3 text-left font-semibold lg:table-cell">Original ID</th>
-                    <th class="px-4 py-3 text-right font-semibold">Recorded Date</th>
+                    <th class="px-4 py-3 text-left font-semibold">{{ __('subscriptions.receipts.event_type') }}</th>
+                    <th class="px-4 py-3 text-left font-semibold">{{ __('subscriptions.receipts.gateway') }}</th>
+                    <th class="hidden px-4 py-3 text-left font-semibold md:table-cell">{{ __('subscriptions.receipts.transaction_id') }}</th>
+                    <th class="hidden px-4 py-3 text-left font-semibold lg:table-cell">{{ __('subscriptions.receipts.original_id') }}</th>
+                    <th class="px-4 py-3 text-right font-semibold">{{ __('subscriptions.receipts.recorded_date') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-border/60">
@@ -48,7 +48,7 @@
                         <td colspan="5" class="px-4 py-12 text-center text-muted-foreground">
                             <div class="flex flex-col items-center justify-center gap-2">
                                 <x-lucide-receipt class="size-8 text-muted-foreground/30" />
-                                <p class="text-sm font-medium">No provider receipts recorded for this subscription yet.</p>
+                                <p class="text-sm font-medium">{{ __('subscriptions.receipts.none') }}</p>
                             </div>
                         </td>
                     </tr>

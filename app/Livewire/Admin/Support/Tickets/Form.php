@@ -8,6 +8,7 @@ use App\Models\TicketCategory;
 use App\Models\User;
 use App\Services\TicketService;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Enum;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -88,6 +89,34 @@ class Form extends BaseForm
         ];
     }
 
+    protected function validationAttributes(): array
+    {
+        return [
+            'requesterId' => __('tickets.validation_attributes.requester'),
+            'categoryId' => __('tickets.validation_attributes.category'),
+            'subject' => __('tickets.validation_attributes.subject'),
+            'message' => __('tickets.validation_attributes.message'),
+            'priority' => __('tickets.validation_attributes.priority'),
+        ];
+    }
+
+    protected function messages(): array
+    {
+        return [
+            'requesterId.required' => __('tickets.validation.requester_required'),
+            'requesterId.exists' => __('tickets.validation.requester_exists'),
+            'categoryId.exists' => __('tickets.validation.category_exists'),
+            'subject.required' => __('tickets.validation.subject_required'),
+            'subject.string' => __('tickets.validation.subject_invalid'),
+            'subject.max' => __('tickets.validation.subject_max', ['max' => 255]),
+            'message.required' => __('tickets.validation.message_required'),
+            'message.string' => __('tickets.validation.message_invalid'),
+            'message.max' => __('tickets.validation.message_max', ['max' => 5000]),
+            'priority.required' => __('tickets.validation.priority_required'),
+            'priority.'.Enum::class => __('tickets.validation.priority_invalid'),
+        ];
+    }
+
     public function save(): mixed
     {
         $this->validate();
@@ -104,7 +133,7 @@ class Form extends BaseForm
             auth()->user(),
         );
 
-        session()->flash('toast', ['type' => 'success', 'title' => 'Ticket created.']);
+        session()->flash('toast', ['type' => 'success', 'title' => __('tickets.toasts.created')]);
 
         return $this->redirect(route('admin.tickets.show', $ticket));
     }
@@ -114,6 +143,6 @@ class Form extends BaseForm
         return view('livewire.admin.support.tickets.form', [
             'categoryOptions' => TicketCategory::where('is_active', true)->orderBy('name')->pluck('name', 'id')->all(),
             'priorityOptions' => collect(TicketPriority::cases())->mapWithKeys(fn (TicketPriority $c) => [$c->value => $c->label()])->all(),
-        ]);
+        ])->title(__('tickets.form.title'));
     }
 }

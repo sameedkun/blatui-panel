@@ -20,7 +20,7 @@
                     @if ($record->is_best_deal)
                         <x-ui.badge variant="default" class="gap-1 border-0 bg-amber-500/15 text-amber-700 dark:text-amber-400 font-medium">
                             <x-lucide-star class="size-3.5 fill-current" />
-                            Best Deal
+                            {{ __('plans.status.best_deal') }}
                         </x-ui.badge>
                     @endif
                 </div>
@@ -31,14 +31,14 @@
                     @if ($record->is_active)
                         <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                             <span class="size-1.5 rounded-full bg-emerald-500"></span>
-                            Active
+                            {{ __('plans.status.active') }}
                         </span>
                     @else
                         <span class="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground border border-border">
-                            Inactive
+                            {{ __('plans.status.inactive') }}
                         </span>
                     @endif
-                    <x-ui.badge variant="outline" class="text-xs">Sort: {{ $record->sort_order }}</x-ui.badge>
+                    <x-ui.badge variant="outline" class="text-xs">{{ __('plans.fields.sort') }}: {{ $record->sort_order }}</x-ui.badge>
                 </div>
             </div>
         </div>
@@ -48,17 +48,17 @@
             @can('plans.edit')
                 <x-ui.button variant="outline" href="{{ route('admin.plans.edit', $record) }}" class="gap-1.5 shadow-2xs">
                     <x-lucide-pencil class="size-4" />
-                    <span>Edit Plan</span>
+                    <span>{{ __('plans.actions.edit') }}</span>
                 </x-ui.button>
 
                 <x-ui.button variant="{{ $record->is_active ? 'secondary' : 'default' }}"
                     @click="$wire.toggleActive({{ $record->id }})" class="gap-1.5 shadow-2xs">
                     @if ($record->is_active)
                         <x-lucide-circle-slash class="size-4" />
-                        <span>Deactivate</span>
+                        <span>{{ __('plans.actions.deactivate') }}</span>
                     @else
                         <x-lucide-check-circle class="size-4" />
-                        <span>Activate</span>
+                        <span>{{ __('plans.actions.activate') }}</span>
                     @endif
                 </x-ui.button>
             @endcan
@@ -73,7 +73,7 @@
                 @can('plans.delete')
                     <x-admin.dropdown-item variant="destructive" @click="$wire.confirmDelete({{ $record->id }})">
                         <x-lucide-trash class="size-4" />
-                        <span>Delete Plan</span>
+                        <span>{{ __('plans.actions.delete_plan') }}</span>
                     </x-admin.dropdown-item>
                 @endcan
             </x-admin.dropdown>

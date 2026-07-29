@@ -61,7 +61,7 @@ class Form extends BaseForm
             abort_if(
                 $user->isSuperAdmin() && ! auth()->user()->isSuperAdmin(),
                 403,
-                'Super admin accounts are protected.',
+                __('staff.errors.super_admin_protected'),
             );
 
             $this->isEditing = true;
@@ -94,6 +94,41 @@ class Form extends BaseForm
         ];
     }
 
+    protected function validationAttributes(): array
+    {
+        return [
+            'name' => __('staff.validation_attributes.name'),
+            'email' => __('staff.validation_attributes.email'),
+            'password' => __('staff.validation_attributes.password'),
+            'roles' => __('staff.validation_attributes.roles'),
+            'roles.*' => __('staff.validation_attributes.role'),
+        ];
+    }
+
+    protected function messages(): array
+    {
+        return [
+            'name.required' => __('staff.validation.name_required'),
+            'name.string' => __('staff.validation.name_invalid'),
+            'name.max' => __('staff.validation.name_max', ['max' => 60]),
+            'email.required' => __('staff.validation.email_required'),
+            'email.email' => __('staff.validation.email_invalid'),
+            'email.max' => __('staff.validation.email_max', ['max' => 255]),
+            'email.unique' => __('staff.validation.email_unique'),
+            'password.required' => __('staff.validation.password_required'),
+            'password.min' => __('staff.validation.password_min', ['min' => 8]),
+            'password.letters' => __('staff.validation.password_letters'),
+            'password.mixed' => __('staff.validation.password_mixed'),
+            'password.numbers' => __('staff.validation.password_numbers'),
+            'password.symbols' => __('staff.validation.password_symbols'),
+            'password.uncompromised' => __('staff.validation.password_uncompromised'),
+            'roles.required' => __('staff.validation.roles_required'),
+            'roles.array' => __('staff.validation.roles_invalid'),
+            'roles.min' => __('staff.validation.roles_min'),
+            'roles.*.exists' => __('staff.validation.role_exists'),
+        ];
+    }
+
     /** Roles selectable in the UI — the super-admin role is only offered to super-admins. */
     protected function assignableRoles(): Collection
     {
@@ -111,7 +146,7 @@ class Form extends BaseForm
     protected function roleOptions(): array
     {
         return $this->assignableRoles()
-            ->mapWithKeys(fn (Role $role): array => [$role->name => Str::headline($role->name)])
+            ->mapWithKeys(fn (Role $role): array => [$role->name => $this->roleLabel($role->name)])
             ->all();
     }
 
@@ -152,7 +187,7 @@ class Form extends BaseForm
         }
     }
 
-    public function save()
+    public function save(): mixed
     {
         $this->validate();
 
@@ -172,7 +207,7 @@ class Form extends BaseForm
             abort_if(
                 $user->isSuperAdmin() && ! auth()->user()->isSuperAdmin(),
                 403,
-                'Super admin accounts are protected.',
+                __('staff.errors.super_admin_protected'),
             );
 
             if (filled($this->password)) {
@@ -213,7 +248,7 @@ class Form extends BaseForm
                 Password::sendResetLink(['email' => $user->email]);
             }
 
-            return $this->redirectWithSuccess("{$user->name} updated successfully.");
+            return $this->redirectWithSuccess(__('staff.toasts.updated', ['name' => $user->name]));
         }
 
         $user = User::create([
@@ -239,14 +274,72 @@ class Form extends BaseForm
             $user->sendEmailVerificationNotification();
         }
 
-        return $this->redirectWithSuccess("{$user->name} created successfully.");
+        return $this->redirectWithSuccess(__('staff.toasts.created', ['name' => $user->name]));
     }
 
     public function render(): View
     {
+        $groupedPermissions = $this->groupedSelectedPermissions();
+
         return view('livewire.admin.administration.staff.form', [
             'roleOptions' => $this->roleOptions(),
-            'groupedPermissions' => $this->groupedSelectedPermissions(),
+            'groupedPermissions' => $groupedPermissions,
+            'moduleLabels' => $groupedPermissions->keys()->mapWithKeys(
+                fn (string $module): array => [$module => $this->moduleLabel($module)],
+            ),
+            'permissionLabels' => $groupedPermissions
+                ->flatten()
+                ->mapWithKeys(fn (string $permission): array => [$permission => $this->permissionLabel($permission)]),
+        ])->title($this->isEditing ? __('staff.form.edit_title') : __('staff.form.create_title'));
+    }
+
+    private function roleLabel(string $name): string
+    {
+        $key = 'staff.role_labels.'.str_replace('-', '_', $name);
+        $translation = __($key);
+
+        return $translation === $key ? Str::headline($name) : $translation;
+    }
+
+    private function moduleLabel(string $module): string
+    {
+        $staffKey = 'staff.permissions.modules.'.str_replace('-', '_', $module);
+        $staffTranslation = __($staffKey);
+        if ($staffTranslation !== $staffKey) {
+            return $staffTranslation;
+        }
+
+        $key = 'navigation.modules.'.str_replace('-', '_', $module);
+        $translation = __($key);
+
+        return $translation === $key
+            ? config("panel.modules.{$module}.label", Str::headline($module))
+            : $translation;
+    }
+
+    private function permissionLabel(string $permission): string
+    {
+        $segments = explode('.', $permission);
+        array_shift($segments);
+        $action = array_pop($segments) ?? '';
+        $actionKey = 'staff.permissions.actions.'.$action;
+        $actionLabel = __($actionKey);
+
+        if ($actionLabel === $actionKey) {
+            $actionLabel = Str::headline($action);
+        }
+
+        if ($segments === []) {
+            return $actionLabel;
+        }
+
+        $scope = implode('_', $segments);
+        $scopeKey = "staff.permissions.scopes.{$scope}";
+        $scopeLabel = __($scopeKey);
+
+        return __('staff.permissions.scoped', [
+            'scope' => $scopeLabel === $scopeKey ? Str::headline(implode(' ', $segments)) : $scopeLabel,
+            'action' => $actionLabel,
         ]);
     }
 }

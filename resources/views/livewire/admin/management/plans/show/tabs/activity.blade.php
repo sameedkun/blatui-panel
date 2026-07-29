@@ -13,11 +13,11 @@
 
 <x-ui.card>
     <div class="mb-4 flex items-center justify-between">
-        <p class="text-sm font-medium">Activity</p>
+        <p class="text-sm font-medium">{{ __('plans.tabs.activity') }}</p>
         @can('activity_logs.view')
             <a href="{{ route('admin.activity-logs.index', ['subjectType' => $record->getMorphClass(), 'subjectId' => $record->id]) }}"
                 class="text-xs text-primary underline hover:no-underline">
-                View full history
+                {{ __('plans.actions.view_full_history') }}
             </a>
         @endcan
     </div>
@@ -66,7 +66,7 @@
         @empty
             <div class="flex flex-col items-center justify-center gap-2 py-12 text-center">
                 <x-lucide-clipboard-list class="size-8 text-muted-foreground/30" />
-                <p class="text-sm text-muted-foreground">No activity recorded for this plan yet.</p>
+                <p class="text-sm text-muted-foreground">{{ __('plans.status.no_activity') }}</p>
             </div>
         @endforelse
     </div>

@@ -4,14 +4,13 @@ namespace App\Livewire\Admin\Administration\Roles;
 
 use App\Livewire\Admin\BaseIndex;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 #[Layout('layouts.admin.app')]
-#[Title('Roles')]
 class Index extends BaseIndex
 {
     public string $sortBy = 'name';
@@ -41,28 +40,28 @@ class Index extends BaseIndex
 
         return [
             [
-                'label' => 'Total Roles',
+                'label' => __('roles.stats.total_roles'),
                 'value' => fn () => Role::where('guard_name', $guard)->count(),
                 'icon' => 'key',
-                'description' => 'All roles in the panel',
+                'description' => __('roles.stats.all_panel_roles'),
             ],
             [
-                'label' => 'Custom Roles',
+                'label' => __('roles.stats.custom_roles'),
                 'value' => fn () => Role::where('guard_name', $guard)->whereNotIn('name', $protected)->count(),
                 'icon' => 'user-cog',
-                'description' => 'Created from this panel',
+                'description' => __('roles.stats.created_from_panel'),
             ],
             [
-                'label' => 'Protected Roles',
+                'label' => __('roles.stats.protected_roles'),
                 'value' => fn () => Role::where('guard_name', $guard)->whereIn('name', $protected)->count(),
                 'icon' => 'lock',
-                'description' => 'Locked system roles',
+                'description' => __('roles.stats.locked_system_roles'),
             ],
             [
-                'label' => 'Total Permissions',
+                'label' => __('roles.stats.total_permissions'),
                 'value' => fn () => Permission::where('guard_name', $guard)->count(),
                 'icon' => 'shield-check',
-                'description' => 'Available across all modules',
+                'description' => __('roles.stats.available_all_modules'),
             ],
         ];
     }
@@ -77,7 +76,7 @@ class Index extends BaseIndex
         $this->authorize('roles.delete');
 
         $role = Role::findOrFail($roleId);
-        abort_if($this->isProtected($role), 403, 'Protected roles cannot be deleted.');
+        abort_if($this->isProtected($role), 403, __('roles.errors.protected_delete'));
 
         $this->deletingId = $roleId;
         $this->deletingStaffCount = $role->users()->count();
@@ -89,13 +88,13 @@ class Index extends BaseIndex
         $this->authorize('roles.delete');
 
         $role = Role::findOrFail($this->deletingId);
-        abort_if($this->isProtected($role), 403, 'Protected roles cannot be deleted.');
+        abort_if($this->isProtected($role), 403, __('roles.errors.protected_delete'));
 
         $name = $role->name;
         $role->delete();
 
         $this->deletingId = null;
-        $this->toastSuccess("{$name} role deleted.");
+        $this->toastSuccess(__('roles.toasts.deleted', ['name' => $this->roleLabel($name)]));
     }
 
     public function render(): View
@@ -106,6 +105,17 @@ class Index extends BaseIndex
             'roles' => $roles,
             'stats' => $this->resolveStats(),
             'filterBarConfig' => $this->filterBarConfig(),
-        ]);
+            'roleLabels' => $roles->getCollection()
+                ->mapWithKeys(fn (Role $role): array => [$role->name => $this->roleLabel($role->name)])
+                ->all(),
+        ])->title(__('roles.title'));
+    }
+
+    private function roleLabel(string $name): string
+    {
+        $key = 'roles.role_labels.'.str_replace('-', '_', $name);
+        $translation = __($key);
+
+        return $translation === $key ? Str::headline($name) : $translation;
     }
 }

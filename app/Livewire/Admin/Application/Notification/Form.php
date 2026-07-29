@@ -12,6 +12,7 @@ use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Models\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Enum;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 
@@ -63,6 +64,32 @@ class Form extends BaseForm
         ];
     }
 
+    protected function validationAttributes(): array
+    {
+        return [
+            'title' => __('notifications.validation_attributes.title'),
+            'message' => __('notifications.validation_attributes.message'),
+            'type' => __('notifications.validation_attributes.type'),
+            'link' => __('notifications.validation_attributes.link'),
+        ];
+    }
+
+    protected function messages(): array
+    {
+        return [
+            'title.required' => __('notifications.validation.title_required'),
+            'title.string' => __('notifications.validation.title_invalid'),
+            'title.max' => __('notifications.validation.title_max', ['max' => 255]),
+            'message.required' => __('notifications.validation.message_required'),
+            'message.string' => __('notifications.validation.message_invalid'),
+            'message.max' => __('notifications.validation.message_max', ['max' => 2000]),
+            'type.required' => __('notifications.validation.type_required'),
+            'type.'.Enum::class => __('notifications.validation.type_invalid'),
+            'link.url' => __('notifications.validation.link_url'),
+            'link.max' => __('notifications.validation.link_max', ['max' => 500]),
+        ];
+    }
+
     public function save(): mixed
     {
         $this->validate();
@@ -107,9 +134,12 @@ class Form extends BaseForm
             SendPushNotification::dispatch($notification->id);
         }
 
-        $message = $this->isEditing
-            ? 'Notification updated'.($willSend ? ' — push resend queued.' : '.')
-            : 'Notification created'.($willSend ? ' — push queued.' : ' as a draft.');
+        $message = match (true) {
+            $this->isEditing && $willSend => __('notifications.toasts.updated_resend'),
+            $this->isEditing => __('notifications.toasts.updated'),
+            $willSend => __('notifications.toasts.created_sent'),
+            default => __('notifications.toasts.created_draft'),
+        };
 
         session()->flash('toast', ['type' => 'success', 'title' => $message]);
 
@@ -125,6 +155,6 @@ class Form extends BaseForm
     {
         return view('livewire.admin.application.notification.form', [
             'typeOptions' => collect(NotificationType::cases())->mapWithKeys(fn (NotificationType $c) => [$c->value => $c->label()])->all(),
-        ]);
+        ])->title($this->isEditing ? __('notifications.form.edit_title') : __('notifications.form.create_title'));
     }
 }

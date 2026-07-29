@@ -41,7 +41,8 @@ class Show extends BaseShow
     {
         $sub = $this->record;
 
-        return ($sub->user?->name ?? 'Unknown User').' — '.($sub->plan?->name ?? 'Deleted Plan');
+        return ($sub->user?->name ?? __('subscriptions.status.unknown_user'))
+            .' — '.($sub->plan?->name ?? __('subscriptions.status.deleted_plan'));
     }
 
     protected function viewPermission(): ?string
@@ -53,18 +54,18 @@ class Show extends BaseShow
     {
         return [
             'overview' => [
-                'label' => 'Overview',
+                'label' => __('subscriptions.tabs.overview'),
                 'icon' => 'layout-grid',
                 'view' => 'livewire.admin.management.subscriptions.show.tabs.overview',
             ],
             'receipts' => [
-                'label' => 'Receipts',
+                'label' => __('subscriptions.tabs.receipts'),
                 'icon' => 'receipt',
                 'view' => 'livewire.admin.management.subscriptions.show.tabs.receipts',
                 'data' => fn (): array => ['receipts' => $this->receipts()],
             ],
             'activity' => [
-                'label' => 'Activity',
+                'label' => __('subscriptions.tabs.activity'),
                 'icon' => 'activity',
                 'view' => 'livewire.admin.management.subscriptions.show.tabs.activity',
                 'permission' => 'activity_logs.view',
@@ -111,11 +112,11 @@ class Show extends BaseShow
         $sub = $this->record;
 
         return [
-            ['label' => 'Status', 'icon' => 'activity', 'value' => $sub->status->label()],
-            ['label' => 'Access Until', 'icon' => 'calendar-clock', 'value' => $sub->ends_at?->format('M d, Y') ?? '—'],
-            ['label' => 'Amount Paid', 'icon' => 'banknote', 'value' => $sub->amount_paid !== null ? $sub->currency.' '.number_format((float) $sub->amount_paid, 2) : '—'],
-            ['label' => 'Provider', 'icon' => 'credit-card', 'value' => $sub->provider->label()],
-            ['label' => 'Auto-Renew', 'icon' => 'refresh-cw', 'value' => $sub->is_recurring ? 'Enabled' : 'Disabled'],
+            ['label' => __('subscriptions.fields.status'), 'icon' => 'activity', 'value' => $sub->status->label()],
+            ['label' => __('subscriptions.access_until'), 'icon' => 'calendar-clock', 'value' => $sub->ends_at?->translatedFormat('M d, Y') ?? '—'],
+            ['label' => __('subscriptions.fields.amount_paid'), 'icon' => 'banknote', 'value' => $sub->amount_paid !== null ? $sub->currency.' '.number_format((float) $sub->amount_paid, 2) : '—'],
+            ['label' => __('subscriptions.fields.provider'), 'icon' => 'credit-card', 'value' => $sub->provider->label()],
+            ['label' => __('subscriptions.fields.auto_renew'), 'icon' => 'refresh-cw', 'value' => $sub->is_recurring ? __('subscriptions.status.enabled') : __('subscriptions.status.disabled')],
         ];
     }
 
@@ -132,7 +133,7 @@ class Show extends BaseShow
         return view('livewire.admin.management.subscriptions.show', [
             'stats' => $this->statCards(),
             'nextSubscription' => $this->nextSubscription(),
-        ]);
+        ])->title(__('subscriptions.title').' — '.$this->title());
     }
 
     /** Pull fresh attributes so the header/stats reflect an action taken this request. */

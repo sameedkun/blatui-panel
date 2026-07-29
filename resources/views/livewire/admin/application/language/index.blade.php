@@ -1,12 +1,12 @@
 <div class="flex flex-col gap-6">
 
     {{-- Page header --}}
-    <x-admin.page-header title="Languages" description="Manage the languages available across the application." :breadcrumbs="[['label' => 'Home', 'url' => route('admin.dashboard')], ['label' => 'Languages']]">
+    <x-admin.page-header :title="__('languages.title')" :description="__('languages.subtitle')" :breadcrumbs="[['label' => __('navigation.home'), 'url' => route('admin.dashboard')], ['label' => __('languages.title')]]">
         @can('languages.create')
             <x-slot:actions>
                 <x-ui.button href="{{ route('admin.languages.create') }}">
                     <x-lucide-plus class="size-4" />
-                    Create Language
+                    {{ __('languages.actions.create') }}
                 </x-ui.button>
             </x-slot:actions>
         @endcan
@@ -23,7 +23,7 @@
 
     {{-- Toolbar --}}
     <x-admin.filter-bar :config="$filterBarConfig" :filters="$filters" :has-active-filters="$this->hasActiveFilters()"
-        search-placeholder="Search name, native name, code..." />
+        :search-placeholder="__('languages.filters.search')" />
 
     {{-- Table --}}
     @php
@@ -45,7 +45,7 @@
                     </th>
                     <th class="px-4 py-3 text-left">
                         <button wire:click="sort('name')" class="flex items-center gap-1 font-medium text-foreground">
-                            Language
+                            {{ __('languages.fields.language') }}
                             @if ($sortBy === 'name')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -53,11 +53,11 @@
                             @endif
                         </button>
                     </th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Code</th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Status</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('languages.fields.code') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('languages.fields.status') }}</th>
                     <th class="hidden px-4 py-3 text-left md:table-cell">
                         <button wire:click="sort('sort_order')" class="flex items-center gap-1 font-medium text-foreground">
-                            Order
+                            {{ __('languages.fields.order') }}
                             @if ($sortBy === 'sort_order')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -96,11 +96,11 @@
                                         @if ($language->is_default)
                                             <x-ui.badge variant="outline" class="gap-1">
                                                 <x-lucide-star class="size-3" />
-                                                Default
+                                                {{ __('languages.status.default') }}
                                             </x-ui.badge>
                                         @endif
                                         @if ($language->is_rtl)
-                                            <x-ui.badge variant="secondary">RTL</x-ui.badge>
+                                            <x-ui.badge variant="secondary">{{ __('languages.status.rtl') }}</x-ui.badge>
                                         @endif
                                     </div>
                                     @if ($language->native_name)
@@ -119,9 +119,9 @@
                         <td class="px-4 py-3">
                             @if ($language->is_active)
                                 <x-ui.badge variant="default"
-                                    class="border-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">Active</x-ui.badge>
+                                    class="border-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">{{ __('languages.status.active') }}</x-ui.badge>
                             @else
-                                <x-ui.badge variant="outline">Inactive</x-ui.badge>
+                                <x-ui.badge variant="outline">{{ __('languages.status.inactive') }}</x-ui.badge>
                             @endif
                         </td>
 
@@ -135,14 +135,14 @@
                                     <x-slot:trigger>
                                         <x-ui.button variant="ghost" size="icon" class="size-8">
                                             <x-lucide-ellipsis class="size-4" />
-                                            <span class="sr-only">Actions</span>
+                                            <span class="sr-only">{{ __('common.actions') }}</span>
                                         </x-ui.button>
                                     </x-slot:trigger>
 
                                     @can('languages.edit')
                                         <x-admin.dropdown-item href="{{ route('admin.languages.edit', $language) }}">
                                             <x-lucide-pencil class="size-4" />
-                                            Edit
+                                            {{ __('languages.actions.edit') }}
                                         </x-admin.dropdown-item>
                                     @endcan
 
@@ -152,7 +152,7 @@
                                             <x-admin.dropdown-item variant="destructive"
                                                 @click="$wire.confirmDelete({{ $language->id }})">
                                                 <x-lucide-trash class="size-4" />
-                                                Delete
+                                                {{ __('languages.actions.delete') }}
                                             </x-admin.dropdown-item>
                                         @endif
                                     @endcan
@@ -165,10 +165,10 @@
                     <tr>
                         <td colspan="6" class="px-4 py-16 text-center text-muted-foreground">
                             <x-lucide-globe class="mx-auto mb-2 size-8 opacity-30" />
-                            <p class="text-sm">No languages found.</p>
+                            <p class="text-sm">{{ __('languages.empty') }}</p>
                             @if ($this->hasActiveFilters())
                                 <button wire:click="resetFilters"
-                                    class="mt-1 text-xs underline hover:no-underline">Clear filters</button>
+                                    class="mt-1 text-xs underline hover:no-underline">{{ __('languages.filters.clear') }}</button>
                             @endif
                         </td>
                     </tr>
@@ -185,14 +185,14 @@
         <div class="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background px-3 py-2 shadow-xl"
             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-4"
             x-transition:enter-end="opacity-100 translate-y-0">
-            <x-admin.tooltip text="Clear selection">
+            <x-admin.tooltip :text="__('languages.actions.clear_selection')">
                 <x-ui.button variant="ghost" size="icon" class="size-8 rounded-full" wire:click="clearSelection">
                     <x-lucide-x class="size-4" />
                 </x-ui.button>
             </x-admin.tooltip>
 
             <div class="mx-1 h-4 w-px bg-border"></div>
-            <span class="px-1 text-sm font-medium">{{ count($selectedIds) }} selected</span>
+            <span class="px-1 text-sm font-medium">{{ trans_choice('languages.actions.selected', count($selectedIds), ['count' => count($selectedIds)]) }}</span>
             <div class="mx-1 h-4 w-px bg-border"></div>
 
             @foreach ($this->availableBulkActions as $action)

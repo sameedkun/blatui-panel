@@ -5,6 +5,7 @@ return [
     'singular' => 'Ziyaretçi',
     'subtitle' => 'Geçici ziyaretçi hesaplarını, dönüşümleri ve hesap birleştirmelerini yönetin.',
     'subtitle_form' => 'Geçici ziyaretçi hesaplarını ve yaşam döngülerini yönetin.',
+    'price_option' => ':currency :amount / :interval',
 
     'actions' => [
         'convert' => 'Kullanıcıya Dönüştür',
@@ -21,12 +22,25 @@ return [
         'reactivate_subscription' => 'Aboneliği Yeniden Etkinleştir',
         'cancel_immediately' => 'Hemen İptal Et',
         'cancel_at_period_end' => 'Dönem Sonunda İptal Et',
+        'clear_selection' => 'Seçimi temizle',
     ],
 
     'tabs' => [
         'overview' => 'Genel Bakış',
         'subscriptions' => 'Abonelikler',
         'activity' => 'Etkinlik',
+    ],
+
+    'overview' => [
+        'general' => 'Genel',
+        'dates' => 'Tarihler',
+    ],
+
+    'billing_intervals' => [
+        'day' => ':count gün',
+        'week' => ':count hafta',
+        'month' => ':count ay',
+        'year' => ':count yıl',
     ],
 
     'stats' => [
@@ -57,6 +71,9 @@ return [
         'registered' => 'Kayıt Tarihi',
         'last_login' => 'Son Giriş',
         'guest_id' => 'Ziyaretçi ID',
+        'full_name' => 'Ad Soyad',
+        'external_id' => 'Harici ID',
+        'plan' => 'Plan',
     ],
 
     'status_labels' => [
@@ -67,6 +84,37 @@ return [
         'no_guests_found' => 'Ziyaretçi bulunamadı.',
         'clear_filters' => 'Filtreleri temizle',
         'selected' => 'seçildi',
+        'free' => 'Ücretsiz',
+        'coming_soon' => 'Yakında',
+    ],
+
+    'defaults' => [
+        'ban_reason' => 'Yönetici tarafından yasaklandı.',
+    ],
+
+    'lifecycle_states' => [
+        'active' => 'aktif',
+        'pending' => 'silinmeyi bekliyor',
+        'trashed' => 'silinmiş',
+    ],
+
+    'errors' => [
+        'action_unavailable' => 'Hesap :state durumundayken bu işlem kullanılamaz.',
+    ],
+
+    'placeholders' => [
+        'email' => 'siz@example.com',
+        'full_name' => 'Ad soyad',
+    ],
+
+    'validation' => [
+        'plan_required' => 'Bir plan seçin.',
+        'price_required' => 'Bir fiyat seçin.',
+        'convert_email_required' => 'Bir e-posta adresi girin.',
+        'convert_email_email' => 'Geçerli bir e-posta adresi girin.',
+        'convert_email_unique' => 'Bu e-posta adresi zaten kullanılıyor.',
+        'merge_destination_required' => 'Bir hedef hesap seçin.',
+        'merge_reason_required' => 'Birleştirme sebebini girin.',
     ],
 
     'dialogs' => [
@@ -118,5 +166,10 @@ return [
         'bulk_restored' => ':count ziyaretçi geri yüklendi.',
         'bulk_permanently_deleted' => ':count ziyaretçi kalıcı olarak silindi.',
         'no_active_subscription' => 'Bu ziyaretçinin aktif aboneliği yok.',
+        'plan_assigned' => ':name artık :plan planında.',
+        'subscription_cancelled_immediately' => ':plan aboneliği hemen iptal edildi.',
+        'subscription_cancelled_period_end' => ':plan aboneliği :date tarihinde sona erecek.',
+        'subscription_reactivated' => ':plan aboneliği yeniden etkinleştirildi.',
+        'subscription_cannot_reactivate' => 'Bu ziyaretçinin yeniden etkinleştirilebilecek iptal edilmiş bir aboneliği yok.',
     ],
 ];

@@ -3,15 +3,14 @@
 
 <x-admin.confirm-dialog
     id="delete-role"
-    title="Delete Role"
+    :title="__('roles.dialogs.delete_title')"
     confirm="$wire.delete()"
     cancel="$wire.set('deletingId', null)"
-    confirm-label="Delete"
+    :confirm-label="__('roles.actions.delete')"
     variant="destructive"
 >
-    This will permanently delete the role and its permission assignments.
+    {{ __('roles.dialogs.delete_description') }}
     @if ($deletingStaffCount > 0)
-        <strong>{{ $deletingStaffCount }} staff {{ $deletingStaffCount === 1 ? 'member' : 'members' }}</strong>
-        currently {{ $deletingStaffCount === 1 ? 'holds' : 'hold' }} this role and will lose the permissions it grants.
+        <strong>{{ trans_choice('roles.dialogs.staff_affected', $deletingStaffCount, ['count' => $deletingStaffCount]) }}</strong>
     @endif
 </x-admin.confirm-dialog>

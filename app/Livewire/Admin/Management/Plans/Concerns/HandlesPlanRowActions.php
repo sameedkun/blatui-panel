@@ -45,7 +45,9 @@ trait HandlesPlanRowActions
             'attributes' => ['is_active' => $plan->is_active],
         ]);
 
-        $this->toastSuccess($plan->name.($plan->is_active ? ' activated.' : ' deactivated.'));
+        $this->toastSuccess($plan->is_active
+            ? __('plans.toasts.activated', ['name' => $plan->name])
+            : __('plans.toasts.deactivated', ['name' => $plan->name]));
     }
 
     public function confirmDelete(int $planId): void
@@ -55,7 +57,10 @@ trait HandlesPlanRowActions
         $plan = Plan::findOrFail($planId);
 
         if ($this->hasSubscriptions($plan)) {
-            $this->toastError("{$plan->name} has subscriptions and cannot be deleted.", 'Deactivate it instead to retire it.');
+            $this->toastError(
+                __('plans.toasts.cannot_delete_with_subscriptions', ['name' => $plan->name]),
+                __('plans.toasts.deactivate_to_retire'),
+            );
 
             return;
         }
@@ -72,7 +77,10 @@ trait HandlesPlanRowActions
 
         if ($this->hasSubscriptions($plan)) {
             $this->deletingId = null;
-            $this->toastError("{$plan->name} has subscriptions and cannot be deleted.", 'Deactivate it instead to retire it.');
+            $this->toastError(
+                __('plans.toasts.cannot_delete_with_subscriptions', ['name' => $plan->name]),
+                __('plans.toasts.deactivate_to_retire'),
+            );
 
             return;
         }
@@ -85,6 +93,6 @@ trait HandlesPlanRowActions
         ]);
 
         $this->deletingId = null;
-        $this->toastSuccess("{$name} deleted.");
+        $this->toastSuccess(__('plans.toasts.deleted', ['name' => $name]));
     }
 }

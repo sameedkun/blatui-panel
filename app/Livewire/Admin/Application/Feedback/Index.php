@@ -9,10 +9,8 @@ use App\Models\Feedback;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 
 #[Layout('layouts.admin.app')]
-#[Title('Feedback')]
 class Index extends BaseIndex
 {
     public string $sortBy = 'created_at';
@@ -38,13 +36,13 @@ class Index extends BaseIndex
     {
         return [
             'status' => [
-                'label' => 'Status',
+                'label' => __('feedback.fields.status'),
                 'type' => 'select',
                 'options' => $this->statusOptions(),
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('status', $v),
             ],
             'type' => [
-                'label' => 'Type',
+                'label' => __('feedback.fields.type'),
                 'type' => 'select',
                 'options' => $this->typeOptions(),
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('type', $v),
@@ -55,8 +53,8 @@ class Index extends BaseIndex
     protected function filterBarConfig(): array
     {
         return [
-            'status' => ['label' => 'Status', 'type' => 'select', 'options' => $this->statusOptions()],
-            'type' => ['label' => 'Type', 'type' => 'select', 'options' => $this->typeOptions()],
+            'status' => ['label' => __('feedback.fields.status'), 'type' => 'select', 'options' => $this->statusOptions()],
+            'type' => ['label' => __('feedback.fields.type'), 'type' => 'select', 'options' => $this->typeOptions()],
         ];
     }
 
@@ -76,28 +74,28 @@ class Index extends BaseIndex
     {
         return [
             [
-                'label' => 'Total Feedback',
+                'label' => __('feedback.stats.total'),
                 'value' => fn () => Feedback::count(),
                 'icon' => 'message-square-quote',
-                'description' => 'All-time submissions',
+                'description' => __('feedback.stats.total_description'),
             ],
             [
-                'label' => 'New',
+                'label' => __('feedback.stats.new'),
                 'value' => fn () => Feedback::where('status', FeedbackStatus::New)->count(),
                 'icon' => 'circle-dot',
-                'description' => 'Awaiting review',
+                'description' => __('feedback.stats.new_description'),
             ],
             [
-                'label' => 'Resolved',
+                'label' => __('feedback.stats.resolved'),
                 'value' => fn () => Feedback::where('status', FeedbackStatus::Resolved)->count(),
                 'icon' => 'check-circle',
-                'description' => 'Handled submissions',
+                'description' => __('feedback.stats.resolved_description'),
             ],
             [
-                'label' => 'Anonymous',
+                'label' => __('feedback.stats.anonymous'),
                 'value' => fn () => Feedback::whereNull('user_id')->count(),
                 'icon' => 'user-x',
-                'description' => 'Submitted without an account',
+                'description' => __('feedback.stats.anonymous_description'),
             ],
         ];
     }
@@ -110,6 +108,6 @@ class Index extends BaseIndex
             'feedback' => $feedback,
             'stats' => $this->resolveStats(),
             'filterBarConfig' => $this->filterBarConfig(),
-        ]);
+        ])->title(__('feedback.title'));
     }
 }

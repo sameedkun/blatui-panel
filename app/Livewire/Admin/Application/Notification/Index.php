@@ -13,11 +13,9 @@ use App\Models\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 
 #[Layout('layouts.admin.app')]
-#[Title('Notifications')]
 class Index extends BaseIndex
 {
     use LogsAdminActivity;
@@ -51,13 +49,13 @@ class Index extends BaseIndex
     {
         return [
             'status' => [
-                'label' => 'Status',
+                'label' => __('notifications.fields.status'),
                 'type' => 'select',
                 'options' => $this->statusOptions(),
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('push_status', $v),
             ],
             'type' => [
-                'label' => 'Type',
+                'label' => __('notifications.fields.type'),
                 'type' => 'select',
                 'options' => $this->typeOptions(),
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('type', $v),
@@ -68,8 +66,8 @@ class Index extends BaseIndex
     protected function filterBarConfig(): array
     {
         return [
-            'status' => ['label' => 'Status', 'type' => 'select', 'options' => $this->statusOptions()],
-            'type' => ['label' => 'Type', 'type' => 'select', 'options' => $this->typeOptions()],
+            'status' => ['label' => __('notifications.fields.status'), 'type' => 'select', 'options' => $this->statusOptions()],
+            'type' => ['label' => __('notifications.fields.type'), 'type' => 'select', 'options' => $this->typeOptions()],
         ];
     }
 
@@ -89,28 +87,28 @@ class Index extends BaseIndex
     {
         return [
             [
-                'label' => 'Total Notifications',
+                'label' => __('notifications.stats.total'),
                 'value' => fn () => Notification::count(),
                 'icon' => 'bell',
-                'description' => 'All-time broadcasts',
+                'description' => __('notifications.stats.total_description'),
             ],
             [
-                'label' => 'Sent',
+                'label' => __('notifications.stats.sent'),
                 'value' => fn () => Notification::where('push_status', NotificationPushStatus::Sent)->count(),
                 'icon' => 'check-circle',
-                'description' => 'Delivered to OneSignal',
+                'description' => __('notifications.stats.sent_description'),
             ],
             [
-                'label' => 'Failed',
+                'label' => __('notifications.stats.failed'),
                 'value' => fn () => Notification::where('push_status', NotificationPushStatus::Failed)->count(),
                 'icon' => 'circle-alert',
-                'description' => 'Need a retry',
+                'description' => __('notifications.stats.failed_description'),
             ],
             [
-                'label' => 'Drafts',
+                'label' => __('notifications.stats.drafts'),
                 'value' => fn () => Notification::where('push_status', NotificationPushStatus::Draft)->count(),
                 'icon' => 'file-text',
-                'description' => 'Not yet sent',
+                'description' => __('notifications.stats.drafts_description'),
             ],
         ];
     }
@@ -120,7 +118,7 @@ class Index extends BaseIndex
         return [
             [
                 'key' => 'delete',
-                'label' => 'Delete',
+                'label' => __('notifications.actions.delete'),
                 'icon' => 'trash',
                 'confirm' => true,
                 'variant' => 'destructive',
@@ -150,7 +148,7 @@ class Index extends BaseIndex
         ]);
 
         $this->deletingId = null;
-        $this->toastSuccess("{$title} deleted.");
+        $this->toastSuccess(__('notifications.toasts.deleted', ['title' => $title]));
     }
 
     public function executeBulkDelete(): void
@@ -169,7 +167,7 @@ class Index extends BaseIndex
         ]);
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} notifications deleted.");
+        $this->toastSuccess(__('notifications.toasts.bulk_deleted', ['count' => $count]));
     }
 
     /** Resend a previously sent notification, or retry a failed one — same flow either way. */
@@ -182,7 +180,7 @@ class Index extends BaseIndex
 
         SendPushNotification::dispatch($notification->id);
 
-        $this->toastSuccess("Push queued for \"{$notification->title}\".");
+        $this->toastSuccess(__('notifications.toasts.push_queued', ['title' => $notification->title]));
         $this->openStatusDialog($notificationId);
     }
 
@@ -219,6 +217,6 @@ class Index extends BaseIndex
             'stats' => $this->resolveStats(),
             'filterBarConfig' => $this->filterBarConfig(),
             'viewingNotification' => $this->viewingStatusId ? Notification::find($this->viewingStatusId) : null,
-        ]);
+        ])->title(__('notifications.title'));
     }
 }

@@ -8,11 +8,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 use Spatie\Permission\Models\Role;
 
 #[Layout('layouts.admin.app')]
-#[Title('Staff')]
 class Index extends BaseIndex
 {
     // ── Single-row confirmation state ─────────────────────────────────────────
@@ -61,7 +59,7 @@ class Index extends BaseIndex
             ->where('guard_name', config('panel.guard'))
             ->orderBy('name')
             ->get()
-            ->mapWithKeys(fn (Role $role): array => [$role->name => Str::headline($role->name)])
+            ->mapWithKeys(fn (Role $role): array => [$role->name => $this->roleLabel($role->name)])
             ->all();
     }
 
@@ -69,9 +67,9 @@ class Index extends BaseIndex
     {
         return [
             'status' => [
-                'label' => 'Status',
+                'label' => __('staff.fields.status'),
                 'type' => 'multi-select',
-                'options' => ['active' => 'Active', 'banned' => 'Banned'],
+                'options' => ['active' => __('staff.status.active'), 'banned' => __('staff.status.banned')],
                 'apply' => function (Builder $q, array $values): Builder {
                     return $q->where(function (Builder $sub) use ($values): void {
                         foreach ($values as $v) {
@@ -85,7 +83,7 @@ class Index extends BaseIndex
                 },
             ],
             'role' => [
-                'label' => 'Role',
+                'label' => __('staff.fields.roles'),
                 'type' => 'multi-select',
                 'options' => $this->roleOptions(),
                 'apply' => fn (Builder $q, array $values): Builder => $q->whereHas(
@@ -94,19 +92,19 @@ class Index extends BaseIndex
                 ),
             ],
             'registered_from' => [
-                'label' => 'Registered from',
+                'label' => __('staff.filters.registered_from'),
                 'type' => 'date',
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('registration_date', '>=', $v),
             ],
             'registered_to' => [
-                'label' => 'Registered to',
+                'label' => __('staff.filters.registered_to'),
                 'type' => 'date',
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('registration_date', '<=', $v.' 23:59:59'),
             ],
             'view' => [
-                'label' => 'View',
+                'label' => __('staff.filters.view'),
                 'type' => 'select',
-                'options' => ['trashed' => 'Deleted'],
+                'options' => ['trashed' => __('staff.status.deleted')],
                 'apply' => fn (Builder $q, string $v): Builder => $q, // handled in baseQuery()
             ],
         ];
@@ -118,28 +116,28 @@ class Index extends BaseIndex
     {
         return [
             [
-                'label' => 'Total Staff',
+                'label' => __('staff.stats.total_staff'),
                 'value' => fn () => User::staff()->count(),
                 'icon' => 'shield-user',
-                'description' => 'All staff accounts',
+                'description' => __('staff.stats.all_staff_accounts'),
             ],
             [
-                'label' => 'Active',
+                'label' => __('staff.status.active'),
                 'value' => fn () => User::staff()->whereNull('banned_at')->count(),
                 'icon' => 'user-check',
-                'description' => 'Not banned',
+                'description' => __('staff.stats.not_banned'),
             ],
             [
-                'label' => 'Banned',
+                'label' => __('staff.status.banned'),
                 'value' => fn () => User::staff()->whereNotNull('banned_at')->count(),
                 'icon' => 'user-x',
-                'description' => 'Banned accounts',
+                'description' => __('staff.stats.banned_accounts'),
             ],
             [
-                'label' => 'Super Admins',
+                'label' => __('staff.stats.super_admins'),
                 'value' => fn () => User::superAdmins()->count(),
                 'icon' => 'crown',
-                'description' => 'Full system access',
+                'description' => __('staff.stats.full_system_access'),
             ],
         ];
     }
@@ -150,26 +148,26 @@ class Index extends BaseIndex
     {
         return [
             'status' => [
-                'label' => 'Status',
+                'label' => __('staff.fields.status'),
                 'type' => 'multi-select',
-                'options' => ['active' => 'Active', 'banned' => 'Banned'],
+                'options' => ['active' => __('staff.status.active'), 'banned' => __('staff.status.banned')],
             ],
             'role' => [
-                'label' => 'Role',
+                'label' => __('staff.fields.roles'),
                 'type' => 'multi-select',
                 'options' => $this->roleOptions(),
             ],
             'registered' => [
-                'label' => 'Registered',
+                'label' => __('staff.fields.registered'),
                 'type' => 'date-range',
                 'from_key' => 'registered_from',
                 'to_key' => 'registered_to',
             ],
             'view' => [
-                'label' => 'Deleted',
+                'label' => __('staff.status.deleted'),
                 'type' => 'toggle',
                 'active_value' => 'trashed',
-                'active_label' => 'Showing Deleted',
+                'active_label' => __('staff.filters.showing_deleted'),
                 'icon' => 'trash-2',
             ],
         ];
@@ -185,14 +183,14 @@ class Index extends BaseIndex
             return [
                 [
                     'key' => 'restore',
-                    'label' => 'Restore',
+                    'label' => __('staff.actions.restore'),
                     'icon' => 'rotate-ccw',
                     'confirm' => true,
                     'permission' => 'staff.restore',
                 ],
                 [
                     'key' => 'force-delete',
-                    'label' => 'Permanently Delete',
+                    'label' => __('staff.actions.force_delete'),
                     'icon' => 'trash-2',
                     'confirm' => true,
                     'variant' => 'destructive',
@@ -204,7 +202,7 @@ class Index extends BaseIndex
         return [
             [
                 'key' => 'ban',
-                'label' => 'Ban',
+                'label' => __('staff.actions.ban'),
                 'icon' => 'ban',
                 'confirm' => true,
                 'dialog_event' => 'open-dialog-bulk-ban',
@@ -212,14 +210,14 @@ class Index extends BaseIndex
             ],
             [
                 'key' => 'unban',
-                'label' => 'Unban',
+                'label' => __('staff.actions.unban'),
                 'icon' => 'shield-check',
                 'confirm' => true,
                 'permission' => 'staff.unban',
             ],
             [
                 'key' => 'delete',
-                'label' => 'Delete',
+                'label' => __('staff.actions.delete'),
                 'icon' => 'trash',
                 'confirm' => true,
                 'variant' => 'destructive',
@@ -238,13 +236,13 @@ class Index extends BaseIndex
         abort_if(
             $target->id === auth()->id(),
             403,
-            'You cannot perform this action on your own account.',
+            __('staff.errors.self_action'),
         );
 
         abort_if(
             $target->isSuperAdmin() && ! auth()->user()->isSuperAdmin(),
             403,
-            'Super admin accounts are protected.',
+            __('staff.errors.super_admin_protected'),
         );
     }
 
@@ -282,12 +280,12 @@ class Index extends BaseIndex
 
         $user->update([
             'banned_at' => now(),
-            'ban_reason' => trim($this->banReason) ?: 'Banned by administrator.',
+            'ban_reason' => trim($this->banReason) ?: __('staff.defaults.ban_reason'),
         ]);
 
         $this->banningUserId = null;
         $this->banReason = '';
-        $this->toastSuccess("{$user->name} has been banned.");
+        $this->toastSuccess(__('staff.toasts.banned', ['name' => $user->name]));
     }
 
     public function unban(int $userId): void
@@ -299,7 +297,7 @@ class Index extends BaseIndex
 
         $user->update(['banned_at' => null, 'ban_reason' => null]);
 
-        $this->toastSuccess("{$user->name} has been unbanned.");
+        $this->toastSuccess(__('staff.toasts.unbanned', ['name' => $user->name]));
     }
 
     public function confirmDelete(int $userId): void
@@ -322,7 +320,7 @@ class Index extends BaseIndex
         $user->delete();
 
         $this->deletingId = null;
-        $this->toastSuccess("{$name} has been deleted.");
+        $this->toastSuccess(__('staff.toasts.deleted', ['name' => $name]));
     }
 
     public function confirmRestore(int $userId): void
@@ -344,7 +342,7 @@ class Index extends BaseIndex
         $user->restore();
 
         $this->restoringId = null;
-        $this->toastSuccess("{$user->name} has been restored.");
+        $this->toastSuccess(__('staff.toasts.restored', ['name' => $user->name]));
     }
 
     public function confirmForceDelete(int $userId): void
@@ -367,7 +365,7 @@ class Index extends BaseIndex
         $user->forceDelete();
 
         $this->forceDeleteId = null;
-        $this->toastSuccess("{$name} has been permanently deleted.");
+        $this->toastSuccess(__('staff.toasts.force_deleted', ['name' => $name]));
     }
 
     // ── Bulk actions (protected super-admin rows are silently skipped) ───────
@@ -379,11 +377,11 @@ class Index extends BaseIndex
         $ids = $this->allowedSelectedIds();
         User::whereIn('id', $ids)->update([
             'banned_at' => now(),
-            'ban_reason' => trim($this->bulkBanReason) ?: 'Banned by administrator.',
+            'ban_reason' => trim($this->bulkBanReason) ?: __('staff.defaults.ban_reason'),
         ]);
 
         $this->clearSelection();
-        $this->toastSuccess(count($ids).' staff banned.');
+        $this->toastSuccess(trans_choice('staff.toasts.bulk_banned', count($ids), ['count' => count($ids)]));
     }
 
     public function executeBulkUnban(): void
@@ -394,7 +392,7 @@ class Index extends BaseIndex
         User::whereIn('id', $ids)->update(['banned_at' => null, 'ban_reason' => null]);
 
         $this->clearSelection();
-        $this->toastSuccess(count($ids).' staff unbanned.');
+        $this->toastSuccess(trans_choice('staff.toasts.bulk_unbanned', count($ids), ['count' => count($ids)]));
     }
 
     public function executeBulkDelete(): void
@@ -405,7 +403,7 @@ class Index extends BaseIndex
         User::whereIn('id', $ids)->delete();
 
         $this->clearSelection();
-        $this->toastSuccess(count($ids).' staff deleted.');
+        $this->toastSuccess(trans_choice('staff.toasts.bulk_deleted', count($ids), ['count' => count($ids)]));
     }
 
     public function executeBulkRestore(): void
@@ -416,7 +414,7 @@ class Index extends BaseIndex
         User::withTrashed()->whereIn('id', $ids)->restore();
 
         $this->clearSelection();
-        $this->toastSuccess(count($ids).' staff restored.');
+        $this->toastSuccess(trans_choice('staff.toasts.bulk_restored', count($ids), ['count' => count($ids)]));
     }
 
     public function executeBulkForceDelete(): void
@@ -427,7 +425,7 @@ class Index extends BaseIndex
         User::withTrashed()->whereIn('id', $ids)->forceDelete();
 
         $this->clearSelection();
-        $this->toastSuccess(count($ids).' staff permanently deleted.');
+        $this->toastSuccess(trans_choice('staff.toasts.bulk_force_deleted', count($ids), ['count' => count($ids)]));
     }
 
     // ── Render ────────────────────────────────────────────────────────────────
@@ -441,6 +439,15 @@ class Index extends BaseIndex
             'pageIds' => $staff->pluck('id')->map(fn ($id) => (string) $id)->toArray(),
             'stats' => $this->resolveStats(),
             'filterBarConfig' => $this->filterBarConfig(),
-        ]);
+            'roleLabels' => $this->roleOptions(),
+        ])->title(__('staff.title'));
+    }
+
+    private function roleLabel(string $name): string
+    {
+        $key = 'staff.role_labels.'.str_replace('-', '_', $name);
+        $translation = __($key);
+
+        return $translation === $key ? Str::headline($name) : $translation;
     }
 }

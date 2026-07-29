@@ -3,24 +3,24 @@
 
 <x-admin.reason-dialog
     id="cancel-immediately"
-    title="Cancel Subscription Immediately"
-    description="Access ends right away — the plan's features stop applying to this account as soon as you confirm."
+    :title="__('subscriptions.dialogs.cancel_immediately_title')"
+    :description="__('subscriptions.dialogs.cancel_immediately_description')"
     model="cancelReason"
     confirm="cancelImmediately"
-    confirm-label="Cancel Immediately"
+    :confirm-label="__('subscriptions.actions.cancel_immediately')"
     variant="destructive"
     cancel="$wire.set('targetSubscriptionId', null)"
-    placeholder="Reason (optional)"
+    :placeholder="__('subscriptions.placeholders.reason_optional')"
 />
 
 <x-admin.reason-dialog
     id="cancel-at-period-end"
-    title="Cancel at Period End"
-    description="Auto-renew turns off, but the user keeps full access until the current billing period ends."
+    :title="__('subscriptions.dialogs.cancel_period_end_title')"
+    :description="__('subscriptions.dialogs.cancel_period_end_description')"
     model="cancelReason"
     confirm="cancelAtPeriodEnd"
-    confirm-label="Cancel at Period End"
+    :confirm-label="__('subscriptions.actions.cancel_period_end')"
     variant="default"
     cancel="$wire.set('targetSubscriptionId', null)"
-    placeholder="Reason (optional)"
+    :placeholder="__('subscriptions.placeholders.reason_optional')"
 />

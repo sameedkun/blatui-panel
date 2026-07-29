@@ -12,10 +12,8 @@ use App\Services\AccountDeletionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 
 #[Layout('layouts.admin.app')]
-#[Title('Guests')]
 class Index extends BaseIndex
 {
     use HandlesGuestRowActions;
@@ -173,7 +171,7 @@ class Index extends BaseIndex
         $this->authorize('guests.ban');
 
         $ids = $this->selectedIds;
-        $reason = trim($this->bulkBanReason) ?: 'Banned by administrator.';
+        $reason = trim($this->bulkBanReason) ?: __('guests.defaults.ban_reason');
         $count = User::query()->guests()->whereIn('id', $ids)->update([
             'banned_at' => now(),
             'ban_reason' => $reason,

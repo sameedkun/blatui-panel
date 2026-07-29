@@ -10,9 +10,9 @@
 @props(['device'])
 
 @if ($device->is_blocked)
-    <x-ui.badge variant="destructive">Blocked</x-ui.badge>
+    <x-ui.badge variant="destructive">{{ __('devices.status.blocked') }}</x-ui.badge>
 @elseif ($device->is_revoked)
-    <x-ui.badge variant="secondary">Revoked</x-ui.badge>
+    <x-ui.badge variant="secondary">{{ __('devices.status.revoked') }}</x-ui.badge>
 @else
-    <x-ui.badge variant="default" class="border-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">Active</x-ui.badge>
+    <x-ui.badge variant="default" class="border-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">{{ __('devices.status.active') }}</x-ui.badge>
 @endif

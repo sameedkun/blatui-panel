@@ -3,7 +3,6 @@
 namespace App\Enum;
 
 use App\Models\PlanPrice;
-use Illuminate\Support\Str;
 
 /**
  * The unit a {@see PlanPrice}'s billing/trial/grace period is measured in.
@@ -18,6 +17,6 @@ enum BillingInterval: string
 
     public function label(): string
     {
-        return Str::headline($this->value);
+        return __("enums.billing_interval.{$this->name}");
     }
 }

@@ -78,7 +78,7 @@ class Show extends BaseShow
     {
         return [
             'conversation' => [
-                'label' => 'Conversation',
+                'label' => __('tickets.tabs.conversation'),
                 'icon' => 'message-square',
                 'view' => 'livewire.admin.support.tickets.show.tabs.conversation',
                 'data' => fn (): array => [
@@ -89,7 +89,7 @@ class Show extends BaseShow
                 ],
             ],
             'activity' => [
-                'label' => 'Activity',
+                'label' => __('tickets.tabs.activity'),
                 'icon' => 'activity',
                 'view' => 'livewire.admin.support.tickets.show.tabs.activity',
                 'permission' => 'activity_logs.view',
@@ -117,6 +117,19 @@ class Show extends BaseShow
             'replyMessage' => ['required', 'string', 'max:5000'],
             'replyAttachments' => ['array', 'max:5'],
             'replyAttachments.*' => ['file', 'max:10240', 'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,csv,txt,zip'],
+        ], [
+            'replyMessage.required' => __('tickets.validation.reply_required'),
+            'replyMessage.string' => __('tickets.validation.reply_invalid'),
+            'replyMessage.max' => __('tickets.validation.reply_max', ['max' => 5000]),
+            'replyAttachments.array' => __('tickets.validation.attachments_invalid'),
+            'replyAttachments.max' => __('tickets.validation.attachments_max', ['max' => 5]),
+            'replyAttachments.*.file' => __('tickets.validation.attachment_file'),
+            'replyAttachments.*.max' => __('tickets.validation.attachment_max', ['max' => 10]),
+            'replyAttachments.*.mimes' => __('tickets.validation.attachment_mimes'),
+        ], [
+            'replyMessage' => __('tickets.validation_attributes.reply'),
+            'replyAttachments' => __('tickets.validation_attributes.attachments'),
+            'replyAttachments.*' => __('tickets.validation_attributes.attachment'),
         ]);
 
         /** @var Ticket $ticket */
@@ -127,7 +140,7 @@ class Show extends BaseShow
         $this->replyMessage = '';
         $this->replyAttachments = [];
         $this->replyAttachmentsKey++;
-        $this->toastSuccess('Reply sent.');
+        $this->toastSuccess(__('tickets.toasts.reply_sent'));
         $this->dispatch('scroll-to-latest-message');
     }
 
@@ -145,7 +158,7 @@ class Show extends BaseShow
 
         app(TicketService::class)->changeStatus($ticket, $enum, auth()->user());
 
-        $this->toastSuccess('Status updated to '.$enum->label().'.');
+        $this->toastSuccess(__('tickets.toasts.status_updated', ['status' => $enum->label()]));
     }
 
     public function updatePriority(string $priority): void
@@ -162,7 +175,7 @@ class Show extends BaseShow
 
         app(TicketService::class)->changePriority($ticket, $enum, auth()->user());
 
-        $this->toastSuccess('Priority updated to '.$enum->label().'.');
+        $this->toastSuccess(__('tickets.toasts.priority_updated', ['priority' => $enum->label()]));
     }
 
     public function updateCategory(int $categoryId): void
@@ -176,7 +189,7 @@ class Show extends BaseShow
 
         app(TicketService::class)->changeCategory($ticket, $category, auth()->user());
 
-        $this->toastSuccess("Category changed to {$category->name}.");
+        $this->toastSuccess(__('tickets.toasts.category_changed', ['category' => $category->name]));
     }
 
     /** Accepts a string so a blank "Unassigned" option from a native <select> coerces to null, not 0. */
@@ -190,6 +203,11 @@ class Show extends BaseShow
         Validator::make(
             ['agentId' => $agentId],
             ['agentId' => ['nullable', 'integer', Rule::in(array_keys($assignment->eligibleAgentOptions()))]],
+            [
+                'agentId.integer' => __('tickets.validation.agent_invalid'),
+                'agentId.in' => __('tickets.validation.agent_invalid'),
+            ],
+            ['agentId' => __('tickets.validation_attributes.agent')],
         )->validate();
 
         $agent = $agentId ? $assignment->eligibleAgentsQuery()->findOrFail($agentId) : null;
@@ -199,14 +217,17 @@ class Show extends BaseShow
 
         app(TicketService::class)->reassign($ticket, $agent, auth()->user());
 
-        $this->toastSuccess($agent ? "Reassigned to {$agent->name}." : 'Unassigned.');
+        $this->toastSuccess($agent
+            ? __('tickets.toasts.reassigned', ['agent' => $agent->name])
+            : __('tickets.toasts.unassigned'));
     }
 
     public function render(): View
     {
         $this->refreshRecord();
 
-        return view('livewire.admin.support.tickets.show');
+        return view('livewire.admin.support.tickets.show')
+            ->title(__('tickets.show.page_title', ['subject' => $this->title()]));
     }
 
     /** Pull fresh attributes so header badges reflect an action taken this request. */

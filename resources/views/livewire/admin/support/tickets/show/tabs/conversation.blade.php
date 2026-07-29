@@ -24,8 +24,8 @@
                         <x-lucide-messages-square class="size-4.5" />
                     </div>
                     <div>
-                        <x-ui.card-title class="text-base">Support Conversation</x-ui.card-title>
-                        <x-ui.card-description>Full message history between requester and support staff.</x-ui.card-description>
+                        <x-ui.card-title class="text-base">{{ __('tickets.conversation.title') }}</x-ui.card-title>
+                        <x-ui.card-description>{{ __('tickets.conversation.description') }}</x-ui.card-description>
                     </div>
                 </div>
             </x-ui.card-header>
@@ -61,7 +61,7 @@
                             <x-ui.chat-message
                                 wire:key="ticket-message-{{ $message->id }}"
                                 role="{{ $isStaff ? 'user' : 'assistant' }}"
-                                name="{{ $message->user?->name ?? 'Unknown' }}"
+                                name="{{ $message->user?->name ?? __('tickets.common.unknown') }}"
                                 avatar="{{ $message->user?->avatarUrl() }}"
                                 bubbleClass="{{ $isStaff ? 'bg-primary text-primary-foreground font-medium rounded-ee-sm border border-primary/20' : 'bg-muted/90 text-foreground rounded-es-sm border border-border/60' }}"
                             >
@@ -96,7 +96,7 @@
                                                                 />
                                                             </button>
                                                         @else
-                                                            <div class="flex h-24 items-center justify-center text-xs text-muted-foreground px-3">Image unavailable</div>
+                                                            <div class="flex h-24 items-center justify-center text-xs text-muted-foreground px-3">{{ __('tickets.conversation.image_unavailable') }}</div>
                                                         @endif
 
                                                         <div class="flex items-center justify-between gap-1 border-t border-black/10 dark:border-white/10 bg-card px-2 py-1.5 w-full">
@@ -106,7 +106,7 @@
                                                                     href="{{ $img['url'] }}"
                                                                     target="_blank"
                                                                     rel="noopener"
-                                                                    title="Open full size in new tab"
+                                                                    title="{{ __('tickets.conversation.open_full_size') }}"
                                                                     class="inline-flex shrink-0 items-center gap-0.5 font-mono text-[9px] text-muted-foreground hover:text-primary transition-colors"
                                                                 >
                                                                     <span>{{ number_format($img['size'] / 1024, 1) }} KB</span>
@@ -142,7 +142,7 @@
                                                                     />
                                                                 </button>
                                                             @else
-                                                                <div class="flex h-20 items-center justify-center text-xs text-muted-foreground">Image unavailable</div>
+                                                                <div class="flex h-20 items-center justify-center text-xs text-muted-foreground">{{ __('tickets.conversation.image_unavailable') }}</div>
                                                             @endif
 
                                                             <div class="flex items-center justify-between gap-1 border-t border-black/10 dark:border-white/10 bg-card px-1.5 py-1 w-full">
@@ -152,7 +152,7 @@
                                                                         href="{{ $img['url'] }}"
                                                                         target="_blank"
                                                                         rel="noopener"
-                                                                        title="Open full size in new tab"
+                                                                        title="{{ __('tickets.conversation.open_full_size') }}"
                                                                         class="inline-flex shrink-0 items-center gap-0.5 font-mono text-[8px] text-muted-foreground hover:text-primary transition-colors"
                                                                     >
                                                                         <span>{{ number_format($img['size'] / 1024, 1) }} KB</span>
@@ -209,7 +209,7 @@
                     @empty
                         <div class="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                             <x-lucide-message-square class="size-8 opacity-30 mb-2" />
-                            <p class="text-sm font-medium">No messages in this conversation thread yet.</p>
+                            <p class="text-sm font-medium">{{ __('tickets.empty.messages') }}</p>
                         </div>
                     @endforelse
                 </x-ui.chat>
@@ -225,8 +225,8 @@
                             <x-lucide-send class="size-4.5" />
                         </div>
                         <div>
-                            <x-ui.card-title class="text-base">Reply to Ticket</x-ui.card-title>
-                            <x-ui.card-description>Send a message back to the requester.</x-ui.card-description>
+                            <x-ui.card-title class="text-base">{{ __('tickets.conversation.reply_title') }}</x-ui.card-title>
+                            <x-ui.card-description>{{ __('tickets.conversation.reply_description') }}</x-ui.card-description>
                         </div>
                     </div>
                 </x-ui.card-header>
@@ -235,24 +235,24 @@
                     @if ($record->status === \App\Enum\TicketStatus::Closed)
                         <div class="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs font-medium text-amber-900 dark:text-amber-200">
                             <x-lucide-lock class="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                            <span>This ticket is closed. Reopen it using the top banner action to send a reply.</span>
+                            <span>{{ __('tickets.conversation.closed_notice') }}</span>
                         </div>
                     @else
                         <form wire:submit="reply" class="space-y-4">
                             <x-ui.field>
-                                <x-ui.textarea id="replyMessage" wire:model="replyMessage" rows="4" placeholder="Type your response to the requester..." class="bg-muted/20 text-xs leading-relaxed" />
+                                <x-ui.textarea id="replyMessage" wire:model="replyMessage" rows="4" :placeholder="__('tickets.conversation.reply_placeholder')" class="bg-muted/20 text-xs leading-relaxed" />
                                 @error('replyMessage')
                                     <x-ui.field-error>{{ $message }}</x-ui.field-error>
                                 @enderror
                             </x-ui.field>
 
                             <x-ui.field>
-                                <x-ui.field-label class="text-xs font-medium">Upload Attachments</x-ui.field-label>
+                                <x-ui.field-label class="text-xs font-medium">{{ __('tickets.conversation.upload_attachments') }}</x-ui.field-label>
                                 <x-ui.file-upload
                                     wire:key="reply-attachments-{{ $replyAttachmentsKey }}"
                                     name="replyAttachments"
                                     multiple
-                                    maxSizeLabel="Up to 5 files, 10MB each"
+                                    :max-size-label="__('tickets.conversation.attachment_limit')"
                                     wire:model="replyAttachments"
                                 />
                                 @error('replyAttachments')
@@ -266,7 +266,7 @@
                             <div class="flex justify-end">
                                 <x-ui.button type="submit" size="sm" wire:loading.attr="disabled" wire:target="reply,replyAttachments" class="gap-1.5 shadow-2xs">
                                     <x-lucide-send class="size-3.5" />
-                                    <span>Send Reply</span>
+                                    <span>{{ __('tickets.actions.reply') }}</span>
                                 </x-ui.button>
                             </div>
                         </form>
@@ -288,8 +288,8 @@
                         <x-lucide-user class="size-4.5" />
                     </div>
                     <div>
-                        <x-ui.card-title class="text-base">Requester Account</x-ui.card-title>
-                        <x-ui.card-description>User who opened this ticket.</x-ui.card-description>
+                        <x-ui.card-title class="text-base">{{ __('tickets.conversation.requester_title') }}</x-ui.card-title>
+                        <x-ui.card-description>{{ __('tickets.conversation.requester_description') }}</x-ui.card-description>
                     </div>
                 </div>
             </x-ui.card-header>
@@ -313,11 +313,11 @@
                     @can('users.manage')
                         <x-ui.button variant="outline" size="sm" class="w-full gap-1.5 text-xs shadow-2xs" href="{{ route('admin.users.show', $record->user) }}">
                             <x-lucide-external-link class="size-3.5" />
-                            <span>View User Profile</span>
+                            <span>{{ __('tickets.actions.view_profile') }}</span>
                         </x-ui.button>
                     @endcan
                 @else
-                    <p class="text-xs text-muted-foreground italic">Requester account no longer exists.</p>
+                    <p class="text-xs text-muted-foreground italic">{{ __('tickets.conversation.requester_missing') }}</p>
                 @endif
             </x-ui.card-content>
         </x-ui.card>
@@ -330,8 +330,8 @@
                         <x-lucide-sliders class="size-4.5" />
                     </div>
                     <div>
-                        <x-ui.card-title class="text-base">Ticket Properties</x-ui.card-title>
-                        <x-ui.card-description>Status, priority, and agent controls.</x-ui.card-description>
+                        <x-ui.card-title class="text-base">{{ __('tickets.conversation.properties_title') }}</x-ui.card-title>
+                        <x-ui.card-description>{{ __('tickets.conversation.properties_description') }}</x-ui.card-description>
                     </div>
                 </div>
             </x-ui.card-header>
@@ -339,38 +339,38 @@
             <x-ui.card-content class="space-y-4 pt-6">
                 @can('tickets.manage')
                     <x-ui.field>
-                        <x-ui.field-label for="ticketStatus" class="text-xs">Ticket Status</x-ui.field-label>
+                        <x-ui.field-label for="ticketStatus" class="text-xs">{{ __('tickets.conversation.ticket_status') }}</x-ui.field-label>
                         <x-ui.select native id="ticketStatus" size="sm" :value="$record->status->value" :options="$statusOptions"
                             wire:change="updateStatus($event.target.value)" />
                     </x-ui.field>
 
                     <x-ui.field>
-                        <x-ui.field-label for="ticketPriority" class="text-xs">Priority Level</x-ui.field-label>
+                        <x-ui.field-label for="ticketPriority" class="text-xs">{{ __('tickets.conversation.priority_level') }}</x-ui.field-label>
                         <x-ui.select native id="ticketPriority" size="sm" :value="$record->priority->value" :options="$priorityOptions"
                             wire:change="updatePriority($event.target.value)" />
                     </x-ui.field>
 
                     <x-ui.field>
-                        <x-ui.field-label for="ticketCategory" class="text-xs">Category</x-ui.field-label>
+                        <x-ui.field-label for="ticketCategory" class="text-xs">{{ __('tickets.fields.category') }}</x-ui.field-label>
                         <x-ui.select native id="ticketCategory" size="sm" :value="(string) $record->category_id" :options="$categoryOptions"
-                            placeholder="No category" wire:change="updateCategory($event.target.value)" />
-                        <p class="text-[11px] text-muted-foreground mt-0.5">Changing this may trigger auto-assignment.</p>
+                            :placeholder="__('tickets.form.no_category')" wire:change="updateCategory($event.target.value)" />
+                        <p class="text-[11px] text-muted-foreground mt-0.5">{{ __('tickets.conversation.category_change_hint') }}</p>
                     </x-ui.field>
 
                     <x-ui.field>
-                        <x-ui.field-label for="ticketAgent" class="text-xs">Assigned Staff Agent</x-ui.field-label>
+                        <x-ui.field-label for="ticketAgent" class="text-xs">{{ __('tickets.conversation.assigned_staff') }}</x-ui.field-label>
                         <x-ui.select native id="ticketAgent" size="sm" :value="(string) $record->assigned_to" :options="$agentOptions"
-                            placeholder="Unassigned" wire:change="reassignAgent($event.target.value)" />
+                            :placeholder="__('tickets.unassigned')" wire:change="reassignAgent($event.target.value)" />
                     </x-ui.field>
                 @else
                     <dl class="space-y-3 text-sm">
                         <div class="rounded-lg border border-border/60 bg-muted/20 p-3">
-                            <dt class="text-xs font-medium text-muted-foreground">Category</dt>
-                            <dd class="mt-0.5 text-xs font-semibold text-foreground">{{ $record->category?->name ?? 'None' }}</dd>
+                            <dt class="text-xs font-medium text-muted-foreground">{{ __('tickets.fields.category') }}</dt>
+                            <dd class="mt-0.5 text-xs font-semibold text-foreground">{{ $record->category?->name ?? __('tickets.common.none') }}</dd>
                         </div>
                         <div class="rounded-lg border border-border/60 bg-muted/20 p-3">
-                            <dt class="text-xs font-medium text-muted-foreground">Assigned Agent</dt>
-                            <dd class="mt-0.5 text-xs font-semibold text-foreground">{{ $record->agent?->name ?? 'Unassigned' }}</dd>
+                            <dt class="text-xs font-medium text-muted-foreground">{{ __('tickets.fields.assigned_to') }}</dt>
+                            <dd class="mt-0.5 text-xs font-semibold text-foreground">{{ $record->agent?->name ?? __('tickets.unassigned') }}</dd>
                         </div>
                     </dl>
                 @endcan
@@ -392,7 +392,7 @@
                 <span class="text-xs font-semibold text-foreground truncate max-w-md" x-text="previewTitle"></span>
                 <div class="flex items-center gap-3">
                     <a :href="previewUrl" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-                        <span>Open in new tab</span>
+                        <span>{{ __('tickets.conversation.open_new_tab') }}</span>
                         <x-lucide-external-link class="size-3.5" />
                     </a>
                     <button type="button" @click="previewUrl = null" class="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-muted">

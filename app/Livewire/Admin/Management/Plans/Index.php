@@ -12,10 +12,8 @@ use App\Models\Subscription;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 
 #[Layout('layouts.admin.app')]
-#[Title('Plans')]
 class Index extends BaseIndex
 {
     use HandlesPlanRowActions;
@@ -48,9 +46,9 @@ class Index extends BaseIndex
     {
         return [
             'status' => [
-                'label' => 'Status',
+                'label' => __('plans.filters.status'),
                 'type' => 'select',
-                'options' => ['active' => 'Active', 'inactive' => 'Inactive'],
+                'options' => ['active' => __('plans.status.active'), 'inactive' => __('plans.status.inactive')],
                 'apply' => fn (Builder $q, string $v): Builder => match ($v) {
                     'active' => $q->where('is_active', true),
                     'inactive' => $q->where('is_active', false),
@@ -58,9 +56,9 @@ class Index extends BaseIndex
                 },
             ],
             'best_deal' => [
-                'label' => 'Best Deal',
+                'label' => __('plans.filters.best_deal'),
                 'type' => 'select',
-                'options' => ['yes' => 'Yes', 'no' => 'No'],
+                'options' => ['yes' => __('plans.common.yes'), 'no' => __('plans.common.no')],
                 'apply' => fn (Builder $q, string $v): Builder => match ($v) {
                     'yes' => $q->where('is_best_deal', true),
                     'no' => $q->where('is_best_deal', false),
@@ -74,14 +72,14 @@ class Index extends BaseIndex
     {
         return [
             'status' => [
-                'label' => 'Status',
+                'label' => __('plans.filters.status'),
                 'type' => 'select',
-                'options' => ['active' => 'Active', 'inactive' => 'Inactive'],
+                'options' => ['active' => __('plans.status.active'), 'inactive' => __('plans.status.inactive')],
             ],
             'best_deal' => [
-                'label' => 'Best Deal',
+                'label' => __('plans.filters.best_deal'),
                 'type' => 'select',
-                'options' => ['yes' => 'Yes', 'no' => 'No'],
+                'options' => ['yes' => __('plans.common.yes'), 'no' => __('plans.common.no')],
             ],
         ];
     }
@@ -92,28 +90,28 @@ class Index extends BaseIndex
     {
         return [
             [
-                'label' => 'Total Plans',
+                'label' => __('plans.stats.total_plans'),
                 'value' => fn () => Plan::count(),
                 'icon' => 'layers',
-                'description' => 'All plans',
+                'description' => __('plans.stats.all_plans'),
             ],
             [
-                'label' => 'Active',
+                'label' => __('plans.status.active'),
                 'value' => fn () => Plan::where('is_active', true)->count(),
                 'icon' => 'check-circle',
-                'description' => 'Visible for purchase',
+                'description' => __('plans.stats.visible_for_purchase'),
             ],
             [
-                'label' => 'Inactive',
+                'label' => __('plans.status.inactive'),
                 'value' => fn () => Plan::where('is_active', false)->count(),
                 'icon' => 'circle-slash',
-                'description' => 'Retired or hidden',
+                'description' => __('plans.stats.retired_or_hidden'),
             ],
             [
-                'label' => 'Active Subscriptions',
+                'label' => __('plans.stats.active_subscriptions'),
                 'value' => fn () => Subscription::whereIn('status', ['trialing', 'active', 'grace'])->count(),
                 'icon' => 'credit-card',
-                'description' => 'Across all plans',
+                'description' => __('plans.stats.across_all_plans'),
             ],
         ];
     }
@@ -125,21 +123,21 @@ class Index extends BaseIndex
         return [
             [
                 'key' => 'activate',
-                'label' => 'Activate',
+                'label' => __('plans.actions.activate'),
                 'icon' => 'check-circle',
                 'confirm' => true,
                 'permission' => 'plans.edit',
             ],
             [
                 'key' => 'deactivate',
-                'label' => 'Deactivate',
+                'label' => __('plans.actions.deactivate'),
                 'icon' => 'circle-slash',
                 'confirm' => true,
                 'permission' => 'plans.edit',
             ],
             [
                 'key' => 'delete',
-                'label' => 'Delete',
+                'label' => __('plans.actions.delete'),
                 'icon' => 'trash',
                 'confirm' => true,
                 'variant' => 'destructive',
@@ -163,7 +161,7 @@ class Index extends BaseIndex
         ]);
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} plans activated.");
+        $this->toastSuccess(__('plans.toasts.bulk_activated', ['count' => $count]));
     }
 
     public function executeBulkDeactivate(): void
@@ -181,7 +179,7 @@ class Index extends BaseIndex
         ]);
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} plans deactivated.");
+        $this->toastSuccess(__('plans.toasts.bulk_deactivated', ['count' => $count]));
     }
 
     public function executeBulkDelete(): void
@@ -204,9 +202,9 @@ class Index extends BaseIndex
 
         $this->clearSelection();
 
-        $message = "{$deletable->count()} plans deleted.";
+        $message = __('plans.toasts.bulk_deleted', ['count' => $deletable->count()]);
         if ($blocked > 0) {
-            $message .= " {$blocked} skipped (has subscriptions).";
+            $message .= ' '.__('plans.toasts.bulk_skipped', ['count' => $blocked]);
         }
 
         $this->toastSuccess($message);
@@ -221,6 +219,6 @@ class Index extends BaseIndex
             'pageIds' => $plans->pluck('id')->map(fn ($id) => (string) $id)->toArray(),
             'stats' => $this->resolveStats(),
             'filterBarConfig' => $this->filterBarConfig(),
-        ]);
+        ])->title(__('plans.title'));
     }
 }

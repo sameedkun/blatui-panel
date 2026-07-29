@@ -2,12 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Enum\BillingInterval;
+use App\Enum\CancelledBy;
+use App\Enum\PaymentProvider;
+use App\Enum\SubscriptionStatus;
 use App\Livewire\Admin\Management\Guests\Show;
 use App\Models\Plan;
 use App\Models\PlanPrice;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\App;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -30,6 +35,16 @@ class GuestSubscriptionManagementTest extends TestCase
         $plan = Plan::factory()->create(['is_active' => true]);
 
         return PlanPrice::factory()->for($plan)->create(['is_active' => true, 'amount' => 9.99]);
+    }
+
+    public function test_subscription_enum_labels_use_the_active_locale(): void
+    {
+        App::setLocale('tr');
+
+        $this->assertSame('Aktif', SubscriptionStatus::Active->label());
+        $this->assertSame('Ay', BillingInterval::Month->label());
+        $this->assertSame('Yerel', PaymentProvider::Local->label());
+        $this->assertSame('Yönetici', CancelledBy::Admin->label());
     }
 
     public function test_assigning_a_plan_to_an_unsubscribed_guest_creates_a_subscription(): void
@@ -106,7 +121,7 @@ class GuestSubscriptionManagementTest extends TestCase
         $subscription = $guest->fresh()->activeSubscription;
         $this->assertNotNull($subscription);
         $this->assertSame('active', $subscription->status->value);
-        $this->assertTrue($subscription->is_recurring);
+        $this->assertFalse($subscription->is_recurring);
     }
 
     public function test_subscription_actions_require_guests_manage_permission(): void

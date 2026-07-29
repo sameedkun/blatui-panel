@@ -69,7 +69,7 @@ trait HandlesSubscriptionRowActions
 
         if (! $this->isLive($subscription)) {
             $this->targetSubscriptionId = null;
-            $this->toastError('This is no longer the active subscription for this user.');
+            $this->toastError(__('subscriptions.toasts.no_longer_active'));
 
             return;
         }
@@ -79,7 +79,7 @@ trait HandlesSubscriptionRowActions
 
         $this->targetSubscriptionId = null;
         $this->cancelReason = '';
-        $this->toastSuccess("{$planName} subscription cancelled immediately.");
+        $this->toastSuccess(__('subscriptions.toasts.cancelled_immediately', ['plan' => $planName]));
     }
 
     public function openCancelAtPeriodEndDialog(int $subscriptionId): void
@@ -99,7 +99,7 @@ trait HandlesSubscriptionRowActions
 
         if (! $this->isLive($subscription)) {
             $this->targetSubscriptionId = null;
-            $this->toastError('This is no longer the active subscription for this user.');
+            $this->toastError(__('subscriptions.toasts.no_longer_active'));
 
             return;
         }
@@ -110,7 +110,10 @@ trait HandlesSubscriptionRowActions
 
         $this->targetSubscriptionId = null;
         $this->cancelReason = '';
-        $this->toastSuccess("{$planName} subscription will end on ".$endsAt?->format('M d, Y').'.');
+        $this->toastSuccess(__('subscriptions.toasts.cancelled_period_end', [
+            'plan' => $planName,
+            'date' => $endsAt?->translatedFormat('M d, Y'),
+        ]));
     }
 
     public function reactivateRow(int $subscriptionId, SubscriptionService $service): void
@@ -120,16 +123,16 @@ trait HandlesSubscriptionRowActions
         $subscription = Subscription::with('user')->findOrFail($subscriptionId);
 
         if (! $this->isReactivatable($subscription)) {
-            $this->toastError('This subscription can no longer be reactivated.');
+            $this->toastError(__('subscriptions.toasts.cannot_reactivate'));
 
             return;
         }
 
         try {
             $reactivated = $service->reactivate($subscription->user);
-            $this->toastSuccess("{$reactivated->plan->name} subscription reactivated.");
-        } catch (InvalidArgumentException $e) {
-            $this->toastError($e->getMessage());
+            $this->toastSuccess(__('subscriptions.toasts.reactivated', ['plan' => $reactivated->plan->name]));
+        } catch (InvalidArgumentException) {
+            $this->toastError(__('subscriptions.toasts.cannot_reactivate'));
         }
     }
 }

@@ -1,13 +1,13 @@
 <div class="flex flex-col gap-6">
 
     {{-- Page header --}}
-    <x-admin.page-header title="Blocked IPs" description="Block an IP globally or for a single user, with optional expiry and hit tracking."
-        :breadcrumbs="[['label' => 'Home', 'url' => route('admin.dashboard')], ['label' => 'Blocked IPs']]">
+    <x-admin.page-header :title="__('blocked_ips.title')" :description="__('blocked_ips.subtitle')"
+        :breadcrumbs="[['label' => __('navigation.home'), 'url' => route('admin.dashboard')], ['label' => __('blocked_ips.title')]]">
         @can('blocked-ips.create')
             <x-slot:actions>
                 <x-ui.button href="{{ route('admin.blocked-ips.create') }}" wire:navigate>
                     <x-lucide-plus class="size-4" />
-                    Block IP
+                    {{ __('blocked_ips.actions.create') }}
                 </x-ui.button>
             </x-slot:actions>
         @endcan
@@ -23,13 +23,13 @@
     {{-- Toolbar --}}
     <div class="flex flex-wrap items-center justify-between gap-2">
         <x-admin.filter-bar :config="$filterBarConfig" :filters="$filters" :has-active-filters="$this->hasActiveFilters()"
-            search-placeholder="Search IP address..." />
+            :search-placeholder="__('blocked_ips.filters.search')" />
 
         @can('blocked-ips.delete')
             @if ($this->expiredCount() > 0)
                 <x-ui.button variant="outline" size="sm" wire:click="confirmDeleteAllExpired">
                     <x-lucide-trash class="size-3.5" />
-                    Delete {{ $this->expiredCount() }} Expired
+                    {{ trans_choice('blocked_ips.actions.purge_expired', $this->expiredCount(), ['count' => $this->expiredCount()]) }}
                 </x-ui.button>
             @endif
         @endcan
@@ -53,13 +53,13 @@
                                 class="blat-checkbox cursor-pointer dark:bg-input/30" />
                         @endif
                     </th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">IP Address</th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Scope</th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground md:table-cell">Reason</th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground lg:table-cell">Created By</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('blocked_ips.fields.ip_address') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('blocked_ips.fields.scope') }}</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground md:table-cell">{{ __('blocked_ips.fields.reason') }}</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground lg:table-cell">{{ __('blocked_ips.fields.created_by') }}</th>
                     <th class="px-4 py-3 text-left">
                         <button wire:click="sort('hits')" class="flex items-center gap-1 font-medium text-foreground">
-                            Hits
+                            {{ __('blocked_ips.fields.hits') }}
                             @if ($sortBy === 'hits')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -67,8 +67,8 @@
                             @endif
                         </button>
                     </th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground lg:table-cell">Last Hit</th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Expires</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground lg:table-cell">{{ __('blocked_ips.fields.last_hit') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('blocked_ips.fields.expires') }}</th>
                     <th class="w-10 px-4 py-3"></th>
                 </tr>
             </thead>
@@ -95,13 +95,13 @@
                             @if ($blockedIp->user_id)
                                 @can('users.manage')
                                     <a href="{{ route('admin.users.show', $blockedIp->user_id) }}" class="text-xs hover:underline" wire:navigate>
-                                        {{ $blockedIp->user?->email ?? 'User #'.$blockedIp->user_id }}
+                                        {{ $blockedIp->user?->email ?? __('blocked_ips.status.user_number', ['id' => $blockedIp->user_id]) }}
                                     </a>
                                 @else
-                                    <span class="text-xs">{{ $blockedIp->user?->email ?? 'User #'.$blockedIp->user_id }}</span>
+                                    <span class="text-xs">{{ $blockedIp->user?->email ?? __('blocked_ips.status.user_number', ['id' => $blockedIp->user_id]) }}</span>
                                 @endcan
                             @else
-                                <x-ui.badge variant="destructive">Global</x-ui.badge>
+                                <x-ui.badge variant="destructive">{{ __('blocked_ips.scopes.global') }}</x-ui.badge>
                             @endif
                         </td>
 
@@ -109,21 +109,21 @@
                             {{ $blockedIp->reason ?: '—' }}
                         </td>
 
-                        <td class="hidden px-4 py-3 text-muted-foreground lg:table-cell">{{ $blockedIp->blockedBy?->name ?? 'System' }}</td>
+                        <td class="hidden px-4 py-3 text-muted-foreground lg:table-cell">{{ $blockedIp->blockedBy?->name ?? __('blocked_ips.status.system') }}</td>
 
                         <td class="px-4 py-3">
                             <x-ui.badge variant="secondary">{{ number_format($blockedIp->hits) }}</x-ui.badge>
                         </td>
 
                         <td class="hidden px-4 py-3 text-muted-foreground lg:table-cell">
-                            {{ $blockedIp->last_hit_at?->diffForHumans() ?? 'Never' }}
+                            {{ $blockedIp->last_hit_at?->diffForHumans() ?? __('blocked_ips.status.never') }}
                         </td>
 
                         <td class="px-4 py-3">
                             @if (! $blockedIp->expires_at)
-                                <x-ui.badge variant="outline">Permanent</x-ui.badge>
+                                <x-ui.badge variant="outline">{{ __('blocked_ips.status.permanent') }}</x-ui.badge>
                             @elseif ($expired)
-                                <x-ui.badge variant="secondary">Expired</x-ui.badge>
+                                <x-ui.badge variant="secondary">{{ __('blocked_ips.status.expired') }}</x-ui.badge>
                             @else
                                 <span class="{{ $expiringSoon ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground' }}">
                                     {{ $blockedIp->expires_at->diffForHumans() }}
@@ -137,21 +137,21 @@
                                     <x-slot:trigger>
                                         <x-ui.button variant="ghost" size="icon" class="size-8">
                                             <x-lucide-ellipsis class="size-4" />
-                                            <span class="sr-only">Actions</span>
+                                            <span class="sr-only">{{ __('common.actions') }}</span>
                                         </x-ui.button>
                                     </x-slot:trigger>
 
                                     @can('devices.view')
                                         <x-admin.dropdown-item @click="$wire.openIpActivityPanel('{{ $blockedIp->ip_address }}')">
                                             <x-lucide-search class="size-4" />
-                                            Who's Behind This IP
+                                            {{ __('blocked_ips.actions.inspect') }}
                                         </x-admin.dropdown-item>
                                     @endcan
 
                                     @can('blocked-ips.update')
                                         <x-admin.dropdown-item href="{{ route('admin.blocked-ips.edit', $blockedIp) }}">
                                             <x-lucide-pencil class="size-4" />
-                                            Edit
+                                            {{ __('blocked_ips.actions.edit') }}
                                         </x-admin.dropdown-item>
                                     @endcan
 
@@ -159,7 +159,7 @@
                                         <x-admin.dropdown-separator />
                                         <x-admin.dropdown-item variant="destructive" @click="$wire.confirmDelete({{ $blockedIp->id }})">
                                             <x-lucide-trash class="size-4" />
-                                            Delete
+                                            {{ __('blocked_ips.actions.delete') }}
                                         </x-admin.dropdown-item>
                                     @endcan
                                 </x-admin.dropdown>
@@ -171,9 +171,9 @@
                     <tr>
                         <td colspan="8" class="px-4 py-16 text-center text-muted-foreground">
                             <x-lucide-shield-alert class="mx-auto mb-2 size-8 opacity-30" />
-                            <p class="text-sm">No blocked IPs found.</p>
+                            <p class="text-sm">{{ __('blocked_ips.empty.blocked_ips') }}</p>
                             @if ($this->hasActiveFilters())
-                                <button wire:click="resetFilters" class="mt-1 text-xs underline hover:no-underline">Clear filters</button>
+                                <button wire:click="resetFilters" class="mt-1 text-xs underline hover:no-underline">{{ __('blocked_ips.filters.clear') }}</button>
                             @endif
                         </td>
                     </tr>
@@ -190,14 +190,14 @@
         <div class="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background px-3 py-2 shadow-xl"
             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-4"
             x-transition:enter-end="opacity-100 translate-y-0">
-            <x-admin.tooltip text="Clear selection">
+            <x-admin.tooltip :text="__('blocked_ips.actions.clear_selection')">
                 <x-ui.button variant="ghost" size="icon" class="size-8 rounded-full" wire:click="clearSelection">
                     <x-lucide-x class="size-4" />
                 </x-ui.button>
             </x-admin.tooltip>
 
             <div class="mx-1 h-4 w-px bg-border"></div>
-            <span class="px-1 text-sm font-medium">{{ count($selectedIds) }} selected</span>
+            <span class="px-1 text-sm font-medium">{{ trans_choice('blocked_ips.actions.selected', count($selectedIds), ['count' => count($selectedIds)]) }}</span>
             <div class="mx-1 h-4 w-px bg-border"></div>
 
             @foreach ($this->availableBulkActions as $action)

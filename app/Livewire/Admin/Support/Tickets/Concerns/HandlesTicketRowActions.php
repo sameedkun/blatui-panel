@@ -26,7 +26,7 @@ trait HandlesTicketRowActions
 
         app(TicketService::class)->reassign($ticket, $agent, $agent);
 
-        $this->toastSuccess("Assigned \"{$ticket->subject}\" to you.");
+        $this->toastSuccess(__('tickets.toasts.assigned_to_you', ['subject' => $ticket->subject]));
     }
 
     public function close(int $ticketId): void
@@ -37,7 +37,7 @@ trait HandlesTicketRowActions
 
         app(TicketService::class)->changeStatus($ticket, TicketStatus::Closed, auth()->user());
 
-        $this->toastSuccess("\"{$ticket->subject}\" closed.");
+        $this->toastSuccess(__('tickets.toasts.closed', ['subject' => $ticket->subject]));
     }
 
     public function reopen(int $ticketId): void
@@ -48,6 +48,6 @@ trait HandlesTicketRowActions
 
         app(TicketService::class)->changeStatus($ticket, TicketStatus::Open, auth()->user());
 
-        $this->toastSuccess("\"{$ticket->subject}\" reopened.");
+        $this->toastSuccess(__('tickets.toasts.reopened', ['subject' => $ticket->subject]));
     }
 }

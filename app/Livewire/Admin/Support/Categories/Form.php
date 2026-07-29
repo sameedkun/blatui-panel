@@ -64,7 +64,34 @@ class Form extends BaseForm
         ];
     }
 
-    public function save()
+    protected function validationAttributes(): array
+    {
+        return [
+            'name' => __('ticket_categories.validation_attributes.name'),
+            'is_active' => __('ticket_categories.validation_attributes.is_active'),
+            'sort_order' => __('ticket_categories.validation_attributes.sort_order'),
+            'agentIds' => __('ticket_categories.validation_attributes.agents'),
+            'agentIds.*' => __('ticket_categories.validation_attributes.agent'),
+        ];
+    }
+
+    protected function messages(): array
+    {
+        return [
+            'name.required' => __('ticket_categories.validation.name_required'),
+            'name.string' => __('ticket_categories.validation.name_invalid'),
+            'name.max' => __('ticket_categories.validation.name_max', ['max' => 100]),
+            'name.unique' => __('ticket_categories.validation.name_unique'),
+            'is_active.boolean' => __('ticket_categories.validation.active_boolean'),
+            'sort_order.integer' => __('ticket_categories.validation.sort_order_integer'),
+            'sort_order.min' => __('ticket_categories.validation.sort_order_min'),
+            'agentIds.array' => __('ticket_categories.validation.agents_array'),
+            'agentIds.*.integer' => __('ticket_categories.validation.agent_invalid'),
+            'agentIds.*.exists' => __('ticket_categories.validation.agent_exists'),
+        ];
+    }
+
+    public function save(): mixed
     {
         $this->validate();
 
@@ -94,7 +121,9 @@ class Form extends BaseForm
         }
 
         return $this->redirectWithSuccess(
-            "{$category->name} category ".($this->isEditing ? 'updated' : 'created').' successfully.',
+            $this->isEditing
+                ? __('ticket_categories.toasts.updated', ['name' => $category->name])
+                : __('ticket_categories.toasts.created', ['name' => $category->name]),
         );
     }
 
@@ -102,6 +131,8 @@ class Form extends BaseForm
     {
         return view('livewire.admin.support.categories.form', [
             'agentOptions' => app(TicketAssignmentService::class)->eligibleAgents(),
-        ]);
+        ])->title($this->isEditing
+            ? __('ticket_categories.form.edit_title')
+            : __('ticket_categories.form.create_title'));
     }
 }

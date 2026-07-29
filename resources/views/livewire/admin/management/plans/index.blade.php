@@ -1,12 +1,12 @@
 <div class="flex flex-col gap-6">
 
     {{-- Page header --}}
-    <x-admin.page-header title="Plans" description="Manage subscription plans, pricing, and payment providers." :breadcrumbs="[['label' => 'Home', 'url' => route('admin.dashboard')], ['label' => 'Plans']]">
+    <x-admin.page-header :title="__('plans.title')" :description="__('plans.subtitle')" :breadcrumbs="[['label' => __('navigation.home'), 'url' => route('admin.dashboard')], ['label' => __('plans.title')]]">
         @can('plans.create')
             <x-slot:actions>
                 <x-ui.button href="{{ route('admin.plans.create') }}">
                     <x-lucide-plus class="size-4" />
-                    Create Plan
+                    {{ __('plans.actions.create') }}
                 </x-ui.button>
             </x-slot:actions>
         @endcan
@@ -23,7 +23,7 @@
 
     {{-- Toolbar --}}
     <x-admin.filter-bar :config="$filterBarConfig" :filters="$filters" :has-active-filters="$this->hasActiveFilters()"
-        search-placeholder="Search name, slug, description..." />
+        :search-placeholder="__('plans.placeholders.search')" />
 
     {{-- Table --}}
     @php
@@ -45,7 +45,7 @@
                     </th>
                     <th class="px-4 py-3 text-left">
                         <button wire:click="sort('name')" class="flex items-center gap-1 font-medium text-foreground">
-                            Plan
+                            {{ __('plans.singular') }}
                             @if ($sortBy === 'name')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -53,12 +53,12 @@
                             @endif
                         </button>
                     </th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Status</th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground md:table-cell">Starting Price</th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground lg:table-cell">Subscribers</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('plans.fields.status') }}</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground md:table-cell">{{ __('plans.fields.starting_price') }}</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground lg:table-cell">{{ __('plans.fields.subscribers') }}</th>
                     <th class="hidden px-4 py-3 text-left xl:table-cell">
                         <button wire:click="sort('sort_order')" class="flex items-center gap-1 font-medium text-foreground">
-                            Order
+                            {{ __('plans.fields.order') }}
                             @if ($sortBy === 'sort_order')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -93,7 +93,7 @@
                                     <span class="font-medium">{{ $plan->name }}</span>
                                 @endcan
                                 @if ($plan->is_best_deal)
-                                    <x-admin.tooltip text="Best deal">
+                                    <x-admin.tooltip :text="__('plans.status.best_deal')">
                                         <x-lucide-star class="size-3.5 fill-amber-400 text-amber-400" />
                                     </x-admin.tooltip>
                                 @endif
@@ -106,9 +106,9 @@
                         {{-- Status --}}
                         <td class="px-4 py-3">
                             @if ($plan->is_active)
-                                <x-ui.badge variant="default" class="border-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">Active</x-ui.badge>
+                                <x-ui.badge variant="default" class="border-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">{{ __('plans.status.active') }}</x-ui.badge>
                             @else
-                                <x-ui.badge variant="secondary">Inactive</x-ui.badge>
+                                <x-ui.badge variant="secondary">{{ __('plans.status.inactive') }}</x-ui.badge>
                             @endif
                         </td>
 
@@ -116,12 +116,12 @@
                         <td class="hidden px-4 py-3 text-muted-foreground md:table-cell">
                             @if ($startingPrice)
                                 <span class="font-medium text-foreground">{{ $startingPrice->currency }} {{ number_format((float) $startingPrice->amount, 2) }}</span>
-                                <span class="text-xs">/ {{ $startingPrice->billing_period }} {{ $startingPrice->billing_interval->label() }}{{ $startingPrice->billing_period > 1 ? 's' : '' }}</span>
+                                <span class="text-xs">/ {{ trans_choice('plans.billing_intervals.'.$startingPrice->billing_interval->value, $startingPrice->billing_period, ['count' => $startingPrice->billing_period]) }}</span>
                                 @if ($plan->prices->count() > 1)
-                                    <span class="text-xs text-muted-foreground">(+{{ $plan->prices->count() - 1 }} more)</span>
+                                    <span class="text-xs text-muted-foreground">{{ __('plans.status.more_prices', ['count' => $plan->prices->count() - 1]) }}</span>
                                 @endif
                             @else
-                                <span class="text-xs">No prices</span>
+                                <span class="text-xs">{{ __('plans.status.no_prices') }}</span>
                             @endif
                         </td>
 
@@ -137,11 +137,11 @@
                         <td class="px-4 py-3 text-right">
                             <div class="flex items-center justify-end gap-1">
                                 @can('plans.manage')
-                                    <x-admin.tooltip text="View plan">
+                                    <x-admin.tooltip :text="__('plans.actions.view')">
                                         <x-ui.button variant="ghost" size="icon" class="size-8"
                                             href="{{ route('admin.plans.show', $plan) }}">
                                             <x-lucide-eye class="size-4" />
-                                            <span class="sr-only">View plan</span>
+                                            <span class="sr-only">{{ __('plans.actions.view') }}</span>
                                         </x-ui.button>
                                     </x-admin.tooltip>
                                 @endcan
@@ -151,23 +151,23 @@
                                     <x-slot:trigger>
                                         <x-ui.button variant="ghost" size="icon" class="size-8">
                                             <x-lucide-ellipsis class="size-4" />
-                                            <span class="sr-only">Actions</span>
+                                            <span class="sr-only">{{ __('plans.actions.actions') }}</span>
                                         </x-ui.button>
                                     </x-slot:trigger>
 
                                     @can('plans.edit')
                                         <x-admin.dropdown-item href="{{ route('admin.plans.edit', $plan) }}">
                                             <x-lucide-pencil class="size-4" />
-                                            Edit
+                                            {{ __('plans.actions.edit_short') }}
                                         </x-admin.dropdown-item>
 
                                         <x-admin.dropdown-item @click="$wire.toggleActive({{ $plan->id }})">
                                             @if ($plan->is_active)
                                                 <x-lucide-circle-slash class="size-4" />
-                                                Deactivate
+                                                {{ __('plans.actions.deactivate') }}
                                             @else
                                                 <x-lucide-check-circle class="size-4" />
-                                                Activate
+                                                {{ __('plans.actions.activate') }}
                                             @endif
                                         </x-admin.dropdown-item>
                                     @endcan
@@ -177,7 +177,7 @@
                                         <x-admin.dropdown-item variant="destructive"
                                             @click="$wire.confirmDelete({{ $plan->id }})">
                                             <x-lucide-trash class="size-4" />
-                                            Delete
+                                            {{ __('plans.actions.delete') }}
                                         </x-admin.dropdown-item>
                                     @endcan
                                 </x-admin.dropdown>
@@ -190,10 +190,10 @@
                     <tr>
                         <td colspan="7" class="px-4 py-16 text-center text-muted-foreground">
                             <x-lucide-credit-card class="mx-auto mb-2 size-8 opacity-30" />
-                            <p class="text-sm">No plans found.</p>
+                            <p class="text-sm">{{ __('plans.status.no_plans_found') }}</p>
                             @if ($this->hasActiveFilters())
                                 <button wire:click="resetFilters"
-                                    class="mt-1 text-xs underline hover:no-underline">Clear filters</button>
+                                    class="mt-1 text-xs underline hover:no-underline">{{ __('plans.actions.clear_filters') }}</button>
                             @endif
                         </td>
                     </tr>
@@ -210,14 +210,14 @@
         <div class="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background px-3 py-2 shadow-xl"
             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-4"
             x-transition:enter-end="opacity-100 translate-y-0">
-            <x-admin.tooltip text="Clear selection">
+            <x-admin.tooltip :text="__('plans.actions.clear_selection')">
                 <x-ui.button variant="ghost" size="icon" class="size-8 rounded-full" wire:click="clearSelection">
                     <x-lucide-x class="size-4" />
                 </x-ui.button>
             </x-admin.tooltip>
 
             <div class="mx-1 h-4 w-px bg-border"></div>
-            <span class="px-1 text-sm font-medium">{{ count($selectedIds) }} selected</span>
+            <span class="px-1 text-sm font-medium">{{ __('plans.status.selected', ['count' => count($selectedIds)]) }}</span>
             <div class="mx-1 h-4 w-px bg-border"></div>
 
             @foreach ($this->availableBulkActions as $action)

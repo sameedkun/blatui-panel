@@ -137,17 +137,27 @@ class Form extends BaseForm
     protected function validationAttributes(): array
     {
         return [
-            'prices.*.amount' => 'amount',
-            'prices.*.compare_at_amount' => 'compare-at amount',
-            'prices.*.currency' => 'currency',
-            'prices.*.billing_period' => 'billing period',
-            'prices.*.billing_interval' => 'billing interval',
-            'prices.*.trial_period' => 'trial period',
-            'prices.*.trial_interval' => 'trial interval',
-            'prices.*.grace_period' => 'grace period',
-            'prices.*.grace_interval' => 'grace interval',
-            'prices.*.providers.*.provider' => 'provider',
-            'prices.*.providers.*.external_id' => 'external ID',
+            'name' => __('plans.validation_attributes.name'),
+            'description' => __('plans.validation_attributes.description'),
+            'is_active' => __('plans.validation_attributes.is_active'),
+            'is_best_deal' => __('plans.validation_attributes.is_best_deal'),
+            'sort_order' => __('plans.validation_attributes.sort_order'),
+            'prices' => __('plans.validation_attributes.prices'),
+            'prices.*.amount' => __('plans.validation_attributes.amount'),
+            'prices.*.compare_at_amount' => __('plans.validation_attributes.compare_at_amount'),
+            'prices.*.currency' => __('plans.validation_attributes.currency'),
+            'prices.*.billing_period' => __('plans.validation_attributes.billing_period'),
+            'prices.*.billing_interval' => __('plans.validation_attributes.billing_interval'),
+            'prices.*.trial_period' => __('plans.validation_attributes.trial_period'),
+            'prices.*.trial_interval' => __('plans.validation_attributes.trial_interval'),
+            'prices.*.grace_period' => __('plans.validation_attributes.grace_period'),
+            'prices.*.grace_interval' => __('plans.validation_attributes.grace_interval'),
+            'prices.*.is_active' => __('plans.validation_attributes.price_is_active'),
+            'prices.*.providers' => __('plans.validation_attributes.providers'),
+            'prices.*.providers.*.provider' => __('plans.validation_attributes.provider'),
+            'prices.*.providers.*.external_id' => __('plans.validation_attributes.external_id'),
+            'prices.*.providers.*.is_active' => __('plans.validation_attributes.provider_is_active'),
+            'features.*' => __('plans.validation_attributes.feature'),
         ];
     }
 
@@ -195,7 +205,7 @@ class Form extends BaseForm
         }
 
         if (! empty($price['id']) && PlanPrice::whereKey($price['id'])->whereHas('subscriptions')->exists()) {
-            $this->toastError('This price has subscriptions and cannot be removed.', 'Deactivate it instead.');
+            $this->toastError(__('plans.toasts.price_cannot_remove'), __('plans.toasts.deactivate_instead'));
 
             return;
         }
@@ -279,7 +289,7 @@ class Form extends BaseForm
             $removedPriceIds = array_diff($existingIds, $submittedIds);
 
             if ($removedPriceIds !== [] && PlanPrice::whereIn('id', $removedPriceIds)->whereHas('subscriptions')->exists()) {
-                $this->toastError('Cannot save — a removed price already has subscriptions.', 'Deactivate it instead of removing it.');
+                $this->toastError(__('plans.toasts.cannot_save_removed_price'), __('plans.toasts.deactivate_instead_of_removing'));
 
                 return;
             }
@@ -316,7 +326,9 @@ class Form extends BaseForm
         }
 
         return $this->redirectWithSuccess(
-            "{$plan->name} plan ".($this->isEditing ? 'updated' : 'created').' successfully.',
+            $this->isEditing
+                ? __('plans.toasts.updated', ['name' => $plan->name])
+                : __('plans.toasts.created', ['name' => $plan->name]),
         );
     }
 
@@ -325,6 +337,6 @@ class Form extends BaseForm
         return view('livewire.admin.management.plans.form', [
             'billingIntervalOptions' => collect(BillingInterval::cases())->mapWithKeys(fn (BillingInterval $c): array => [$c->value => $c->label()])->all(),
             'paymentProviderOptions' => collect(PaymentProvider::cases())->mapWithKeys(fn (PaymentProvider $c): array => [$c->value => $c->label()])->all(),
-        ]);
+        ])->title($this->isEditing ? __('plans.page_titles.edit') : __('plans.page_titles.create'));
     }
 }

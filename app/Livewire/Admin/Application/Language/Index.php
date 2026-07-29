@@ -10,10 +10,8 @@ use App\Models\Language;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 
 #[Layout('layouts.admin.app')]
-#[Title('Languages')]
 class Index extends BaseIndex
 {
     use LogsAdminActivity;
@@ -38,9 +36,12 @@ class Index extends BaseIndex
     {
         return [
             'status' => [
-                'label' => 'Status',
+                'label' => __('languages.fields.status'),
                 'type' => 'multi-select',
-                'options' => ['active' => 'Active', 'inactive' => 'Inactive'],
+                'options' => [
+                    'active' => __('languages.status.active'),
+                    'inactive' => __('languages.status.inactive'),
+                ],
                 'apply' => function (Builder $q, array $values): Builder {
                     return $q->where(function (Builder $sub) use ($values): void {
                         foreach ($values as $v) {
@@ -60,9 +61,12 @@ class Index extends BaseIndex
     {
         return [
             'status' => [
-                'label' => 'Status',
+                'label' => __('languages.fields.status'),
                 'type' => 'multi-select',
-                'options' => ['active' => 'Active', 'inactive' => 'Inactive'],
+                'options' => [
+                    'active' => __('languages.status.active'),
+                    'inactive' => __('languages.status.inactive'),
+                ],
             ],
         ];
     }
@@ -71,28 +75,28 @@ class Index extends BaseIndex
     {
         return [
             [
-                'label' => 'Total Languages',
+                'label' => __('languages.stats.total'),
                 'value' => fn () => Language::count(),
                 'icon' => 'globe',
-                'description' => 'All configured languages',
+                'description' => __('languages.stats.total_description'),
             ],
             [
-                'label' => 'Active',
+                'label' => __('languages.stats.active'),
                 'value' => fn () => Language::where('is_active', true)->count(),
                 'icon' => 'check-circle',
-                'description' => 'Available to users',
+                'description' => __('languages.stats.active_description'),
             ],
             [
-                'label' => 'Inactive',
+                'label' => __('languages.stats.inactive'),
                 'value' => fn () => Language::where('is_active', false)->count(),
                 'icon' => 'circle-off',
-                'description' => 'Hidden from users',
+                'description' => __('languages.stats.inactive_description'),
             ],
             [
-                'label' => 'RTL Languages',
+                'label' => __('languages.stats.rtl'),
                 'value' => fn () => Language::where('is_rtl', true)->count(),
                 'icon' => 'flip-horizontal',
-                'description' => 'Right-to-left languages',
+                'description' => __('languages.stats.rtl_description'),
             ],
         ];
     }
@@ -102,7 +106,7 @@ class Index extends BaseIndex
         return [
             [
                 'key' => 'delete',
-                'label' => 'Delete',
+                'label' => __('languages.actions.delete'),
                 'icon' => 'trash',
                 'confirm' => true,
                 'variant' => 'destructive',
@@ -116,7 +120,7 @@ class Index extends BaseIndex
         $this->authorize('languages.delete');
 
         $language = Language::findOrFail($languageId);
-        abort_if($language->is_default, 403, 'The default language cannot be deleted.');
+        abort_if($language->is_default, 403, __('languages.validation.default_cannot_delete'));
 
         $this->deletingId = $languageId;
         $this->dispatch('open-alert-dialog-delete-language');
@@ -127,7 +131,7 @@ class Index extends BaseIndex
         $this->authorize('languages.delete');
 
         $language = Language::findOrFail($this->deletingId);
-        abort_if($language->is_default, 403, 'The default language cannot be deleted.');
+        abort_if($language->is_default, 403, __('languages.validation.default_cannot_delete'));
 
         $name = $language->name;
         $language->delete();
@@ -137,7 +141,7 @@ class Index extends BaseIndex
         ]);
 
         $this->deletingId = null;
-        $this->toastSuccess("{$name} deleted.");
+        $this->toastSuccess(__('languages.toasts.deleted', ['name' => $name]));
     }
 
     public function executeBulkDelete(): void
@@ -157,7 +161,7 @@ class Index extends BaseIndex
         ]);
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} languages deleted.");
+        $this->toastSuccess(__('languages.toasts.bulk_deleted', ['count' => $count]));
     }
 
     public function render(): View
@@ -170,6 +174,6 @@ class Index extends BaseIndex
                 ->pluck('id')->map(fn ($id) => (string) $id)->toArray(),
             'stats' => $this->resolveStats(),
             'filterBarConfig' => $this->filterBarConfig(),
-        ]);
+        ])->title(__('languages.title'));
     }
 }

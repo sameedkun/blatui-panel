@@ -13,10 +13,8 @@ use App\Models\TicketCategory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 
 #[Layout('layouts.admin.app')]
-#[Title('Ticket Categories')]
 class Index extends BaseIndex
 {
     use HandlesCategoryRowActions;
@@ -44,9 +42,9 @@ class Index extends BaseIndex
     {
         return [
             'status' => [
-                'label' => 'Status',
+                'label' => __('ticket_categories.fields.status'),
                 'type' => 'select',
-                'options' => ['active' => 'Active', 'inactive' => 'Inactive'],
+                'options' => ['active' => __('ticket_categories.status.active'), 'inactive' => __('ticket_categories.status.inactive')],
                 'apply' => fn (Builder $q, string $v): Builder => match ($v) {
                     'active' => $q->where('is_active', true),
                     'inactive' => $q->where('is_active', false),
@@ -60,9 +58,9 @@ class Index extends BaseIndex
     {
         return [
             'status' => [
-                'label' => 'Status',
+                'label' => __('ticket_categories.fields.status'),
                 'type' => 'select',
-                'options' => ['active' => 'Active', 'inactive' => 'Inactive'],
+                'options' => ['active' => __('ticket_categories.status.active'), 'inactive' => __('ticket_categories.status.inactive')],
             ],
         ];
     }
@@ -71,28 +69,28 @@ class Index extends BaseIndex
     {
         return [
             [
-                'label' => 'Total Categories',
+                'label' => __('ticket_categories.stats.total_categories'),
                 'value' => fn () => TicketCategory::count(),
                 'icon' => 'tags',
-                'description' => 'All categories',
+                'description' => __('ticket_categories.stats.all_categories'),
             ],
             [
-                'label' => 'Active',
+                'label' => __('ticket_categories.status.active'),
                 'value' => fn () => TicketCategory::where('is_active', true)->count(),
                 'icon' => 'check-circle',
-                'description' => 'Available for routing',
+                'description' => __('ticket_categories.stats.available_for_routing'),
             ],
             [
-                'label' => 'Unassigned Tickets',
+                'label' => __('ticket_categories.stats.unassigned_tickets'),
                 'value' => fn () => Ticket::whereNull('assigned_to')->whereNotIn('status', [TicketStatus::Resolved->value, TicketStatus::Closed->value])->count(),
                 'icon' => 'user-x',
-                'description' => 'No agent covers them',
+                'description' => __('ticket_categories.stats.no_agent_covers_them'),
             ],
             [
-                'label' => 'Agents Assigned',
+                'label' => __('ticket_categories.stats.agents_assigned'),
                 'value' => fn () => TicketCategory::query()->join('category_agent', 'category_agent.category_id', '=', 'categories.id')->distinct('category_agent.user_id')->count('category_agent.user_id'),
                 'icon' => 'users',
-                'description' => 'Distinct staff covering categories',
+                'description' => __('ticket_categories.stats.distinct_staff'),
             ],
         ];
     }
@@ -102,21 +100,21 @@ class Index extends BaseIndex
         return [
             [
                 'key' => 'activate',
-                'label' => 'Activate',
+                'label' => __('ticket_categories.actions.activate'),
                 'icon' => 'check-circle',
                 'confirm' => true,
                 'permission' => 'ticket_categories.edit',
             ],
             [
                 'key' => 'deactivate',
-                'label' => 'Deactivate',
+                'label' => __('ticket_categories.actions.deactivate'),
                 'icon' => 'circle-slash',
                 'confirm' => true,
                 'permission' => 'ticket_categories.edit',
             ],
             [
                 'key' => 'delete',
-                'label' => 'Delete',
+                'label' => __('ticket_categories.actions.delete'),
                 'icon' => 'trash',
                 'confirm' => true,
                 'variant' => 'destructive',
@@ -140,7 +138,7 @@ class Index extends BaseIndex
         ]);
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} categories activated.");
+        $this->toastSuccess(trans_choice('ticket_categories.toasts.bulk_activated', $count, ['count' => $count]));
     }
 
     public function executeBulkDeactivate(): void
@@ -158,7 +156,7 @@ class Index extends BaseIndex
         ]);
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} categories deactivated.");
+        $this->toastSuccess(trans_choice('ticket_categories.toasts.bulk_deactivated', $count, ['count' => $count]));
     }
 
     public function executeBulkDelete(): void
@@ -181,9 +179,9 @@ class Index extends BaseIndex
 
         $this->clearSelection();
 
-        $message = "{$deletable->count()} categories deleted.";
+        $message = trans_choice('ticket_categories.toasts.bulk_deleted', $deletable->count(), ['count' => $deletable->count()]);
         if ($blocked > 0) {
-            $message .= " {$blocked} skipped (has tickets).";
+            $message .= ' '.trans_choice('ticket_categories.toasts.bulk_skipped', $blocked, ['count' => $blocked]);
         }
 
         $this->toastSuccess($message);
@@ -198,6 +196,6 @@ class Index extends BaseIndex
             'pageIds' => $categories->pluck('id')->map(fn ($id) => (string) $id)->toArray(),
             'stats' => $this->resolveStats(),
             'filterBarConfig' => $this->filterBarConfig(),
-        ]);
+        ])->title(__('ticket_categories.title'));
     }
 }

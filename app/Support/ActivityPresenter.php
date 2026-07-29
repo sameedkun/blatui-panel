@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enum\PolicyType;
+use App\Enum\TicketPriority;
 use App\Models\Feedback;
 use App\Models\Language;
 use App\Models\Notification;
@@ -287,13 +288,13 @@ class ActivityPresenter
             'plan_created' => 'Plan Created',
             'plan_updated' => 'Plan Updated',
             'plan_deleted' => 'Plan Deleted',
-            'ticket_created' => 'Ticket Created',
-            'ticket_updated' => 'Ticket Updated',
-            'ticket_assigned' => 'Agent Assigned',
-            'ticket_replied' => 'Staff Replied',
-            'ticket_category_created' => 'Category Created',
-            'ticket_category_updated' => 'Category Updated',
-            'ticket_category_deleted' => 'Category Deleted',
+            'ticket_created' => __('tickets.activity.ticket_created'),
+            'ticket_updated' => __('tickets.activity.ticket_updated'),
+            'ticket_assigned' => __('tickets.activity.ticket_assigned'),
+            'ticket_replied' => __('tickets.activity.ticket_replied'),
+            'ticket_category_created' => __('ticket_categories.activity.created'),
+            'ticket_category_updated' => __('ticket_categories.activity.updated'),
+            'ticket_category_deleted' => __('ticket_categories.activity.deleted'),
             'subscription_assigned' => 'Plan Assigned',
             'subscription_upgraded' => 'Plan Changed',
             'subscription_cancelled' => 'Subscription Cancelled',
@@ -343,7 +344,10 @@ class ActivityPresenter
 
         // Self-evident for auth events — never worth a "Performed by" row.
         if (! in_array($kind, ['login', 'failed'], true)) {
-            $rows[] = self::row('Performed by', self::performedBy($activity, $subject));
+            $performedByLabel = str_starts_with($kind, 'ticket_')
+                ? __('tickets.activity.performed_by')
+                : 'Performed by';
+            $rows[] = self::row($performedByLabel, self::performedBy($activity, $subject, str_starts_with($kind, 'ticket_')));
         }
 
         $rows = [...$rows, ...match ($kind) {
@@ -367,20 +371,28 @@ class ActivityPresenter
             'password_changed' => [
                 self::row('IP', $properties['ip'] ?? null),
             ],
-            'updated', 'plan_updated', 'ticket_category_updated' => [
+            'updated', 'plan_updated' => [
                 self::row('Changed', self::changedFields($properties)),
                 self::row('Password', ($properties['password_changed'] ?? false) ? 'Changed' : null),
             ],
+            'ticket_category_updated' => [
+                self::row(__('ticket_categories.activity.changed'), self::changedTicketFields($properties, 'ticket_categories.fields')),
+            ],
             'ticket_created' => [
-                self::row('Category', $properties['category'] ?? null),
-                self::row('Priority', isset($properties['priority']) ? Str::headline((string) $properties['priority']) : null),
-                self::row('Assigned to', $properties['agent'] ?? 'Unassigned'),
+                self::row(__('tickets.fields.category'), $properties['category'] ?? null),
+                self::row(
+                    __('tickets.fields.priority'),
+                    isset($properties['priority'])
+                        ? TicketPriority::tryFrom((string) $properties['priority'])?->label()
+                        : null,
+                ),
+                self::row(__('tickets.fields.assigned_to'), $properties['agent'] ?? __('tickets.unassigned')),
             ],
             'ticket_updated' => [
-                self::row('Changed', self::changedFields($properties)),
+                self::row(__('tickets.activity.changed'), self::changedTicketFields($properties, 'tickets.activity.fields')),
             ],
             'ticket_assigned' => [
-                self::row('Agent', $properties['agent'] ?? 'Unassigned'),
+                self::row(__('tickets.fields.agent'), $properties['agent'] ?? __('tickets.unassigned')),
             ],
             'setting_domain_created', 'setting_domain_updated', 'setting_domain_deleted' => [
                 self::row('Domain', $properties['domain'] ?? null),
@@ -476,24 +488,41 @@ class ActivityPresenter
             ->all();
     }
 
+    /** @return array<int, string> */
+    protected static function changedTicketFields(array $properties, string $translationPrefix): array
+    {
+        return collect($properties['attributes'] ?? [])
+            ->keys()
+            ->map(function (string $key) use ($translationPrefix): string {
+                $translation = __("{$translationPrefix}.{$key}");
+
+                return $translation === "{$translationPrefix}.{$key}" ? Str::headline($key) : $translation;
+            })
+            ->all();
+    }
+
     /**
      * "System" (no causer), "User" (the account acted on itself — e.g. a
      * self-service password change), "{name} (Admin)" for staff, else the
      * causer's plain name.
      */
-    protected static function performedBy(Activity $activity, ?Model $subject = null): string
+    protected static function performedBy(Activity $activity, ?Model $subject = null, bool $localizeForTickets = false): string
     {
         $causer = $activity->causer;
 
         if (! $causer instanceof User) {
-            return 'System';
+            return $localizeForTickets ? __('tickets.activity.system') : 'System';
         }
 
         if ($subject instanceof User && $causer->is($subject)) {
-            return 'User';
+            return $localizeForTickets ? __('tickets.activity.user') : 'User';
         }
 
-        return $causer->isStaff() ? "{$causer->name} (Admin)" : $causer->name;
+        return $causer->isStaff()
+            ? ($localizeForTickets
+                ? __('tickets.activity.admin', ['name' => $causer->name])
+                : "{$causer->name} (Admin)")
+            : $causer->name;
     }
 
     /**

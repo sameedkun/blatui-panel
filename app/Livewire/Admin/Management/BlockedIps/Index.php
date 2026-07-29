@@ -11,7 +11,6 @@ use App\Models\BlockedIp;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 
 /**
  * CRUD list for blocked IPs — no Show page (a blocked_ips row is five fields;
@@ -21,7 +20,6 @@ use Livewire\Attributes\Title;
  * of a Show page.
  */
 #[Layout('layouts.admin.app')]
-#[Title('Blocked IPs')]
 class Index extends BaseIndex
 {
     use HandlesIpActivityPanel;
@@ -75,14 +73,20 @@ class Index extends BaseIndex
     {
         return [
             'scope' => [
-                'label' => 'Scope',
+                'label' => __('blocked_ips.fields.scope'),
                 'type' => 'select',
-                'options' => ['global' => 'Global', 'user' => 'Per-User'],
+                'options' => [
+                    'global' => __('blocked_ips.scopes.global'),
+                    'user' => __('blocked_ips.scopes.per_user'),
+                ],
             ],
             'expired' => [
-                'label' => 'Expired',
+                'label' => __('blocked_ips.filters.expiry'),
                 'type' => 'select',
-                'options' => ['yes' => 'Expired', 'no' => 'Not Expired'],
+                'options' => [
+                    'yes' => __('blocked_ips.status.expired'),
+                    'no' => __('blocked_ips.status.not_expired'),
+                ],
             ],
         ];
     }
@@ -91,28 +95,28 @@ class Index extends BaseIndex
     {
         return [
             [
-                'label' => 'Total Blocks',
+                'label' => __('blocked_ips.stats.total'),
                 'value' => fn () => BlockedIp::count(),
                 'icon' => 'shield-alert',
-                'description' => 'All rules',
+                'description' => __('blocked_ips.stats.total_description'),
             ],
             [
-                'label' => 'Active',
+                'label' => __('blocked_ips.stats.active'),
                 'value' => fn () => BlockedIp::active()->count(),
                 'icon' => 'shield-check',
-                'description' => 'Currently enforced',
+                'description' => __('blocked_ips.stats.active_description'),
             ],
             [
-                'label' => 'Expired',
+                'label' => __('blocked_ips.stats.expired'),
                 'value' => fn () => BlockedIp::whereNotNull('expires_at')->where('expires_at', '<=', now())->count(),
                 'icon' => 'shield-off',
-                'description' => 'Prunable',
+                'description' => __('blocked_ips.stats.expired_description'),
             ],
             [
-                'label' => 'Global',
+                'label' => __('blocked_ips.stats.global'),
                 'value' => fn () => BlockedIp::global()->count(),
                 'icon' => 'globe',
-                'description' => 'Block every user',
+                'description' => __('blocked_ips.stats.global_description'),
             ],
         ];
     }
@@ -122,7 +126,7 @@ class Index extends BaseIndex
         return [
             [
                 'key' => 'delete',
-                'label' => 'Delete',
+                'label' => __('blocked_ips.actions.delete'),
                 'icon' => 'trash',
                 'confirm' => true,
                 'variant' => 'destructive',
@@ -150,7 +154,7 @@ class Index extends BaseIndex
         ]);
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} blocks deleted.");
+        $this->toastSuccess(__('blocked_ips.toasts.bulk_deleted', ['count' => $count]));
     }
 
     public function confirmDeleteAllExpired(): void
@@ -187,7 +191,7 @@ class Index extends BaseIndex
         ]);
 
         $this->deletingId = null;
-        $this->toastSuccess("Block on {$ip} removed.");
+        $this->toastSuccess(__('blocked_ips.toasts.deleted', ['ip' => $ip]));
     }
 
     public function deleteAllExpired(): void
@@ -210,7 +214,7 @@ class Index extends BaseIndex
         }
 
         $this->confirmingDeleteAllExpired = false;
-        $this->toastSuccess("{$count} expired blocks deleted.");
+        $this->toastSuccess(__('blocked_ips.toasts.expired_deleted', ['count' => $count]));
     }
 
     public function render(): View
@@ -222,6 +226,6 @@ class Index extends BaseIndex
             'pageIds' => $blockedIps->pluck('id')->map(fn ($id) => (string) $id)->toArray(),
             'stats' => $this->resolveStats(),
             'filterBarConfig' => $this->filterBarConfig(),
-        ]);
+        ])->title(__('blocked_ips.title'));
     }
 }

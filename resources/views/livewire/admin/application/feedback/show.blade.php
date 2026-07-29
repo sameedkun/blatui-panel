@@ -14,7 +14,7 @@
                 </div>
                 <div class="space-y-1">
                     <div class="flex flex-wrap items-center gap-2.5">
-                        <h1 class="text-xl font-bold tracking-tight text-foreground">{{ $record->subject ?: 'No subject' }}</h1>
+                        <h1 class="text-xl font-bold tracking-tight text-foreground">{{ $record->subject ?: __('feedback.empty.subject') }}</h1>
                         <x-ui.badge variant="secondary" class="text-xs font-medium">{{ $record->type->label() }}</x-ui.badge>
                         
                         @if ($record->status === \App\Enum\FeedbackStatus::Resolved)
@@ -34,8 +34,8 @@
                         @endif
                     </div>
                     <p class="text-xs text-muted-foreground">
-                        Submitted <x-ui.local-time :value="$record->created_at" format="MMM D, YYYY [at] h:mm A" />
-                        &bull; Feedback #{{ $record->id }}
+                        {{ __('feedback.show.submitted') }} <x-ui.local-time :value="$record->created_at" :format="__('feedback.show.submitted_format')" />
+                        &bull; {{ __('feedback.show.feedback_number', ['id' => $record->id]) }}
                     </p>
                 </div>
             </div>
@@ -45,28 +45,28 @@
                 @if ($record->status === \App\Enum\FeedbackStatus::New)
                     <x-ui.button size="sm" wire:click="markAsRead" class="gap-1.5 shadow-2xs">
                         <x-lucide-eye class="size-3.5" />
-                        <span>Mark Read</span>
+                        <span>{{ __('feedback.actions.mark_read') }}</span>
                     </x-ui.button>
                 @endif
 
                 @if ($record->status !== \App\Enum\FeedbackStatus::Resolved)
                     <x-ui.button size="sm" variant="outline" wire:click="resolve" class="gap-1.5 shadow-2xs">
                         <x-lucide-check class="size-3.5 text-emerald-500" />
-                        <span>Resolve</span>
+                        <span>{{ __('feedback.actions.resolve') }}</span>
                     </x-ui.button>
                 @endif
 
                 @if ($record->status !== \App\Enum\FeedbackStatus::Ignored)
                     <x-ui.button size="sm" variant="outline" wire:click="ignore" class="gap-1.5 text-muted-foreground shadow-2xs">
                         <x-lucide-eye-off class="size-3.5" />
-                        <span>Ignore</span>
+                        <span>{{ __('feedback.actions.ignore') }}</span>
                     </x-ui.button>
                 @endif
 
                 @if (in_array($record->status, [\App\Enum\FeedbackStatus::Resolved, \App\Enum\FeedbackStatus::Ignored], true))
                     <x-ui.button size="sm" variant="ghost" wire:click="reopen" class="gap-1.5 shadow-2xs">
                         <x-lucide-rotate-ccw class="size-3.5" />
-                        <span>Reopen</span>
+                        <span>{{ __('feedback.actions.reopen') }}</span>
                     </x-ui.button>
                 @endif
             </div>
@@ -87,8 +87,8 @@
                             <x-lucide-message-square class="size-4.5" />
                         </div>
                         <div>
-                            <x-ui.card-title class="text-base">User Message</x-ui.card-title>
-                            <x-ui.card-description>Full submitted feedback details.</x-ui.card-description>
+                            <x-ui.card-title class="text-base">{{ __('feedback.show.message_title') }}</x-ui.card-title>
+                            <x-ui.card-description>{{ __('feedback.show.message_description') }}</x-ui.card-description>
                         </div>
                     </div>
                 </x-ui.card-header>
@@ -107,14 +107,14 @@
                             <x-lucide-sticky-note class="size-4.5" />
                         </div>
                         <div>
-                            <x-ui.card-title class="text-base">Internal Admin Notes</x-ui.card-title>
-                            <x-ui.card-description>Private team notes — never visible to the submitter.</x-ui.card-description>
+                            <x-ui.card-title class="text-base">{{ __('feedback.show.notes_title') }}</x-ui.card-title>
+                            <x-ui.card-description>{{ __('feedback.show.notes_description') }}</x-ui.card-description>
                         </div>
                     </div>
                 </x-ui.card-header>
                 <x-ui.card-content class="space-y-4 pt-6">
                     <x-ui.field>
-                        <x-ui.textarea wire:model="adminNotes" rows="4" placeholder="Add internal notes, resolution details, or staff investigation logs..." class="bg-muted/20 text-xs leading-relaxed" />
+                        <x-ui.textarea wire:model="adminNotes" rows="4" :placeholder="__('feedback.show.notes_placeholder')" class="bg-muted/20 text-xs leading-relaxed" />
                         @error('adminNotes')
                             <x-ui.field-error>{{ $message }}</x-ui.field-error>
                         @enderror
@@ -122,7 +122,7 @@
                     <div class="flex justify-end">
                         <x-ui.button size="sm" wire:click="saveNotes" wire:loading.attr="disabled" wire:target="saveNotes" class="gap-1.5 shadow-2xs">
                             <x-lucide-save class="size-4" />
-                            <span>Save Internal Notes</span>
+                            <span>{{ __('feedback.actions.save_notes') }}</span>
                         </x-ui.button>
                     </div>
                 </x-ui.card-content>
@@ -141,8 +141,8 @@
                             <x-lucide-user class="size-4.5" />
                         </div>
                         <div>
-                            <x-ui.card-title class="text-base">Submitter Info</x-ui.card-title>
-                            <x-ui.card-description>Account details & origin.</x-ui.card-description>
+                            <x-ui.card-title class="text-base">{{ __('feedback.show.submitter_title') }}</x-ui.card-title>
+                            <x-ui.card-description>{{ __('feedback.show.submitter_description') }}</x-ui.card-description>
                         </div>
                     </div>
                 </x-ui.card-header>
@@ -166,7 +166,7 @@
                             @if ($record->user->isAppUser())
                                 <x-ui.button variant="outline" size="sm" class="w-full gap-1.5 text-xs shadow-2xs" href="{{ route('admin.users.show', $record->user) }}">
                                     <x-lucide-external-link class="size-3.5" />
-                                    <span>View User Profile</span>
+                                    <span>{{ __('feedback.actions.view_user_profile') }}</span>
                                 </x-ui.button>
                             @endif
                         @endcan
@@ -174,7 +174,7 @@
                             @if ($record->user->isGuest())
                                 <x-ui.button variant="outline" size="sm" class="w-full gap-1.5 text-xs shadow-2xs" href="{{ route('admin.guests.show', $record->user) }}">
                                     <x-lucide-external-link class="size-3.5" />
-                                    <span>View Guest Profile</span>
+                                    <span>{{ __('feedback.actions.view_guest_profile') }}</span>
                                 </x-ui.button>
                             @endif
                         @endcan
@@ -182,12 +182,12 @@
                         <div class="space-y-3">
                             <x-ui.badge variant="outline" class="gap-1.5 text-xs font-medium">
                                 <x-lucide-user-x class="size-3.5 text-muted-foreground" />
-                                Anonymous Submission
+                                {{ __('feedback.show.anonymous_submission') }}
                             </x-ui.badge>
 
                             @if ($record->email)
                                 <div class="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-0.5">
-                                    <p class="text-xs font-medium text-muted-foreground">Provided Email Address</p>
+                                    <p class="text-xs font-medium text-muted-foreground">{{ __('feedback.fields.provided_email') }}</p>
                                     <p class="text-xs font-semibold text-foreground font-mono select-all">{{ $record->email }}</p>
                                 </div>
 
@@ -195,13 +195,13 @@
                                     <div class="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3.5 space-y-1.5 text-xs text-blue-900 dark:text-blue-200">
                                         <div class="flex items-center gap-1.5 font-semibold text-blue-700 dark:text-blue-300">
                                             <x-lucide-info class="size-4" />
-                                            <span>Matching Account Found</span>
+                                            <span>{{ __('feedback.show.matching_account') }}</span>
                                         </div>
                                         <p>{{ $matchingAccount->name }} ({{ $matchingAccount->email }})</p>
                                         @can('users.manage')
                                             @if ($matchingAccount->isAppUser())
                                                 <a href="{{ route('admin.users.show', $matchingAccount) }}" class="inline-flex items-center gap-1 text-primary hover:underline font-medium">
-                                                    <span>View User Profile</span>
+                                                    <span>{{ __('feedback.actions.view_user_profile') }}</span>
                                                     <x-lucide-arrow-up-right class="size-3" />
                                                 </a>
                                             @endif
@@ -209,7 +209,7 @@
                                         @can('guests.manage')
                                             @if ($matchingAccount->isGuest())
                                                 <a href="{{ route('admin.guests.show', $matchingAccount) }}" class="inline-flex items-center gap-1 text-primary hover:underline font-medium">
-                                                    <span>View Guest Profile</span>
+                                                    <span>{{ __('feedback.actions.view_guest_profile') }}</span>
                                                     <x-lucide-arrow-up-right class="size-3" />
                                                 </a>
                                             @endif
@@ -217,7 +217,7 @@
                                     </div>
                                 @endif
                             @else
-                                <p class="text-xs text-muted-foreground italic">No contact email provided.</p>
+                                <p class="text-xs text-muted-foreground italic">{{ __('feedback.empty.contact_email') }}</p>
                             @endif
                         </div>
                     @endif
@@ -232,8 +232,8 @@
                             <x-lucide-sliders class="size-4.5" />
                         </div>
                         <div>
-                            <x-ui.card-title class="text-base">Quick Status Controls</x-ui.card-title>
-                            <x-ui.card-description>Update submission state.</x-ui.card-description>
+                            <x-ui.card-title class="text-base">{{ __('feedback.show.controls_title') }}</x-ui.card-title>
+                            <x-ui.card-description>{{ __('feedback.show.controls_description') }}</x-ui.card-description>
                         </div>
                     </div>
                 </x-ui.card-header>
@@ -241,28 +241,28 @@
                     @if ($record->status === \App\Enum\FeedbackStatus::New)
                         <x-ui.button class="w-full gap-2 shadow-2xs" wire:click="markAsRead">
                             <x-lucide-eye class="size-4" />
-                            <span>Mark as Read</span>
+                            <span>{{ __('feedback.actions.mark_as_read') }}</span>
                         </x-ui.button>
                     @endif
 
                     @if ($record->status !== \App\Enum\FeedbackStatus::Resolved)
                         <x-ui.button class="w-full gap-2 shadow-2xs" variant="outline" wire:click="resolve">
                             <x-lucide-check class="size-4 text-emerald-500" />
-                            <span>Mark Resolved</span>
+                            <span>{{ __('feedback.actions.mark_resolved') }}</span>
                         </x-ui.button>
                     @endif
 
                     @if ($record->status !== \App\Enum\FeedbackStatus::Ignored)
                         <x-ui.button class="w-full gap-2 text-muted-foreground shadow-2xs" variant="outline" wire:click="ignore">
                             <x-lucide-eye-off class="size-4" />
-                            <span>Ignore Feedback</span>
+                            <span>{{ __('feedback.actions.ignore_feedback') }}</span>
                         </x-ui.button>
                     @endif
 
                     @if (in_array($record->status, [\App\Enum\FeedbackStatus::Resolved, \App\Enum\FeedbackStatus::Ignored], true))
                         <x-ui.button class="w-full gap-2 shadow-2xs" variant="ghost" wire:click="reopen">
                             <x-lucide-rotate-ccw class="size-4" />
-                            <span>Reopen Submission</span>
+                            <span>{{ __('feedback.actions.reopen_submission') }}</span>
                         </x-ui.button>
                     @endif
                 </x-ui.card-content>

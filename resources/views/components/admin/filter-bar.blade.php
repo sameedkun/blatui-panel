@@ -11,7 +11,7 @@
     'config' => [],
     'filters' => [],
     'hasActiveFilters' => false,
-    'searchPlaceholder' => 'Search…',
+    'searchPlaceholder' => __('common.search'),
 ])
 
 <div class="flex flex-wrap items-center gap-2">

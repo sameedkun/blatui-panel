@@ -9,6 +9,9 @@ use App\Models\PlanPrice;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Lang;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -24,6 +27,58 @@ class PlansAdminTest extends TestCase
         $this->actingAs($admin);
 
         return $admin;
+    }
+
+    public function test_english_and_turkish_plan_translations_have_matching_keys(): void
+    {
+        $englishKeys = array_keys(Arr::dot(Lang::get('plans', [], 'en')));
+        $turkishKeys = array_keys(Arr::dot(Lang::get('plans', [], 'tr')));
+
+        sort($englishKeys);
+        sort($turkishKeys);
+
+        $this->assertSame($englishKeys, $turkishKeys);
+    }
+
+    public function test_plan_pages_use_the_request_locale_in_content_and_browser_titles(): void
+    {
+        $this->actingAsSuperAdmin();
+        $plan = Plan::factory()->create(['name' => 'Professional']);
+
+        $indexResponse = $this->withCookie('locale', 'tr')->get(route('admin.plans.index'));
+        $indexResponse->assertOk();
+        $indexResponse->assertSee('<title>'.__('plans.title').' — '.config('app.name').'</title>', false);
+        $indexResponse->assertSee(__('plans.subtitle'));
+
+        $createResponse = $this->withCookie('locale', 'tr')->get(route('admin.plans.create'));
+        $createResponse->assertOk();
+        $createResponse->assertSee('<title>'.__('plans.page_titles.create').' — '.config('app.name').'</title>', false);
+
+        $editResponse = $this->withCookie('locale', 'tr')->get(route('admin.plans.edit', $plan));
+        $editResponse->assertOk();
+        $editResponse->assertSee('<title>'.__('plans.page_titles.edit').' — '.config('app.name').'</title>', false);
+
+        $showResponse = $this->withCookie('locale', 'tr')->get(route('admin.plans.show', $plan));
+        $showResponse->assertOk();
+        $showResponse->assertSee(
+            '<title>'.__('plans.title').' — '.$plan->name.' — '.config('app.name').'</title>',
+            false,
+        );
+    }
+
+    public function test_plan_action_toast_uses_the_active_locale(): void
+    {
+        App::setLocale('tr');
+        $this->actingAsSuperAdmin();
+        $plan = Plan::factory()->create(['name' => 'Professional', 'is_active' => true]);
+
+        Livewire::test(Index::class)
+            ->call('toggleActive', $plan->id)
+            ->assertDispatched(
+                'toast',
+                type: 'success',
+                title: __('plans.toasts.deactivated', ['name' => $plan->name]),
+            );
     }
 
     public function test_creating_a_plan_persists_prices_and_providers(): void

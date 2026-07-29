@@ -66,17 +66,17 @@ class Show extends BaseShow
     {
         return [
             'overview' => [
-                'label' => 'Overview',
+                'label' => __('plans.tabs.overview'),
                 'icon' => 'layout-grid',
                 'view' => 'livewire.admin.management.plans.show.tabs.overview',
             ],
             'prices' => [
-                'label' => 'Prices',
+                'label' => __('plans.tabs.prices'),
                 'icon' => 'credit-card',
                 'view' => 'livewire.admin.management.plans.show.tabs.prices',
             ],
             'subscriptions' => [
-                'label' => 'Subscriptions',
+                'label' => __('plans.tabs.subscriptions'),
                 'icon' => 'users',
                 'view' => 'livewire.admin.management.plans.show.tabs.subscriptions',
                 'data' => fn (): array => [
@@ -84,7 +84,7 @@ class Show extends BaseShow
                 ],
             ],
             'activity' => [
-                'label' => 'Activity',
+                'label' => __('plans.tabs.activity'),
                 'icon' => 'activity',
                 'view' => 'livewire.admin.management.plans.show.tabs.activity',
                 'permission' => 'activity_logs.view',
@@ -136,11 +136,11 @@ class Show extends BaseShow
         $inactive = (int) $counts->sum() - $active;
 
         return [
-            ['label' => 'Total Subscriptions', 'icon' => 'users', 'value' => (string) $counts->sum()],
-            ['label' => 'Active', 'icon' => 'check-circle', 'value' => (string) $active],
-            ['label' => 'Cancelled / Expired', 'icon' => 'circle-slash', 'value' => (string) $inactive],
-            ['label' => 'Total Revenue', 'icon' => 'banknote', 'value' => number_format((float) $plan->subscriptions()->sum('amount_paid'), 2)],
-            ['label' => 'Prices', 'icon' => 'tag', 'value' => (string) $plan->prices()->count()],
+            ['label' => __('plans.show_stats.total_subscriptions'), 'icon' => 'users', 'value' => (string) $counts->sum()],
+            ['label' => __('plans.status.active'), 'icon' => 'check-circle', 'value' => (string) $active],
+            ['label' => __('plans.show_stats.cancelled_expired'), 'icon' => 'circle-slash', 'value' => (string) $inactive],
+            ['label' => __('plans.show_stats.total_revenue'), 'icon' => 'banknote', 'value' => number_format((float) $plan->subscriptions()->sum('amount_paid'), 2)],
+            ['label' => __('plans.tabs.prices'), 'icon' => 'tag', 'value' => (string) $plan->prices()->count()],
         ];
     }
 
@@ -157,7 +157,10 @@ class Show extends BaseShow
 
         if ($this->hasSubscriptions($plan)) {
             $this->deletingId = null;
-            $this->toastError("{$plan->name} has subscriptions and cannot be deleted.", 'Deactivate it instead to retire it.');
+            $this->toastError(
+                __('plans.toasts.cannot_delete_with_subscriptions', ['name' => $plan->name]),
+                __('plans.toasts.deactivate_to_retire'),
+            );
 
             return;
         }
@@ -169,7 +172,7 @@ class Show extends BaseShow
             'attributes' => ['name' => $name],
         ]);
 
-        session()->flash('toast', ['type' => 'success', 'title' => "{$name} deleted."]);
+        session()->flash('toast', ['type' => 'success', 'title' => __('plans.toasts.deleted', ['name' => $name])]);
 
         return $this->redirect(route('admin.plans.index'));
     }
@@ -180,7 +183,7 @@ class Show extends BaseShow
 
         return view('livewire.admin.management.plans.show', [
             'stats' => $this->statCards(),
-        ]);
+        ])->title(__('plans.title').' — '.$this->title());
     }
 
     /** Pull fresh attributes so header badges reflect an action taken this request. */

@@ -32,7 +32,7 @@ class Show extends BaseShow
 
     protected function title(): string
     {
-        return $this->record->subject ?: 'Feedback #'.$this->record->id;
+        return $this->record->subject ?: __('feedback.show.feedback_number', ['id' => $this->record->id]);
     }
 
     protected function viewPermission(): ?string
@@ -71,7 +71,7 @@ class Show extends BaseShow
             'status' => FeedbackStatus::Read->value,
         ]);
 
-        $this->toastSuccess('Marked as read.');
+        $this->toastSuccess(__('feedback.toasts.marked_read'));
     }
 
     public function resolve(): void
@@ -92,7 +92,7 @@ class Show extends BaseShow
             'status' => FeedbackStatus::Resolved->value,
         ]);
 
-        $this->toastSuccess('Feedback resolved.');
+        $this->toastSuccess(__('feedback.toasts.resolved'));
     }
 
     public function ignore(): void
@@ -112,7 +112,7 @@ class Show extends BaseShow
             'status' => FeedbackStatus::Ignored->value,
         ]);
 
-        $this->toastSuccess('Feedback ignored.');
+        $this->toastSuccess(__('feedback.toasts.ignored'));
     }
 
     public function reopen(): void
@@ -129,14 +129,21 @@ class Show extends BaseShow
             'status' => FeedbackStatus::Read->value,
         ]);
 
-        $this->toastSuccess('Feedback reopened.');
+        $this->toastSuccess(__('feedback.toasts.reopened'));
     }
 
     public function saveNotes(): void
     {
         $this->authorize('feedback.manage');
 
-        $this->validate(['adminNotes' => ['nullable', 'string', 'max:5000']]);
+        $this->validate(
+            ['adminNotes' => ['nullable', 'string', 'max:5000']],
+            [
+                'adminNotes.string' => __('feedback.validation.admin_notes_invalid'),
+                'adminNotes.max' => __('feedback.validation.admin_notes_max', ['max' => 5000]),
+            ],
+            ['adminNotes' => __('feedback.validation_attributes.admin_notes')],
+        );
 
         /** @var Feedback $feedback */
         $feedback = $this->record;
@@ -147,7 +154,7 @@ class Show extends BaseShow
             'type' => 'feedback_notes_updated',
         ]);
 
-        $this->toastSuccess('Notes saved.');
+        $this->toastSuccess(__('feedback.toasts.notes_saved'));
     }
 
     public function render(): View
@@ -158,6 +165,6 @@ class Show extends BaseShow
 
         return view('livewire.admin.application.feedback.show', [
             'matchingAccount' => $this->matchingAccount(),
-        ]);
+        ])->title(__('feedback.title').' — '.$this->title());
     }
 }

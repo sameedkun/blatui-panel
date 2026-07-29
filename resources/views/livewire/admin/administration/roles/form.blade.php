@@ -1,27 +1,25 @@
 <div class="max-w-4xl">
 
-    <x-admin.page-header :title="$isEditing ? ($isProtectedRole ? 'View Role' : 'Edit Role') : 'Create Role'" :description="$isEditing
-        ? 'Review the permissions granted by this role.'
-        : 'Name the role and choose which permissions it grants.'" :breadcrumbs="$isEditing
+    <x-admin.page-header :title="$isEditing ? ($isProtectedRole ? __('roles.form.view_title') : __('roles.form.edit_title')) : __('roles.form.create_title')" :description="$isEditing
+        ? __('roles.form.edit_description')
+        : __('roles.form.create_description')" :breadcrumbs="$isEditing
         ? [
-            ['label' => 'Home', 'url' => route('admin.dashboard')],
-            ['label' => 'Roles', 'url' => route('admin.roles.index')],
-            ['label' => Str::headline($name)],
+            ['label' => __('roles.common.home'), 'url' => route('admin.dashboard')],
+            ['label' => __('roles.title'), 'url' => route('admin.roles.index')],
+            ['label' => $roleLabel],
         ]
         : [
-            ['label' => 'Home', 'url' => route('admin.dashboard')],
-            ['label' => 'Roles', 'url' => route('admin.roles.index')],
-            ['label' => 'Create'],
+            ['label' => __('roles.common.home'), 'url' => route('admin.dashboard')],
+            ['label' => __('roles.title'), 'url' => route('admin.roles.index')],
+            ['label' => __('roles.form.create_breadcrumb')],
         ]" :back="route('admin.roles.index')" />
 
     @if ($isProtectedRole)
         <x-ui.alert tone="warning" class="mb-6">
             <x-lucide-lock class="size-4" />
-            <x-ui.alert-title>Protected system role</x-ui.alert-title>
+            <x-ui.alert-title>{{ __('roles.form.protected_title') }}</x-ui.alert-title>
             <x-ui.alert-description>
-                "{{ Str::headline($name) }}" is managed automatically — its permissions are re-synced from
-                <code>config/panel.php</code> every time roles are seeded. You can review them here, but they
-                can't be edited from the panel.
+                {{ __('roles.form.protected_description', ['name' => $roleLabel]) }}
             </x-ui.alert-description>
         </x-ui.alert>
     @endif
@@ -32,11 +30,11 @@
 
                 {{-- Name --}}
                 <x-ui.field>
-                    <x-ui.field-label for="name" required>Role name</x-ui.field-label>
-                    <x-ui.input id="name" wire:model="name" placeholder="billing-support" :disabled="$isProtectedRole"
+                    <x-ui.field-label for="name" required>{{ __('roles.fields.name') }}</x-ui.field-label>
+                    <x-ui.input id="name" wire:model="name" :placeholder="__('roles.form.name_placeholder')" :disabled="$isProtectedRole"
                         aria-invalid="{{ $errors->has('name') ? 'true' : 'false' }}" />
                     <x-ui.field-description>
-                        Lowercase letters, numbers, and dashes only (e.g. <code>billing-support</code>).
+                        {{ __('roles.form.name_description') }}
                     </x-ui.field-description>
                     @error('name')
                         <x-ui.field-error>{{ $message }}</x-ui.field-error>
@@ -47,7 +45,7 @@
 
                     {{-- Panel access --}}
                     <div class="rounded-md border border-border p-4">
-                        <p class="mb-3 text-sm font-semibold">Panel Access</p>
+                        <p class="mb-3 text-sm font-semibold">{{ __('roles.form.panel_access') }}</p>
                         <div class="flex flex-wrap gap-4">
                             @forelse ($panelAccessOptions as $permission => $label)
                                 <label class="flex cursor-pointer items-center gap-2">
@@ -56,23 +54,23 @@
                                     <span class="text-sm">{{ $label }}</span>
                                 </label>
                             @empty
-                                <p class="text-sm text-muted-foreground">No panel access permissions configured.</p>
+                                <p class="text-sm text-muted-foreground">{{ __('roles.form.no_panel_access') }}</p>
                             @endforelse
                         </div>
                     </div>
 
                     {{-- Permission matrix --}}
                     <div class="flex items-center justify-between">
-                        <p class="text-sm font-semibold">Module Permissions</p>
+                        <p class="text-sm font-semibold">{{ __('roles.form.module_permissions') }}</p>
                         <div class="flex items-center gap-2 text-xs">
-                            <span class="text-muted-foreground" x-text="$wire.permissions.length + ' selected'"></span>
+                            <span class="text-muted-foreground" x-text="$wire.permissions.length + ' ' + @js(__('roles.form.selected_suffix'))"></span>
                             @unless ($isProtectedRole)
                                 <span class="text-muted-foreground">·</span>
                                 <button type="button" class="text-primary underline hover:no-underline"
-                                    @click="$wire.permissions = @js($allPermissionNames)">Select all</button>
+                                    @click="$wire.permissions = @js($allPermissionNames)">{{ __('roles.actions.select_all') }}</button>
                                 <span class="text-muted-foreground">·</span>
                                 <button type="button" class="text-primary underline hover:no-underline"
-                                    @click="$wire.permissions = []">Clear all</button>
+                                    @click="$wire.permissions = []">{{ __('roles.actions.clear_all') }}</button>
                             @endunless
                         </div>
                     </div>
@@ -124,16 +122,16 @@
                 {{-- Actions --}}
                 <div class="flex items-center justify-end gap-3 border-t border-border pt-4">
                     <x-ui.button variant="outline" href="{{ route('admin.roles.index') }}"
-                        type="button">{{ $isProtectedRole ? 'Back' : 'Cancel' }}</x-ui.button>
+                        type="button">{{ $isProtectedRole ? __('roles.common.back') : __('roles.common.cancel') }}</x-ui.button>
                     @unless ($isProtectedRole)
                         <x-ui.button type="submit" wire:loading.attr="disabled" wire:target="save">
                             <span wire:loading.remove wire:target="save" class="inline-flex items-center gap-2">
                                 <x-lucide-save class="size-4" />
-                                {{ $isEditing ? 'Save Changes' : 'Create Role' }}
+                                {{ $isEditing ? __('roles.actions.save_changes') : __('roles.actions.create') }}
                             </span>
                             <span wire:loading.flex wire:target="save" class="items-center gap-2">
                                 <x-ui.spinner class="size-4" />
-                                {{ $isEditing ? 'Saving…' : 'Creating…' }}
+                                {{ $isEditing ? __('roles.form.saving') : __('roles.form.creating') }}
                             </span>
                         </x-ui.button>
                     @endunless

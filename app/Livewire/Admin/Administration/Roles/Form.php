@@ -66,9 +66,31 @@ class Form extends BaseForm
         ];
     }
 
-    public function save()
+    protected function validationAttributes(): array
     {
-        abort_if($this->isProtectedRole, 403, 'Protected roles cannot be edited.');
+        return [
+            'name' => __('roles.validation_attributes.name'),
+            'permissions' => __('roles.validation_attributes.permissions'),
+            'permissions.*' => __('roles.validation_attributes.permission'),
+        ];
+    }
+
+    protected function messages(): array
+    {
+        return [
+            'name.required' => __('roles.validation.name_required'),
+            'name.string' => __('roles.validation.name_invalid'),
+            'name.max' => __('roles.validation.name_max', ['max' => 60]),
+            'name.regex' => __('roles.validation.name_format'),
+            'name.unique' => __('roles.validation.name_unique'),
+            'permissions.array' => __('roles.validation.permissions_array'),
+            'permissions.*.exists' => __('roles.validation.permission_exists'),
+        ];
+    }
+
+    public function save(): mixed
+    {
+        abort_if($this->isProtectedRole, 403, __('roles.errors.protected_edit'));
 
         $this->validate();
 
@@ -99,7 +121,9 @@ class Form extends BaseForm
         }
 
         return $this->redirectWithSuccess(
-            "{$role->name} role ".($this->isEditing ? 'updated' : 'created').' successfully.',
+            $this->isEditing
+                ? __('roles.toasts.updated', ['name' => $this->roleLabel($role->name)])
+                : __('roles.toasts.created', ['name' => $this->roleLabel($role->name)]),
         );
     }
 
@@ -107,7 +131,12 @@ class Form extends BaseForm
     protected function panelAccessOptions(): array
     {
         return collect(config('panel.access', []))
-            ->mapWithKeys(fn (string $permission, string $panel): array => [$permission => Str::headline($panel).' Panel'])
+            ->mapWithKeys(function (string $permission, string $panel): array {
+                $key = "roles.permissions.panel_access.{$panel}";
+                $translation = __($key);
+
+                return [$permission => $translation === $key ? Str::headline($panel) : $translation];
+            })
             ->all();
     }
 
@@ -139,14 +168,28 @@ class Form extends BaseForm
      */
     protected function getPermissionLabel(string $permission): string
     {
-        $parts = explode('.', $permission);
-        if (count($parts) >= 3) {
-            array_shift($parts); // Remove the module prefix (e.g. 'settings')
+        $segments = explode('.', $permission);
+        array_shift($segments);
+        $action = array_pop($segments) ?? '';
+        $actionKey = "roles.permissions.actions.{$action}";
+        $actionLabel = __($actionKey);
 
-            return collect($parts)->map(fn ($p) => Str::headline($p))->implode(' ');
+        if ($actionLabel === $actionKey) {
+            $actionLabel = Str::headline($action);
         }
 
-        return Str::headline(end($parts));
+        if ($segments === []) {
+            return $actionLabel;
+        }
+
+        $scope = implode('_', $segments);
+        $scopeKey = "roles.permissions.scopes.{$scope}";
+        $scopeLabel = __($scopeKey);
+
+        return __('roles.permissions.scoped', [
+            'scope' => $scopeLabel === $scopeKey ? Str::headline(implode(' ', $segments)) : $scopeLabel,
+            'action' => $actionLabel,
+        ]);
     }
 
     /**
@@ -158,8 +201,7 @@ class Form extends BaseForm
      */
     protected function moduleGroups(): Collection
     {
-        $groupLabels = config('panel.groups', []);
-        $groupOrder = array_keys($groupLabels);
+        $groupOrder = array_keys(config('panel.groups', []));
 
         return collect(config('panel.modules', []))
             ->map(function (array $module, string $key): array {
@@ -176,7 +218,7 @@ class Form extends BaseForm
 
                 return [
                     'key' => $key,
-                    'label' => $module['label'] ?? Str::headline($key),
+                    'label' => $this->moduleLabel($key),
                     'group' => $module['group'] ?? 'system',
                     'permissions' => collect($permissions),
                 ];
@@ -188,7 +230,7 @@ class Form extends BaseForm
                 return $position === false ? count($groupOrder) : $position;
             })
             ->mapWithKeys(fn (Collection $modules, string $group): array => [
-                ($groupLabels[$group] ?? Str::headline($group)) => $modules->values(),
+                $this->groupLabel($group) => $modules->values(),
             ]);
     }
 
@@ -198,6 +240,44 @@ class Form extends BaseForm
             'panelAccessOptions' => $this->panelAccessOptions(),
             'moduleGroups' => $this->moduleGroups(),
             'allPermissionNames' => Permission::where('guard_name', config('panel.guard'))->pluck('name')->all(),
-        ]);
+            'roleLabel' => $this->roleLabel($this->name),
+        ])->title(match (true) {
+            ! $this->isEditing => __('roles.form.create_title'),
+            $this->isProtectedRole => __('roles.form.view_title'),
+            default => __('roles.form.edit_title'),
+        });
+    }
+
+    private function roleLabel(string $name): string
+    {
+        $key = 'roles.role_labels.'.str_replace('-', '_', $name);
+        $translation = __($key);
+
+        return $translation === $key ? Str::headline($name) : $translation;
+    }
+
+    private function moduleLabel(string $module): string
+    {
+        $key = 'navigation.modules.'.str_replace('-', '_', $module);
+        $translation = __($key);
+
+        return $translation === $key
+            ? config("panel.modules.{$module}.label", Str::headline($module))
+            : $translation;
+    }
+
+    private function groupLabel(string $group): string
+    {
+        $key = "navigation.groups.{$group}";
+        $translation = __($key);
+
+        if ($translation !== $key) {
+            return $translation;
+        }
+
+        $rolesKey = "roles.permissions.groups.{$group}";
+        $rolesTranslation = __($rolesKey);
+
+        return $rolesTranslation === $rolesKey ? Str::headline($group) : $rolesTranslation;
     }
 }

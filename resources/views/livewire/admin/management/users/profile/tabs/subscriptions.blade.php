@@ -1,6 +1,5 @@
 @php
     use App\Enum\SubscriptionStatus;
-    use Illuminate\Support\Str;
     /** @var \App\Models\User $record */
     /** @var \Illuminate\Pagination\LengthAwarePaginator $subscriptionHistory */
     /** @var \App\Models\Subscription|null $reactivatable */
@@ -87,7 +86,7 @@
                                         <x-ui.badge variant="default"
                                             class="gap-1 border-0 bg-amber-500/15 text-amber-700 dark:text-amber-400 text-xs font-medium">
                                             <x-lucide-star class="size-3 fill-current" />
-                                            Best Deal
+                                            {{ __('subscriptions.best_deal') }}
                                         </x-ui.badge>
                                     @endif
                                 </div>
@@ -122,8 +121,11 @@
                                 {{ number_format((float) $active->planPrice->amount, 2) }}
                             </p>
                             <p class="text-xs text-muted-foreground">
-                                / {{ $active->planPrice->billing_period }}
-                                {{ $active->planPrice->billing_interval->label() }}{{ $active->planPrice->billing_period > 1 ? 's' : '' }}
+                                / {{ trans_choice(
+                                    'enums.billing_interval_count.'.$active->planPrice->billing_interval->name,
+                                    $active->planPrice->billing_period,
+                                    ['count' => $active->planPrice->billing_period],
+                                ) }}
                             </p>
                         </div>
                     </div>
@@ -185,10 +187,13 @@
                     @if ($active->cancelled_by)
                         <div
                             class="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-1 sm:col-span-2">
-                            <dt class="text-xs font-medium text-amber-700 dark:text-amber-400">Cancelled By
-                                {{ Str::headline($active->cancelled_by->value) }}</dt>
+                            <dt class="text-xs font-medium text-amber-700 dark:text-amber-400">
+                                {{ __('subscriptions.cancelled_by', ['actor' => $active->cancelled_by->label()]) }}
+                            </dt>
                             <dd class="text-xs text-amber-900 dark:text-amber-200">
-                                Reason: {{ $active->cancelled_reason ?? 'No reason provided' }}
+                                {{ __('subscriptions.cancellation_reason', [
+                                    'reason' => $active->cancelled_reason ?? __('subscriptions.no_reason_provided'),
+                                ]) }}
                             </dd>
                         </div>
                     @endif
@@ -199,8 +204,9 @@
                 class="mt-4 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-900 dark:text-amber-200">
                 <x-lucide-info class="size-5 shrink-0 text-amber-600 dark:text-amber-400" />
                 <p class="text-xs font-medium">
-                    Subscription cancelled — access remains until <x-ui.local-time :value="$reactivatable->ends_at"
-                        format="MMM D, YYYY" />. You can reactivate this subscription before then.
+                    {{ __('subscriptions.reactivatable_notice', [
+                        'date' => $reactivatable->ends_at->translatedFormat('M d, Y'),
+                    ]) }}
                 </p>
             </div>
         @else
@@ -295,7 +301,7 @@
                             </td>
                             <td class="px-4 py-3.5 text-right">
                                 @can('subscriptions.manage')
-                                    <x-admin.tooltip text="View subscription">
+                                    <x-admin.tooltip :text="__('subscriptions.view_subscription')">
                                         <x-ui.button variant="ghost" size="icon" class="size-8"
                                             href="{{ route('admin.subscriptions.show', $subscription) }}">
                                             <x-lucide-eye class="size-4" />

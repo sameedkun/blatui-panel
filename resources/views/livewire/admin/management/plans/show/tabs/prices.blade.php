@@ -1,5 +1,4 @@
 @php
-    use Illuminate\Support\Str;
     /** @var \App\Models\Plan $record */
     $prices = $record->prices()->withCount('subscriptions')->with('providers')->orderBy('amount')->get();
 @endphp
@@ -7,13 +6,13 @@
 <div class="space-y-6">
     <div class="flex items-center justify-between">
         <div>
-            <h3 class="text-base font-semibold text-foreground">Configured Price Tiers</h3>
-            <p class="text-xs text-muted-foreground">Active and inactive billing options for this plan.</p>
+            <h3 class="text-base font-semibold text-foreground">{{ __('plans.prices.configured_tiers') }}</h3>
+            <p class="text-xs text-muted-foreground">{{ __('plans.prices.configured_tiers_description') }}</p>
         </div>
         @can('plans.edit')
             <x-ui.button variant="outline" size="sm" href="{{ route('admin.plans.edit', $record) }}" class="gap-1.5 text-xs">
                 <x-lucide-pencil class="size-3.5" />
-                <span>Manage Prices</span>
+                <span>{{ __('plans.actions.manage_prices') }}</span>
             </x-ui.button>
         @endcan
     </div>
@@ -34,7 +33,7 @@
                                 </span>
                             @endif
                             <span class="text-sm font-medium text-muted-foreground">
-                                / {{ $price->billing_period }} {{ $price->billing_interval->label() }}{{ $price->billing_period > 1 ? 's' : '' }}
+                                / {{ trans_choice('plans.billing_intervals.'.$price->billing_interval->value, $price->billing_period, ['count' => $price->billing_period]) }}
                             </span>
                         </div>
                     </div>
@@ -44,31 +43,31 @@
                         @if ($price->is_active)
                             <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                                 <span class="size-1.5 rounded-full bg-emerald-500"></span>
-                                Active Price
+                                {{ __('plans.status.active_price') }}
                             </span>
                         @else
                             <span class="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground border border-border">
-                                Inactive
+                                {{ __('plans.status.inactive') }}
                             </span>
                         @endif
 
                         @if ($price->trial_period > 0)
                             <x-ui.badge variant="outline" class="text-xs gap-1">
                                 <x-lucide-clock class="size-3 text-muted-foreground" />
-                                {{ $price->trial_period }} {{ $price->trial_interval->label() }}{{ $price->trial_period > 1 ? 's' : '' }} trial
+                                {{ __('plans.prices.trial', ['period' => trans_choice('plans.billing_intervals.'.$price->trial_interval->value, $price->trial_period, ['count' => $price->trial_period])]) }}
                             </x-ui.badge>
                         @endif
 
                         @if ($price->grace_period > 0)
                             <x-ui.badge variant="outline" class="text-xs gap-1">
                                 <x-lucide-shield-alert class="size-3 text-muted-foreground" />
-                                {{ $price->grace_period }} {{ $price->grace_interval->label() }}{{ $price->grace_period > 1 ? 's' : '' }} grace
+                                {{ __('plans.prices.grace', ['period' => trans_choice('plans.billing_intervals.'.$price->grace_interval->value, $price->grace_period, ['count' => $price->grace_period])]) }}
                             </x-ui.badge>
                         @endif
 
                         <x-ui.badge variant="secondary" class="text-xs font-medium gap-1">
                             <x-lucide-users class="size-3 text-muted-foreground" />
-                            {{ $price->subscriptions_count }} {{ Str::plural('subscriber', $price->subscriptions_count) }}
+                            {{ trans_choice('plans.counts.subscribers', $price->subscriptions_count, ['count' => $price->subscriptions_count]) }}
                         </x-ui.badge>
                     </div>
                 </div>
@@ -77,7 +76,7 @@
                 <div class="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
                     <div class="flex items-center gap-2">
                         <x-lucide-globe class="size-4 text-muted-foreground" />
-                        <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Payment Gateways</span>
+                        <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{{ __('plans.fields.payment_gateways') }}</span>
                     </div>
 
                     @if ($price->providers->isNotEmpty())
@@ -93,13 +92,13 @@
                                         </span>
                                     </div>
                                     @if (! $provider->is_active)
-                                        <x-ui.badge variant="secondary" class="text-[10px] shrink-0 ml-2">Inactive</x-ui.badge>
+                                        <x-ui.badge variant="secondary" class="text-[10px] shrink-0 ml-2">{{ __('plans.status.inactive') }}</x-ui.badge>
                                     @endif
                                 </div>
                             @endforeach
                         </div>
                     @else
-                        <p class="text-xs text-muted-foreground italic">No payment gateways mapped for this price point.</p>
+                        <p class="text-xs text-muted-foreground italic">{{ __('plans.status.no_gateways') }}</p>
                     @endif
                 </div>
             </x-ui.card>
@@ -109,8 +108,8 @@
                     <div class="flex size-12 items-center justify-center rounded-full bg-muted">
                         <x-lucide-credit-card class="size-6 text-muted-foreground/50" />
                     </div>
-                    <p class="text-sm font-medium text-foreground">No prices configured for this plan.</p>
-                    <p class="text-xs text-muted-foreground">Edit the plan to add billing options and payment providers.</p>
+                    <p class="text-sm font-medium text-foreground">{{ __('plans.status.no_prices_configured') }}</p>
+                    <p class="text-xs text-muted-foreground">{{ __('plans.status.no_prices_configured_help') }}</p>
                 </div>
             </x-ui.card>
         @endforelse

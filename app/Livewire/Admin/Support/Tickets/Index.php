@@ -16,10 +16,8 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 
 #[Layout('layouts.admin.app')]
-#[Title('Tickets')]
 class Index extends BaseIndex
 {
     use HandlesTicketRowActions;
@@ -53,25 +51,25 @@ class Index extends BaseIndex
     {
         return [
             'status' => [
-                'label' => 'Status',
+                'label' => __('tickets.fields.status'),
                 'type' => 'select',
                 'options' => $this->statusOptions(),
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('status', $v),
             ],
             'priority' => [
-                'label' => 'Priority',
+                'label' => __('tickets.fields.priority'),
                 'type' => 'select',
                 'options' => $this->priorityOptions(),
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('priority', $v),
             ],
             'category' => [
-                'label' => 'Category',
+                'label' => __('tickets.fields.category'),
                 'type' => 'select',
                 'options' => $this->categoryOptions(),
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('category_id', $v),
             ],
             'assigned' => [
-                'label' => 'Assigned',
+                'label' => __('tickets.filters.assigned'),
                 'type' => 'select',
                 'options' => $this->assignedOptions(),
                 'apply' => fn (Builder $q, string $v): Builder => $v === 'unassigned'
@@ -84,10 +82,10 @@ class Index extends BaseIndex
     protected function filterBarConfig(): array
     {
         return [
-            'status' => ['label' => 'Status', 'type' => 'select', 'options' => $this->statusOptions()],
-            'priority' => ['label' => 'Priority', 'type' => 'select', 'options' => $this->priorityOptions()],
-            'category' => ['label' => 'Category', 'type' => 'select', 'options' => $this->categoryOptions()],
-            'assigned' => ['label' => 'Assigned', 'type' => 'select', 'options' => $this->assignedOptions()],
+            'status' => ['label' => __('tickets.fields.status'), 'type' => 'select', 'options' => $this->statusOptions()],
+            'priority' => ['label' => __('tickets.fields.priority'), 'type' => 'select', 'options' => $this->priorityOptions()],
+            'category' => ['label' => __('tickets.fields.category'), 'type' => 'select', 'options' => $this->categoryOptions()],
+            'assigned' => ['label' => __('tickets.filters.assigned'), 'type' => 'select', 'options' => $this->assignedOptions()],
         ];
     }
 
@@ -112,35 +110,35 @@ class Index extends BaseIndex
     /** @return array<int|string, string> */
     private function assignedOptions(): array
     {
-        return ['unassigned' => 'Unassigned'] + app(TicketAssignmentService::class)->eligibleAgentOptions();
+        return ['unassigned' => __('tickets.unassigned')] + app(TicketAssignmentService::class)->eligibleAgentOptions();
     }
 
     protected function statsConfig(): array
     {
         return [
             [
-                'label' => 'Total Tickets',
+                'label' => __('tickets.stats.total_tickets'),
                 'value' => fn () => Ticket::visibleTo(auth()->user())->count(),
                 'icon' => 'life-buoy',
-                'description' => 'All-time submissions',
+                'description' => __('tickets.stats.all_time_submissions'),
             ],
             [
-                'label' => 'Open',
+                'label' => __('tickets.stats.open'),
                 'value' => fn () => Ticket::visibleTo(auth()->user())->whereIn('status', [TicketStatus::Open->value, TicketStatus::Pending->value])->count(),
                 'icon' => 'inbox',
-                'description' => 'Needs attention',
+                'description' => __('tickets.stats.needs_attention'),
             ],
             [
-                'label' => 'Unassigned',
+                'label' => __('tickets.unassigned'),
                 'value' => fn () => Ticket::visibleTo(auth()->user())->whereNull('assigned_to')->whereNotIn('status', [TicketStatus::Resolved->value, TicketStatus::Closed->value])->count(),
                 'icon' => 'user-x',
-                'description' => 'No agent yet',
+                'description' => __('tickets.stats.no_agent_yet'),
             ],
             [
-                'label' => 'Closed',
+                'label' => __('tickets.stats.closed'),
                 'value' => fn () => Ticket::visibleTo(auth()->user())->where('status', TicketStatus::Closed->value)->count(),
                 'icon' => 'circle-check',
-                'description' => 'Resolved & archived',
+                'description' => __('tickets.stats.resolved_archived'),
             ],
         ];
     }
@@ -150,14 +148,14 @@ class Index extends BaseIndex
         return [
             [
                 'key' => 'close',
-                'label' => 'Close',
+                'label' => __('tickets.actions.close_short'),
                 'icon' => 'circle-check',
                 'confirm' => true,
                 'permission' => 'tickets.manage',
             ],
             [
                 'key' => 'assign',
-                'label' => 'Assign Agent',
+                'label' => __('tickets.actions.assign_agent'),
                 'icon' => 'user-check',
                 'confirm' => true,
                 'permission' => 'tickets.manage',
@@ -181,7 +179,7 @@ class Index extends BaseIndex
         }
 
         $this->clearSelection();
-        $this->toastSuccess("{$tickets->count()} tickets closed.");
+        $this->toastSuccess(trans_choice('tickets.toasts.bulk_closed', $tickets->count(), ['count' => $tickets->count()]));
     }
 
     public function executeBulkAssign(): void
@@ -193,6 +191,12 @@ class Index extends BaseIndex
         Validator::make(
             ['bulkAssignAgentId' => $this->bulkAssignAgentId],
             ['bulkAssignAgentId' => ['required', 'integer', Rule::in(array_keys($assignment->eligibleAgentOptions()))]],
+            [
+                'bulkAssignAgentId.required' => __('tickets.validation.agent_required'),
+                'bulkAssignAgentId.integer' => __('tickets.validation.agent_invalid'),
+                'bulkAssignAgentId.in' => __('tickets.validation.agent_invalid'),
+            ],
+            ['bulkAssignAgentId' => __('tickets.validation_attributes.agent')],
         )->validate();
 
         $agent = $assignment->eligibleAgentsQuery()->findOrFail($this->bulkAssignAgentId);
@@ -205,7 +209,10 @@ class Index extends BaseIndex
 
         $this->bulkAssignAgentId = '';
         $this->clearSelection();
-        $this->toastSuccess("Assigned {$agent->name} to {$tickets->count()} tickets.");
+        $this->toastSuccess(trans_choice('tickets.toasts.bulk_assigned', $tickets->count(), [
+            'agent' => $agent->name,
+            'count' => $tickets->count(),
+        ]));
     }
 
     public function render(): View
@@ -218,6 +225,6 @@ class Index extends BaseIndex
             'stats' => $this->resolveStats(),
             'filterBarConfig' => $this->filterBarConfig(),
             'agentOptions' => app(TicketAssignmentService::class)->eligibleAgentOptions(),
-        ]);
+        ])->title(__('tickets.title'));
     }
 }

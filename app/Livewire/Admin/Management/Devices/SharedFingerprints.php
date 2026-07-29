@@ -7,7 +7,6 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -19,7 +18,6 @@ use Livewire\WithPagination;
  * `devices.investigate` since it exposes the fingerprint hash itself.
  */
 #[Layout('layouts.admin.app')]
-#[Title('Shared Fingerprints')]
 class SharedFingerprints extends Component
 {
     use WithPagination;
@@ -61,6 +59,6 @@ class SharedFingerprints extends Component
         return view('livewire.admin.management.devices.shared-fingerprints', [
             'groups' => $groups,
             'devicesByFingerprint' => $this->devicesFor(collect($groups->items())),
-        ]);
+        ])->title(__('devices.shared.title'));
     }
 }

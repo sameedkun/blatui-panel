@@ -6,6 +6,7 @@ use App\Livewire\Admin\Management\Guests\Index as GuestsIndex;
 use App\Livewire\Admin\Management\Guests\Show;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\App;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
@@ -24,6 +25,37 @@ class GuestShowTest extends TestCase
         $this->actingAs($admin);
 
         return $admin;
+    }
+
+    public function test_profile_page_uses_the_request_locale(): void
+    {
+        $this->actingAsSuperAdmin();
+        $guest = User::factory()->guest()->create(['name' => 'Jane Doe']);
+
+        $response = $this->withCookie('locale', 'tr')->get(route('admin.guests.show', $guest));
+
+        $response->assertOk();
+        $response->assertSee(
+            '<title>'.__('guests.title').' — '.$guest->name.' — '.config('app.name').'</title>',
+            false,
+        );
+        $response->assertSee(__('guests.overview.general'));
+        $response->assertSee(__('guests.status_labels.free'));
+    }
+
+    public function test_merge_validation_message_uses_the_active_locale(): void
+    {
+        App::setLocale('tr');
+        $this->actingAsSuperAdmin();
+        $guest = User::factory()->guest()->create(['banned_at' => null]);
+        $destination = User::factory()->app()->create();
+
+        Livewire::test(Show::class, ['user' => $guest])
+            ->call('openMergeDialog', $guest->id)
+            ->set('mergeDestinationId', $destination->id)
+            ->set('mergeReason', '')
+            ->call('confirmMerge')
+            ->assertSee(__('guests.validation.merge_reason_required'));
     }
 
     /** Staff granted exactly the given abilities (plus panel access). */
@@ -112,11 +144,11 @@ class GuestShowTest extends TestCase
 
         $stats = collect($component->instance()->statCards())->keyBy('label');
         $this->assertCount(3, $stats);
-        // Plan is now a real, built stat — 'Free' rather than a "Coming soon" placeholder.
-        $this->assertSame('Free', $stats['Plan']['value']);
+        // Plan is now a real, built stat — "Free" rather than a placeholder.
+        $this->assertSame(__('guests.status_labels.free'), $stats[__('guests.fields.plan')]['value']);
         // Activity is a real count (not a placeholder) — 0 for a freshly created guest.
-        $this->assertSame('0', $stats['Activity']['value']);
-        $this->assertSame('Mar 15, 2024', $stats['Joined']['value']);
+        $this->assertSame('0', $stats[__('guests.tabs.activity')]['value']);
+        $this->assertSame('Mar 15, 2024', $stats[__('guests.fields.registered')]['value']);
     }
 
     public function test_activity_stat_card_reflects_the_records_audit_trail(): void
@@ -132,7 +164,7 @@ class GuestShowTest extends TestCase
         $component = Livewire::test(Show::class, ['user' => $guest]);
         $stats = collect($component->instance()->statCards())->keyBy('label');
 
-        $this->assertSame('1', $stats['Activity']['value']);
+        $this->assertSame('1', $stats[__('guests.tabs.activity')]['value']);
     }
 
     public function test_activity_stat_card_is_a_placeholder_without_activity_logs_permission(): void
@@ -143,7 +175,7 @@ class GuestShowTest extends TestCase
         $component = Livewire::test(Show::class, ['user' => $guest]);
         $stats = collect($component->instance()->statCards())->keyBy('label');
 
-        $this->assertNull($stats['Activity']['value']);
+        $this->assertNull($stats[__('guests.tabs.activity')]['value']);
     }
 
     public function test_delete_from_profile_permanently_purges_and_redirects_to_index(): void

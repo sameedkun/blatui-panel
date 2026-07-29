@@ -1,18 +1,18 @@
 <div class="max-w-2xl">
 
-    <x-admin.page-header :title="$isEditing ? 'Edit Block' : 'Block IP Address'" :description="$isEditing
-        ? 'Update the reason or expiry for this block.'
-        : 'Block traffic from a single IP address, globally or for one account.'" :breadcrumbs="$isEditing
+    <x-admin.page-header :title="$isEditing ? __('blocked_ips.form.edit_title') : __('blocked_ips.form.create_title')" :description="$isEditing
+        ? __('blocked_ips.form.edit_description')
+        : __('blocked_ips.form.create_description')" :breadcrumbs="$isEditing
         ? [
-            ['label' => 'Home', 'url' => route('admin.dashboard')],
-            ['label' => 'Blocked IPs', 'url' => route('admin.blocked-ips.index')],
+            ['label' => __('navigation.home'), 'url' => route('admin.dashboard')],
+            ['label' => __('blocked_ips.title'), 'url' => route('admin.blocked-ips.index')],
             ['label' => $ipAddress],
-            ['label' => 'Edit'],
+            ['label' => __('blocked_ips.form.breadcrumb_edit')],
         ]
         : [
-            ['label' => 'Home', 'url' => route('admin.dashboard')],
-            ['label' => 'Blocked IPs', 'url' => route('admin.blocked-ips.index')],
-            ['label' => 'Block IP'],
+            ['label' => __('navigation.home'), 'url' => route('admin.dashboard')],
+            ['label' => __('blocked_ips.title'), 'url' => route('admin.blocked-ips.index')],
+            ['label' => __('blocked_ips.form.breadcrumb_create')],
         ]" :back="route('admin.blocked-ips.index')" />
 
     <x-ui.card class="mt-6">
@@ -20,7 +20,7 @@
             <form wire:submit="save" class="space-y-6">
 
                 <x-ui.field>
-                    <x-ui.field-label for="ipAddress" required>IP Address</x-ui.field-label>
+                    <x-ui.field-label for="ipAddress" required>{{ __('blocked_ips.fields.ip_address') }}</x-ui.field-label>
                     <x-ui.input id="ipAddress" wire:model="ipAddress" placeholder="203.0.113.1" />
                     @error('ipAddress')
                         <x-ui.field-error>{{ $message }}</x-ui.field-error>
@@ -28,8 +28,11 @@
                 </x-ui.field>
 
                 <x-ui.field>
-                    <x-ui.field-label for="scope" required>Scope</x-ui.field-label>
-                    <x-ui.select id="scope" native wire:model.live="scope" :options="['user' => 'Per-User', 'global' => 'Global (every user)']" />
+                    <x-ui.field-label for="scope" required>{{ __('blocked_ips.fields.scope') }}</x-ui.field-label>
+                    <x-ui.select id="scope" native wire:model.live="scope" :options="[
+                        'user' => __('blocked_ips.scopes.per_user'),
+                        'global' => __('blocked_ips.scopes.global_every_user'),
+                    ]" />
                     @error('scope')
                         <x-ui.field-error>{{ $message }}</x-ui.field-error>
                     @enderror
@@ -37,7 +40,7 @@
 
                 @if ($scope === 'user')
                     <x-ui.field>
-                        <x-ui.field-label for="userSearch" required>User Email</x-ui.field-label>
+                        <x-ui.field-label for="userSearch" required>{{ __('blocked_ips.fields.user_email') }}</x-ui.field-label>
 
                         @if ($this->selectedUser)
                             <div class="flex items-center justify-between rounded-md border border-border bg-muted/20 p-3">
@@ -57,7 +60,7 @@
                                 </div>
                                 <x-ui.button variant="ghost" size="sm" type="button" wire:click="clearUser" class="shrink-0 text-muted-foreground hover:text-foreground">
                                     <x-lucide-x class="size-4" />
-                                    <span class="sr-only">Change User</span>
+                                    <span class="sr-only">{{ __('blocked_ips.form.change_user') }}</span>
                                 </x-ui.button>
                             </div>
                         @else
@@ -69,7 +72,7 @@
                                         type="text"
                                         wire:model.live.debounce.150ms="userSearch"
                                         @focus="open = true"
-                                        placeholder="Search app users by name or email..."
+                                        placeholder="{{ __('blocked_ips.form.search_users') }}"
                                         class="pl-9"
                                         autocomplete="off"
                                     />
@@ -98,7 +101,9 @@
                                         </button>
                                     @empty
                                         <div class="px-3 py-4 text-center text-xs text-muted-foreground">
-                                            No app users found{{ $userSearch ? ' matching "'.e($userSearch).'"' : '' }}.
+                                            {{ $userSearch
+                                                ? __('blocked_ips.empty.users_matching', ['search' => $userSearch])
+                                                : __('blocked_ips.empty.users') }}
                                         </div>
                                     @endforelse
                                 </div>
@@ -113,20 +118,19 @@
                     <div class="rounded-md border border-destructive/30 bg-destructive/5 p-3">
                         <p class="flex items-center gap-1.5 text-sm font-medium text-destructive">
                             <x-lucide-triangle-alert class="size-4" />
-                            This blocks every account using this IP
+                            {{ __('blocked_ips.form.global_warning_title') }}
                         </p>
                         <p class="mt-1 text-xs text-muted-foreground">
-                            <strong>{{ $this->globalDistinctUserCount() }}</strong> distinct
-                            {{ str('account')->plural($this->globalDistinctUserCount()) }} seen on this IP in the last 30 days.
+                            {{ trans_choice('blocked_ips.form.distinct_accounts', $this->globalDistinctUserCount(), ['count' => $this->globalDistinctUserCount()]) }}
                         </p>
                         @if ($this->looksLikeCarrierNat())
                             <p class="mt-1 text-xs text-destructive">
-                                This looks like a shared carrier IP (e.g. mobile-network NAT, common on Pakistani and Indian mobile networks) — blocking it may lock out many unrelated, legitimate users.
+                                {{ __('blocked_ips.form.carrier_nat_warning') }}
                             </p>
                         @endif
                         <label class="mt-3 flex cursor-pointer items-start gap-2 text-sm">
                             <x-ui.checkbox wire:model.live="globalConfirmed" class="mt-0.5" />
-                            I understand and want to block this IP for every user.
+                            {{ __('blocked_ips.form.global_confirmation') }}
                         </label>
                         @error('scope')
                             <x-ui.field-error class="mt-1">{{ $message }}</x-ui.field-error>
@@ -135,8 +139,8 @@
                 @endif
 
                 <x-ui.field>
-                    <x-ui.field-label for="reason">Reason</x-ui.field-label>
-                    <x-ui.textarea id="reason" wire:model="reason" rows="3" placeholder="Why is this IP being blocked?" />
+                    <x-ui.field-label for="reason">{{ __('blocked_ips.fields.reason') }}</x-ui.field-label>
+                    <x-ui.textarea id="reason" wire:model="reason" rows="3" :placeholder="__('blocked_ips.form.reason_placeholder')" />
                     @error('reason')
                         <x-ui.field-error>{{ $message }}</x-ui.field-error>
                     @enderror
@@ -144,14 +148,14 @@
 
                 <label class="flex cursor-pointer items-center gap-2 text-sm">
                     <x-ui.checkbox wire:model.live="permanent" />
-                    Permanent (no expiry)
+                    {{ __('blocked_ips.form.permanent') }}
                 </label>
 
                 @unless ($permanent)
                     <x-ui.field>
-                        <x-ui.field-label for="expiresAt">Expires At</x-ui.field-label>
+                        <x-ui.field-label for="expiresAt">{{ __('blocked_ips.fields.expires_at') }}</x-ui.field-label>
                         <x-ui.input id="expiresAt" type="datetime-local" wire:model="expiresAt" />
-                        <x-ui.field-description>Defaults to 7 days out — permanent blocks accumulate, so make that an explicit choice.</x-ui.field-description>
+                        <x-ui.field-description>{{ __('blocked_ips.form.expires_description') }}</x-ui.field-description>
                         @error('expiresAt')
                             <x-ui.field-error>{{ $message }}</x-ui.field-error>
                         @enderror
@@ -159,7 +163,7 @@
                 @endunless
 
                 <div class="flex items-center justify-end gap-3 border-t border-border pt-4">
-                    <x-ui.button variant="outline" href="{{ route('admin.blocked-ips.index') }}" type="button">Cancel</x-ui.button>
+                    <x-ui.button variant="outline" href="{{ route('admin.blocked-ips.index') }}" type="button">{{ __('blocked_ips.actions.cancel') }}</x-ui.button>
                     <x-ui.button
                         type="submit"
                         wire:loading.attr="disabled"
@@ -168,11 +172,11 @@
                     >
                         <span wire:loading.remove wire:target="save" class="inline-flex items-center gap-2">
                             <x-lucide-save class="size-4" />
-                            {{ $isEditing ? 'Save Changes' : 'Block IP' }}
+                            {{ $isEditing ? __('blocked_ips.actions.save_changes') : __('blocked_ips.actions.create') }}
                         </span>
                         <span wire:loading.flex wire:target="save" class="items-center gap-2">
                             <x-ui.spinner class="size-4" />
-                            {{ $isEditing ? 'Saving…' : 'Blocking…' }}
+                            {{ $isEditing ? __('blocked_ips.form.saving') : __('blocked_ips.form.blocking') }}
                         </span>
                     </x-ui.button>
                 </div>

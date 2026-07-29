@@ -14,7 +14,8 @@
         <div class="space-y-4">
             <x-ui.field>
                 <x-ui.field-label for="convert-email" required>{{ __('guests.fields.email') }}</x-ui.field-label>
-                <x-ui.input id="convert-email" type="email" wire:model="convertEmail" placeholder="you@example.com"
+                <x-ui.input id="convert-email" type="email" wire:model="convertEmail"
+                    :placeholder="__('guests.placeholders.email')"
                     aria-invalid="{{ $errors->has('convertEmail') ? 'true' : 'false' }}" />
                 @error('convertEmail')
                     <x-ui.field-error>{{ $message }}</x-ui.field-error>
@@ -22,8 +23,9 @@
             </x-ui.field>
 
             <x-ui.field>
-                <x-ui.field-label for="convert-name">{{ __('users.fields.name') }}</x-ui.field-label>
-                <x-ui.input id="convert-name" wire:model="convertName" placeholder="Full name" />
+                <x-ui.field-label for="convert-name">{{ __('guests.fields.full_name') }}</x-ui.field-label>
+                <x-ui.input id="convert-name" wire:model="convertName"
+                    :placeholder="__('guests.placeholders.full_name')" />
             </x-ui.field>
 
             <div class="flex items-start gap-2">

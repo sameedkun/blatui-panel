@@ -3,7 +3,6 @@
 namespace App\Enum;
 
 use App\Models\Notification;
-use Illuminate\Support\Str;
 
 /**
  * The category a {@see Notification} broadcast was tagged with. Closed
@@ -18,6 +17,6 @@ enum NotificationType: string
 
     public function label(): string
     {
-        return Str::headline($this->value);
+        return __("enums.notification_type.{$this->name}");
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enum\ReceiptType;
 use App\Livewire\Admin\Management\Subscriptions\Index;
 use App\Livewire\Admin\Management\Subscriptions\Show;
 use App\Models\Plan;
@@ -9,6 +10,9 @@ use App\Models\PlanPrice;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Lang;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -39,6 +43,65 @@ class SubscriptionsAdminTest extends TestCase
             'ends_at' => now()->addMonth(),
             'is_recurring' => true,
         ]);
+    }
+
+    public function test_english_and_turkish_subscription_translations_have_matching_keys(): void
+    {
+        $englishKeys = array_keys(Arr::dot(Lang::get('subscriptions', [], 'en')));
+        $turkishKeys = array_keys(Arr::dot(Lang::get('subscriptions', [], 'tr')));
+
+        sort($englishKeys);
+        sort($turkishKeys);
+
+        $this->assertSame($englishKeys, $turkishKeys);
+    }
+
+    public function test_subscription_pages_use_the_request_locale_in_content_and_browser_titles(): void
+    {
+        $this->actingAsSuperAdmin();
+        $subscription = $this->liveSubscription();
+
+        $indexResponse = $this->withCookie('locale', 'tr')->get(route('admin.subscriptions.index'));
+        $indexResponse->assertOk();
+        $indexResponse->assertSee('<title>'.__('subscriptions.title').' — '.config('app.name').'</title>', false);
+        $indexResponse->assertSee(__('subscriptions.subtitle'));
+
+        $showResponse = $this->withCookie('locale', 'tr')->get(route('admin.subscriptions.show', $subscription));
+        $showResponse->assertOk();
+        $showResponse->assertSee(
+            '<title>'.__('subscriptions.title').' — '.$subscription->user->name.' — '.$subscription->plan->name.' — '.config('app.name').'</title>',
+            false,
+        );
+        $showResponse->assertSee(__('subscriptions.overview.lifecycle_billing'));
+
+        Livewire::test(Show::class, ['subscription' => $subscription])
+            ->set('tab', 'receipts')
+            ->assertSee(__('subscriptions.receipts.title'))
+            ->set('tab', 'activity')
+            ->assertSee(__('subscriptions.activity.title'));
+    }
+
+    public function test_subscription_action_toast_and_receipt_type_use_the_active_locale(): void
+    {
+        App::setLocale('tr');
+        $this->actingAsSuperAdmin();
+        $user = User::factory()->app()->create();
+        $oldSubscription = $this->liveSubscription($user);
+        $oldSubscription->update(['ends_at' => now()->addDays(10)]);
+
+        $newSubscription = $this->liveSubscription($user);
+        $newSubscription->update(['ends_at' => now()->addDays(40)]);
+
+        Livewire::test(Show::class, ['subscription' => $oldSubscription])
+            ->call('openCancelImmediatelyDialog', $oldSubscription->id)
+            ->call('cancelImmediately')
+            ->assertDispatched(
+                'toast',
+                type: 'error',
+                title: __('subscriptions.toasts.no_longer_active'),
+            );
+
+        $this->assertSame(__('enums.receipt_type.Refund'), ReceiptType::Refund->label());
     }
 
     // ── Index ──────────────────────────────────────────────────────────────

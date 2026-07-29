@@ -52,8 +52,8 @@ trait HandlesDeviceRowActions
         $this->validate([
             'blockReason' => ['required', 'string', 'min:10'],
         ], [
-            'blockReason.required' => 'A reason is required to block a device.',
-            'blockReason.min' => 'The reason must be at least :min characters.',
+            'blockReason.required' => __('devices.validation.block_reason_required'),
+            'blockReason.min' => __('devices.validation.block_reason_min'),
         ]);
 
         $device = $this->findDevice($this->blockingUlid);
@@ -61,7 +61,7 @@ trait HandlesDeviceRowActions
 
         $this->blockingUlid = null;
         $this->blockReason = '';
-        $this->toastSuccess("{$device->displayName()} has been blocked.");
+        $this->toastSuccess(__('devices.toasts.blocked', ['name' => $device->displayName()]));
     }
 
     public function unblock(string $ulid, DeviceService $devices): void
@@ -71,7 +71,10 @@ trait HandlesDeviceRowActions
         $device = $this->findDevice($ulid);
         $devices->unblock($device);
 
-        $this->toastSuccess("{$device->displayName()} has been unblocked.", 'The user must log in again to reconnect it.');
+        $this->toastSuccess(
+            __('devices.toasts.unblocked', ['name' => $device->displayName()]),
+            __('devices.toasts.unblocked_description'),
+        );
     }
 
     public function confirmRevoke(string $ulid): void
@@ -92,6 +95,6 @@ trait HandlesDeviceRowActions
         $devices->revoke($device);
 
         $this->revokingUlid = null;
-        $this->toastSuccess("{$device->displayName()} has been revoked.");
+        $this->toastSuccess(__('devices.toasts.revoked', ['name' => $device->displayName()]));
     }
 }

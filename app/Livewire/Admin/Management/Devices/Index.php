@@ -14,7 +14,6 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Response;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -26,7 +25,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * everything stuck on a broken app version.
  */
 #[Layout('layouts.admin.app')]
-#[Title('Devices')]
 class Index extends Component
 {
     use HandlesDeviceRowActions;
@@ -80,28 +78,28 @@ class Index extends Component
     {
         return [
             [
-                'label' => 'Total Devices',
+                'label' => __('devices.stats.total'),
                 'value' => UserDevice::count(),
                 'icon' => 'smartphone',
-                'description' => 'Ever registered',
+                'description' => __('devices.stats.ever_registered'),
             ],
             [
-                'label' => 'Active',
+                'label' => __('devices.status.active'),
                 'value' => UserDevice::active()->count(),
                 'icon' => 'check-circle',
-                'description' => 'Currently signed in',
+                'description' => __('devices.stats.currently_signed_in'),
             ],
             [
-                'label' => 'Revoked',
+                'label' => __('devices.status.revoked'),
                 'value' => UserDevice::revoked()->count(),
                 'icon' => 'shield-off',
-                'description' => 'Signed out, may reactivate',
+                'description' => __('devices.stats.revoked_description'),
             ],
             [
-                'label' => 'Blocked',
+                'label' => __('devices.status.blocked'),
                 'value' => UserDevice::blocked()->count(),
                 'icon' => 'shield-ban',
-                'description' => 'Cannot reactivate by login',
+                'description' => __('devices.stats.blocked_description'),
             ],
         ];
     }
@@ -137,24 +135,28 @@ class Index extends Component
     protected function filterBarConfig(): array
     {
         $config = [
-            'platform' => ['label' => 'Platform', 'type' => 'text'],
+            'platform' => ['label' => __('devices.fields.platform'), 'type' => 'text'],
             'device_type' => [
-                'label' => 'Device Type',
+                'label' => __('devices.fields.device_type'),
                 'type' => 'select',
                 'options' => collect(DeviceType::cases())->mapWithKeys(fn (DeviceType $t) => [$t->value => $t->label()])->all(),
             ],
-            'country' => ['label' => 'Country', 'type' => 'text'],
-            'app_version' => ['label' => 'App Version', 'type' => 'text'],
+            'country' => ['label' => __('devices.fields.country'), 'type' => 'text'],
+            'app_version' => ['label' => __('devices.fields.app_version'), 'type' => 'text'],
             'status' => [
-                'label' => 'Status',
+                'label' => __('devices.fields.status'),
                 'type' => 'select',
-                'options' => ['active' => 'Active', 'revoked' => 'Revoked', 'blocked' => 'Blocked'],
+                'options' => [
+                    'active' => __('devices.status.active'),
+                    'revoked' => __('devices.status.revoked'),
+                    'blocked' => __('devices.status.blocked'),
+                ],
             ],
         ];
 
         if (auth()->user()->can('devices.investigate')) {
-            $config['ip_address'] = ['label' => 'IP Address', 'type' => 'text', 'placeholder' => '203.0.113.1'];
-            $config['fingerprint'] = ['label' => 'Fingerprint', 'type' => 'text', 'placeholder' => 'Raw client value'];
+            $config['ip_address'] = ['label' => __('devices.fields.ip_address'), 'type' => 'text', 'placeholder' => '203.0.113.1'];
+            $config['fingerprint'] = ['label' => __('devices.fields.fingerprint'), 'type' => 'text', 'placeholder' => __('devices.placeholders.fingerprint')];
         }
 
         return $config;
@@ -176,13 +178,24 @@ class Index extends Component
         return Response::streamDownload(function () use ($devices): void {
             $out = fopen('php://output', 'w');
 
-            fputcsv($out, ['User', 'Name', 'Platform', 'OS', 'Device Type', 'App Version', 'Country', 'IP Address', 'Status', 'Last Seen']);
+            fputcsv($out, [
+                __('devices.csv.user'),
+                __('devices.csv.name'),
+                __('devices.csv.platform'),
+                __('devices.csv.os'),
+                __('devices.csv.device_type'),
+                __('devices.csv.app_version'),
+                __('devices.csv.country'),
+                __('devices.csv.ip_address'),
+                __('devices.csv.status'),
+                __('devices.csv.last_seen'),
+            ]);
 
             foreach ($devices as $device) {
                 $status = match (true) {
-                    $device->is_blocked => 'Blocked',
-                    $device->is_revoked => 'Revoked',
-                    default => 'Active',
+                    $device->is_blocked => __('devices.status.blocked'),
+                    $device->is_revoked => __('devices.status.revoked'),
+                    default => __('devices.status.active'),
                 };
 
                 fputcsv($out, [
@@ -208,6 +221,6 @@ class Index extends Component
         return view('livewire.admin.management.devices.index', [
             'devices' => $this->getRecords(),
             'stats' => $this->stats(),
-        ]);
+        ])->title(__('devices.title'));
     }
 }

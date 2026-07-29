@@ -6,8 +6,7 @@
         <x-ui.drawer-header>
             <x-ui.drawer-title class="font-mono">{{ $activityIp }}</x-ui.drawer-title>
             <x-ui.drawer-description>
-                <strong>{{ $this->ipActivityDistinctUserCount() }}</strong> distinct
-                {{ str('account')->plural($this->ipActivityDistinctUserCount()) }} seen on this IP in the last 30 days.
+                {{ trans_choice('blocked_ips.activity.summary', $this->ipActivityDistinctUserCount(), ['count' => $this->ipActivityDistinctUserCount()]) }}
             </x-ui.drawer-description>
         </x-ui.drawer-header>
 
@@ -25,22 +24,25 @@
                             @endcan
                             <p class="text-xs text-muted-foreground">{{ $device->user->email }}</p>
                         @else
-                            <span class="text-sm text-muted-foreground">Unknown user</span>
+                            <span class="text-sm text-muted-foreground">{{ __('blocked_ips.status.unknown_user') }}</span>
                         @endif
                         <x-admin.device-status-badge :device="$device" />
                     </div>
                     <p class="mt-1 text-xs text-muted-foreground">
-                        {{ $device->displayName() }} · {{ $device->platform ?? 'Unknown platform' }}
-                        · last seen {{ $device->last_seen_at?->diffForHumans() ?? 'never' }}
+                        {{ __('blocked_ips.activity.device_details', [
+                            'device' => $device->displayName(),
+                            'platform' => $device->platform ?? __('blocked_ips.status.unknown_platform'),
+                            'last_seen' => $device->last_seen_at?->diffForHumans() ?? mb_strtolower(__('blocked_ips.status.never')),
+                        ]) }}
                     </p>
                 </div>
             @empty
-                <p class="py-8 text-center text-sm text-muted-foreground">No devices have been seen on this IP.</p>
+                <p class="py-8 text-center text-sm text-muted-foreground">{{ __('blocked_ips.empty.devices') }}</p>
             @endforelse
         </div>
 
         <x-ui.drawer-footer class="flex-row justify-end">
-            <x-ui.button variant="outline" @click="open = false">Close</x-ui.button>
+            <x-ui.button variant="outline" @click="open = false">{{ __('blocked_ips.actions.close') }}</x-ui.button>
         </x-ui.drawer-footer>
     </x-ui.drawer-content>
 </x-ui.drawer>

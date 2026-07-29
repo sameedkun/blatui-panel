@@ -3,7 +3,6 @@
 namespace App\Enum;
 
 use App\Models\Subscription;
-use Illuminate\Support\Str;
 
 /**
  * Who cancelled a {@see Subscription}. Closed vocabulary — adding a new actor
@@ -17,6 +16,6 @@ enum CancelledBy: string
 
     public function label(): string
     {
-        return Str::headline($this->value);
+        return __("enums.cancelled_by.{$this->name}");
     }
 }

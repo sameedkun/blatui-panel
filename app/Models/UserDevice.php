@@ -147,6 +147,6 @@ class UserDevice extends Model
     /** A human-friendly label for toasts/CSV export when `name` wasn't supplied by the client. */
     public function displayName(): string
     {
-        return $this->name ?: ($this->model ?: 'Unnamed device');
+        return $this->name ?: ($this->model ?: __('devices.status.unnamed_device'));
     }
 }

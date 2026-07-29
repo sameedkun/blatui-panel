@@ -128,6 +128,36 @@ class Form extends BaseForm
         ];
     }
 
+    protected function validationAttributes(): array
+    {
+        return [
+            'ipAddress' => __('blocked_ips.validation_attributes.ip_address'),
+            'scope' => __('blocked_ips.validation_attributes.scope'),
+            'formUserEmail' => __('blocked_ips.validation_attributes.user_email'),
+            'reason' => __('blocked_ips.validation_attributes.reason'),
+            'permanent' => __('blocked_ips.validation_attributes.permanent'),
+            'expiresAt' => __('blocked_ips.validation_attributes.expires_at'),
+        ];
+    }
+
+    protected function messages(): array
+    {
+        return [
+            'ipAddress.required' => __('blocked_ips.validation.ip_required'),
+            'ipAddress.ip' => __('blocked_ips.validation.ip_invalid'),
+            'scope.required' => __('blocked_ips.validation.scope_required'),
+            'scope.in' => __('blocked_ips.validation.scope_invalid'),
+            'formUserEmail.required_if' => __('blocked_ips.validation.user_email_required'),
+            'formUserEmail.email' => __('blocked_ips.validation.user_email_invalid'),
+            'reason.string' => __('blocked_ips.validation.reason_invalid'),
+            'reason.max' => __('blocked_ips.validation.reason_max', ['max' => 1000]),
+            'permanent.boolean' => __('blocked_ips.validation.permanent_invalid'),
+            'expiresAt.required_if' => __('blocked_ips.validation.expires_required'),
+            'expiresAt.date' => __('blocked_ips.validation.expires_invalid'),
+            'expiresAt.after' => __('blocked_ips.validation.expires_future'),
+        ];
+    }
+
     public function updatedScope(): void
     {
         $this->globalConfirmed = false;
@@ -160,7 +190,7 @@ class Form extends BaseForm
         $this->validate();
 
         if ($this->scope === 'global' && ! $this->globalConfirmed) {
-            $this->addError('scope', 'Confirm the global-scope warning before blocking every user on this IP.');
+            $this->addError('scope', __('blocked_ips.validation.confirm_global'));
 
             return;
         }
@@ -171,7 +201,7 @@ class Form extends BaseForm
             $user = User::where('email', $this->formUserEmail)->first();
 
             if (! $user) {
-                $this->addError('formUserEmail', 'No account found with that email address.');
+                $this->addError('formUserEmail', __('blocked_ips.validation.user_not_found'));
 
                 return;
             }
@@ -181,8 +211,8 @@ class Form extends BaseForm
 
         if ($this->duplicateExists($userId)) {
             $this->addError('ipAddress', $this->scope === 'global'
-                ? 'This IP already has a global block.'
-                : 'This IP is already blocked for this user.');
+                ? __('blocked_ips.validation.duplicate_global')
+                : __('blocked_ips.validation.duplicate_user'));
 
             return;
         }
@@ -206,8 +236,8 @@ class Form extends BaseForm
             }
         } catch (QueryException) {
             $this->addError('ipAddress', $this->scope === 'global'
-                ? 'This IP already has a global block.'
-                : 'This IP is already blocked for this user.');
+                ? __('blocked_ips.validation.duplicate_global')
+                : __('blocked_ips.validation.duplicate_user'));
 
             return;
         }
@@ -228,7 +258,7 @@ class Form extends BaseForm
         ]);
 
         return $this->redirectWithSuccess(
-            $this->isEditing ? 'Block updated.' : 'IP address blocked.',
+            $this->isEditing ? __('blocked_ips.toasts.updated') : __('blocked_ips.toasts.created'),
         );
     }
 
@@ -255,6 +285,7 @@ class Form extends BaseForm
 
     public function render(): View
     {
-        return view('livewire.admin.management.blocked-ips.form');
+        return view('livewire.admin.management.blocked-ips.form')
+            ->title($this->isEditing ? __('blocked_ips.form.edit_title') : __('blocked_ips.form.create_title'));
     }
 }

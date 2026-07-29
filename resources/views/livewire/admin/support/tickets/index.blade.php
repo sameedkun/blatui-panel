@@ -1,12 +1,12 @@
 <div class="flex flex-col gap-6">
 
     {{-- Page header --}}
-    <x-admin.page-header title="Tickets" description="Support requests routed by category and auto-assigned to agents." :breadcrumbs="[['label' => 'Home', 'url' => route('admin.dashboard')], ['label' => 'Tickets']]">
+    <x-admin.page-header :title="__('tickets.title')" :description="__('tickets.subtitle')" :breadcrumbs="[['label' => __('tickets.common.home'), 'url' => route('admin.dashboard')], ['label' => __('tickets.title')]]">
         @can('tickets.create')
             <x-slot:actions>
                 <x-ui.button href="{{ route('admin.tickets.create') }}">
                     <x-lucide-plus class="size-4" />
-                    Log Ticket
+                    {{ __('tickets.actions.log') }}
                 </x-ui.button>
             </x-slot:actions>
         @endcan
@@ -23,7 +23,7 @@
 
     {{-- Toolbar --}}
     <x-admin.filter-bar :config="$filterBarConfig" :filters="$filters" :has-active-filters="$this->hasActiveFilters()"
-        search-placeholder="Search subject..." />
+        :search-placeholder="__('tickets.filters.search')" />
 
     {{-- Table --}}
     @php
@@ -45,7 +45,7 @@
                     </th>
                     <th class="px-4 py-3 text-left">
                         <button wire:click="sort('subject')" class="flex items-center gap-1 font-medium text-foreground">
-                            Ticket
+                            {{ __('tickets.fields.ticket') }}
                             @if ($sortBy === 'subject')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -53,13 +53,13 @@
                             @endif
                         </button>
                     </th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground sm:table-cell">Category</th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Status</th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground md:table-cell">Priority</th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground lg:table-cell">Agent</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground sm:table-cell">{{ __('tickets.fields.category') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('tickets.fields.status') }}</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground md:table-cell">{{ __('tickets.fields.priority') }}</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground lg:table-cell">{{ __('tickets.fields.agent') }}</th>
                     <th class="hidden px-4 py-3 text-left xl:table-cell">
                         <button wire:click="sort('created_at')" class="flex items-center gap-1 font-medium text-foreground">
-                            Created
+                            {{ __('tickets.fields.created') }}
                             @if ($sortBy === 'created_at')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -91,7 +91,7 @@
                             @else
                                 <span class="font-medium">{{ $ticket->subject }}</span>
                             @endcan
-                            <div class="text-xs text-muted-foreground">#{{ $ticket->id }} &bull; {{ $ticket->user?->name ?? 'Unknown' }}</div>
+                            <div class="text-xs text-muted-foreground">#{{ $ticket->id }} &bull; {{ $ticket->user?->name ?? __('tickets.common.unknown') }}</div>
                         </td>
 
                         {{-- Category --}}
@@ -99,7 +99,7 @@
                             @if ($ticket->category)
                                 <x-ui.badge variant="secondary">{{ $ticket->category->name }}</x-ui.badge>
                             @else
-                                <span class="text-xs text-muted-foreground">None</span>
+                                <span class="text-xs text-muted-foreground">{{ __('tickets.common.none') }}</span>
                             @endif
                         </td>
 
@@ -118,7 +118,7 @@
                             @if ($ticket->agent)
                                 <span class="text-xs font-medium">{{ $ticket->agent->name }}</span>
                             @else
-                                <span class="text-xs text-muted-foreground italic">Unassigned</span>
+                                <span class="text-xs text-muted-foreground italic">{{ __('tickets.unassigned') }}</span>
                             @endif
                         </td>
 
@@ -131,11 +131,11 @@
                         <td class="px-4 py-3 text-right">
                             <div class="flex items-center justify-end gap-1">
                                 @can('tickets.manage')
-                                    <x-admin.tooltip text="View ticket">
+                                    <x-admin.tooltip :text="__('tickets.actions.view')">
                                         <x-ui.button variant="ghost" size="icon" class="size-8"
                                             href="{{ route('admin.tickets.show', $ticket) }}">
                                             <x-lucide-eye class="size-4" />
-                                            <span class="sr-only">View ticket</span>
+                                            <span class="sr-only">{{ __('tickets.actions.view') }}</span>
                                         </x-ui.button>
                                     </x-admin.tooltip>
                                 @endcan
@@ -145,26 +145,26 @@
                                         <x-slot:trigger>
                                             <x-ui.button variant="ghost" size="icon" class="size-8">
                                                 <x-lucide-ellipsis class="size-4" />
-                                                <span class="sr-only">Actions</span>
+                                                <span class="sr-only">{{ __('tickets.common.actions') }}</span>
                                             </x-ui.button>
                                         </x-slot:trigger>
 
                                         @if (! $ticket->agent || $ticket->agent->isNot(auth()->user()))
                                             <x-admin.dropdown-item @click="$wire.assignToMe({{ $ticket->id }})">
                                                 <x-lucide-user-check class="size-4" />
-                                                Assign to Me
+                                                {{ __('tickets.actions.assign_me') }}
                                             </x-admin.dropdown-item>
                                         @endif
 
                                         @if ($ticket->status !== \App\Enum\TicketStatus::Closed)
                                             <x-admin.dropdown-item @click="$wire.close({{ $ticket->id }})">
                                                 <x-lucide-circle-check class="size-4" />
-                                                Close
+                                                {{ __('tickets.actions.close_short') }}
                                             </x-admin.dropdown-item>
                                         @else
                                             <x-admin.dropdown-item @click="$wire.reopen({{ $ticket->id }})">
                                                 <x-lucide-rotate-ccw class="size-4" />
-                                                Reopen
+                                                {{ __('tickets.actions.reopen_short') }}
                                             </x-admin.dropdown-item>
                                         @endif
                                     </x-admin.dropdown>
@@ -177,10 +177,10 @@
                     <tr>
                         <td colspan="8" class="px-4 py-16 text-center text-muted-foreground">
                             <x-lucide-life-buoy class="mx-auto mb-2 size-8 opacity-30" />
-                            <p class="text-sm">No tickets found.</p>
+                            <p class="text-sm">{{ __('tickets.empty.tickets') }}</p>
                             @if ($this->hasActiveFilters())
                                 <button wire:click="resetFilters"
-                                    class="mt-1 text-xs underline hover:no-underline">Clear filters</button>
+                                    class="mt-1 text-xs underline hover:no-underline">{{ __('tickets.common.clear_filters') }}</button>
                             @endif
                         </td>
                     </tr>
@@ -197,14 +197,14 @@
         <div class="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background px-3 py-2 shadow-xl"
             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-4"
             x-transition:enter-end="opacity-100 translate-y-0">
-            <x-admin.tooltip text="Clear selection">
+            <x-admin.tooltip :text="__('tickets.common.clear_selection')">
                 <x-ui.button variant="ghost" size="icon" class="size-8 rounded-full" wire:click="clearSelection">
                     <x-lucide-x class="size-4" />
                 </x-ui.button>
             </x-admin.tooltip>
 
             <div class="mx-1 h-4 w-px bg-border"></div>
-            <span class="px-1 text-sm font-medium">{{ count($selectedIds) }} selected</span>
+            <span class="px-1 text-sm font-medium">{{ __('tickets.common.selected', ['count' => count($selectedIds)]) }}</span>
             <div class="mx-1 h-4 w-px bg-border"></div>
 
             @foreach ($this->availableBulkActions as $action)

@@ -1,6 +1,5 @@
 @php
     use App\Enum\SubscriptionStatus;
-    use Illuminate\Support\Str;
     /** @var \Illuminate\Pagination\LengthAwarePaginator $subscriptions */
 
     $activeStatuses = [SubscriptionStatus::Trialing, SubscriptionStatus::Active, SubscriptionStatus::Grace];
@@ -8,9 +7,9 @@
 
 <x-ui.card class="p-0">
     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
-        <p class="text-sm font-medium">All Subscriptions</p>
+        <p class="text-sm font-medium">{{ __('plans.subscriptions.all') }}</p>
         <select wire:model.live="subsStatus" class="blat-select h-9 w-48 text-sm">
-            <option value="">All statuses</option>
+            <option value="">{{ __('plans.subscriptions.all_statuses') }}</option>
             @foreach (SubscriptionStatus::cases() as $case)
                 <option value="{{ $case->value }}">{{ $case->label() }}</option>
             @endforeach
@@ -21,13 +20,13 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b border-border bg-muted/40">
-                    <th class="px-4 py-3 text-left font-medium text-foreground">User</th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Price</th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Status</th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground md:table-cell">Provider</th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground lg:table-cell">Started</th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground lg:table-cell">Ends</th>
-                    <th class="px-4 py-3 text-right font-medium text-foreground">Paid</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('plans.subscriptions.user') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('plans.subscriptions.price') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('plans.fields.status') }}</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground md:table-cell">{{ __('plans.subscriptions.provider') }}</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground lg:table-cell">{{ __('plans.subscriptions.started') }}</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground lg:table-cell">{{ __('plans.subscriptions.ends') }}</th>
+                    <th class="px-4 py-3 text-right font-medium text-foreground">{{ __('plans.subscriptions.paid') }}</th>
                     <th class="w-10 px-4 py-3"></th>
                 </tr>
             </thead>
@@ -40,13 +39,13 @@
                                     <div class="flex items-center gap-1.5">
                                         <p class="truncate font-medium">{{ $subscription->user->name }}</p>
                                         <x-ui.badge variant="outline" class="h-4 shrink-0 px-1.5 py-0 text-[10px] font-normal">
-                                            {{ Str::headline($subscription->user->type->value) }}
+                                            {{ __('plans.user_types.'.$subscription->user->type->value) }}
                                         </x-ui.badge>
                                     </div>
                                     <p class="truncate text-xs text-muted-foreground">{{ $subscription->user->email }}</p>
                                 </div>
                             @else
-                                <span class="text-muted-foreground">Deleted user</span>
+                                <span class="text-muted-foreground">{{ __('plans.subscriptions.deleted_user') }}</span>
                             @endif
                         </td>
                         <td class="px-4 py-3 text-muted-foreground">
@@ -85,7 +84,7 @@
                         <td class="px-4 py-3 text-right">
                             <div class="flex items-center justify-end gap-1">
                                 @can('subscriptions.manage')
-                                    <x-admin.tooltip text="View subscription">
+                                    <x-admin.tooltip :text="__('plans.actions.view_subscription')">
                                         <x-ui.button variant="ghost" size="icon" class="size-8" href="{{ route('admin.subscriptions.show', $subscription) }}">
                                             <x-lucide-eye class="size-4" />
                                         </x-ui.button>
@@ -93,7 +92,7 @@
                                 @endcan
                                 @can('users.manage')
                                     @if ($subscription->user)
-                                        <x-admin.tooltip text="View user">
+                                        <x-admin.tooltip :text="__('plans.actions.view_user')">
                                             <x-ui.button variant="ghost" size="icon" class="size-8" href="{{ route('admin.users.show', $subscription->user) }}">
                                                 <x-lucide-external-link class="size-4" />
                                             </x-ui.button>
@@ -107,7 +106,7 @@
                     <tr>
                         <td colspan="8" class="px-4 py-16 text-center text-muted-foreground">
                             <x-lucide-users class="mx-auto mb-2 size-8 opacity-30" />
-                            <p class="text-sm">No subscriptions{{ $subsStatus ? ' with this status' : '' }} yet.</p>
+                            <p class="text-sm">{{ $subsStatus ? __('plans.subscriptions.none_with_status') : __('plans.subscriptions.none') }}</p>
                         </td>
                     </tr>
                 @endforelse

@@ -11,10 +11,8 @@ use App\Models\Subscription;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 
 #[Layout('layouts.admin.app')]
-#[Title('Subscriptions')]
 class Index extends BaseIndex
 {
     use HandlesSubscriptionRowActions;
@@ -57,19 +55,19 @@ class Index extends BaseIndex
     {
         return [
             'status' => [
-                'label' => 'Status',
+                'label' => __('subscriptions.fields.status'),
                 'type' => 'select',
                 'options' => $this->statusOptions(),
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('status', $v),
             ],
             'plan_id' => [
-                'label' => 'Plan',
+                'label' => __('subscriptions.fields.plan'),
                 'type' => 'select',
                 'options' => $this->planOptions(),
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('plan_id', $v),
             ],
             'provider' => [
-                'label' => 'Provider',
+                'label' => __('subscriptions.fields.provider'),
                 'type' => 'select',
                 'options' => $this->providerOptions(),
                 'apply' => fn (Builder $q, string $v): Builder => $q->where('provider', $v),
@@ -80,9 +78,9 @@ class Index extends BaseIndex
     protected function filterBarConfig(): array
     {
         return [
-            'status' => ['label' => 'Status', 'type' => 'select', 'options' => $this->statusOptions()],
-            'plan_id' => ['label' => 'Plan', 'type' => 'select', 'options' => $this->planOptions()],
-            'provider' => ['label' => 'Provider', 'type' => 'select', 'options' => $this->providerOptions()],
+            'status' => ['label' => __('subscriptions.fields.status'), 'type' => 'select', 'options' => $this->statusOptions()],
+            'plan_id' => ['label' => __('subscriptions.fields.plan'), 'type' => 'select', 'options' => $this->planOptions()],
+            'provider' => ['label' => __('subscriptions.fields.provider'), 'type' => 'select', 'options' => $this->providerOptions()],
         ];
     }
 
@@ -110,28 +108,28 @@ class Index extends BaseIndex
     {
         return [
             [
-                'label' => 'Total Subscriptions',
+                'label' => __('subscriptions.stats.total'),
                 'value' => fn () => Subscription::count(),
                 'icon' => 'receipt',
-                'description' => 'All-time records',
+                'description' => __('subscriptions.stats.all_time_records'),
             ],
             [
-                'label' => 'Active',
+                'label' => __('subscriptions.stats.active'),
                 'value' => fn () => Subscription::whereIn('status', ['trialing', 'active', 'grace'])->count(),
                 'icon' => 'check-circle',
-                'description' => 'Trialing, active, or in grace',
+                'description' => __('subscriptions.stats.active_description'),
             ],
             [
-                'label' => 'Cancelled',
+                'label' => __('subscriptions.stats.cancelled'),
                 'value' => fn () => Subscription::where('status', 'cancelled')->count(),
                 'icon' => 'circle-slash',
-                'description' => 'May still have access until period end',
+                'description' => __('subscriptions.stats.cancelled_description'),
             ],
             [
-                'label' => 'Revenue Collected',
+                'label' => __('subscriptions.stats.revenue'),
                 'value' => fn () => '$'.number_format((float) Subscription::sum('amount_paid'), 2),
                 'icon' => 'banknote',
-                'description' => 'Sum of amount paid, all-time',
+                'description' => __('subscriptions.stats.revenue_description'),
             ],
         ];
     }
@@ -144,6 +142,6 @@ class Index extends BaseIndex
             'subscriptions' => $subscriptions,
             'stats' => $this->resolveStats(),
             'filterBarConfig' => $this->filterBarConfig(),
-        ]);
+        ])->title(__('subscriptions.title'));
     }
 }

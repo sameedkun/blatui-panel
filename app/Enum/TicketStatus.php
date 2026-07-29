@@ -3,7 +3,6 @@
 namespace App\Enum;
 
 use App\Models\Ticket;
-use Illuminate\Support\Str;
 
 /**
  * The lifecycle state of a {@see Ticket}. Closed vocabulary — adding a new
@@ -23,7 +22,7 @@ enum TicketStatus: string
 
     public function label(): string
     {
-        return Str::headline($this->value);
+        return __("enums.ticket_status.{$this->name}");
     }
 
     /** Terminal states a ticket must be reopened from before it can be replied to. */

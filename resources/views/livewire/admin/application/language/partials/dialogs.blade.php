@@ -3,22 +3,22 @@
 
 <x-admin.confirm-dialog
     id="delete-language"
-    title="Delete Language"
+    :title="__('languages.dialogs.delete_title')"
     confirm="$wire.delete()"
     cancel="$wire.set('deletingId', null)"
-    confirm-label="Delete"
+    :confirm-label="__('languages.actions.delete')"
     variant="destructive"
 >
-    This will permanently delete the language. This action cannot be undone.
+    {{ __('languages.dialogs.delete_description') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="bulk-delete"
-    title="Delete {{ count($selectedIds) }} Languages"
+    :title="__('languages.dialogs.bulk_delete_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkDelete()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Delete"
+    :confirm-label="__('languages.actions.delete')"
     variant="destructive"
 >
-    This permanently deletes all selected languages. This action <strong>cannot be undone</strong>.
+    {{ __('languages.dialogs.bulk_delete_description') }}
 </x-admin.confirm-dialog>

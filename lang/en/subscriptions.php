@@ -3,7 +3,7 @@
 return [
     'title' => 'Subscriptions',
     'singular' => 'Subscription',
-    'subtitle' => 'Global view of all active, trialing, and historical subscriptions.',
+    'subtitle' => 'Every subscription ever sold, across every user and plan.',
     'gateway' => 'Gateway: :provider',
     'access_until' => 'Access Until',
     'renews_on' => 'Renews On',
@@ -20,16 +20,42 @@ return [
     'active_subscription_desc' => 'Current active plan details.',
     'no_history' => 'No subscription history.',
     'no_history_desc' => ':name has never subscribed to a plan.',
+    'cancelled_by' => 'Cancelled by :actor',
+    'cancellation_reason' => 'Reason: :reason',
+    'no_reason_provided' => 'No reason provided',
+    'reactivatable_notice' => 'Subscription cancelled — access remains until :date. You can reactivate this subscription before then.',
+    'view_subscription' => 'View subscription',
+
     'stats' => [
         'total' => 'Total Subscriptions',
-        'active' => 'Active Subscriptions',
-        'cancelled' => 'Cancelled Subscriptions',
+        'active' => 'Active',
+        'cancelled' => 'Cancelled',
         'revenue' => 'Revenue Collected',
+        'all_time_records' => 'All-time records',
+        'active_description' => 'Trialing, active, or in grace',
+        'cancelled_description' => 'May still have access until period end',
+        'revenue_description' => 'Sum of amount paid, all-time',
     ],
+
+    'tabs' => [
+        'overview' => 'Overview',
+        'receipts' => 'Receipts',
+        'activity' => 'Activity',
+    ],
+
     'actions' => [
         'cancel' => 'Cancel Subscription',
         'reactivate' => 'Reactivate',
+        'reactivate_subscription' => 'Reactivate Subscription',
+        'cancel_immediately' => 'Cancel Immediately',
+        'cancel_period_end' => 'Cancel at Period End',
+        'actions' => 'Actions',
+        'clear_filters' => 'Clear filters',
+        'view_user_profile' => 'View Full User Profile',
+        'view_plan_details' => 'View Plan Details',
+        'view_user_history' => 'View full user history',
     ],
+
     'fields' => [
         'user' => 'Subscriber',
         'plan' => 'Plan',
@@ -40,5 +66,102 @@ return [
         'trial_ends_at' => 'Trial Ends',
         'grace_ends_at' => 'Grace Ends',
         'price' => 'Price',
+        'started' => 'Started',
+        'ends' => 'Ends',
+        'paid' => 'Paid',
+        'amount_paid' => 'Amount Paid',
+        'auto_renew' => 'Auto-Renew',
+    ],
+
+    'status' => [
+        'active' => 'Active',
+        'enabled' => 'Enabled',
+        'disabled' => 'Disabled',
+        'retired' => 'Retired',
+        'deleted_user' => 'Deleted user',
+        'unknown_user' => 'Unknown User',
+        'deleted_plan' => 'Deleted Plan',
+        'subscriber_deleted' => 'Subscriber account deleted.',
+        'historical_record' => 'Historical Record',
+        'none_found' => 'No subscriptions found.',
+    ],
+
+    'placeholders' => [
+        'search' => 'Search user, email, or plan...',
+        'reason_optional' => 'Reason (optional)',
+    ],
+
+    'dialogs' => [
+        'cancel_immediately_title' => 'Cancel Subscription Immediately',
+        'cancel_immediately_description' => 'Access ends right away — the plan\'s features stop applying to this account as soon as you confirm.',
+        'cancel_period_end_title' => 'Cancel at Period End',
+        'cancel_period_end_description' => 'Auto-renew turns off, but the user keeps full access until the current billing period ends.',
+    ],
+
+    'toasts' => [
+        'no_longer_active' => 'This is no longer the active subscription for this user.',
+        'cancelled_immediately' => ':plan subscription cancelled immediately.',
+        'cancelled_period_end' => ':plan subscription will end on :date.',
+        'cannot_reactivate' => 'This subscription can no longer be reactivated.',
+        'reactivated' => ':plan subscription reactivated.',
+    ],
+
+    'overview' => [
+        'subscription_id' => 'Subscription ID',
+        'subscription_status' => 'Subscription Status',
+        'payment_gateway' => 'Payment Gateway',
+        'auto_renewal_state' => 'Auto-Renewal State',
+        'total_amount_paid' => 'Total Amount Paid',
+        'subscription_started' => 'Subscription Started',
+        'trial_expiration' => 'Trial Expiration',
+        'access_renewal_date' => 'Access / Renewal Date',
+        'grace_expiration' => 'Grace Expiration',
+        'lifecycle_billing' => 'Lifecycle & Billing Parameters',
+        'lifecycle_billing_description' => 'Full lifecycle timestamps, gateway details, and recurring status.',
+        'proration_meta' => 'Upgrade Proration Meta',
+        'lineage' => 'Subscription Lineage & Chain',
+        'lineage_description' => 'Upgrade or downgrade sequence linked to this record.',
+        'previous_tier' => 'Replaced (Previous Tier)',
+        'next_tier' => 'Replaced By (Next Tier)',
+        'subscriber_account' => 'Subscriber Account',
+        'subscriber_account_description' => 'User who holds this subscription.',
+        'plan_price' => 'Plan & Price Point',
+        'plan_price_description' => 'Subscribed tier information.',
+        'plan_name' => 'Plan Name',
+        'plan_visibility' => 'Plan Visibility',
+        'price_amount' => 'Price Amount',
+        'billing_interval' => 'Billing Interval',
+        'every' => 'Every :period',
+    ],
+
+    'proration_fields' => [
+        'credit' => 'Credit',
+        'from_plan' => 'From Plan',
+        'new_amount' => 'New Amount',
+    ],
+
+    'receipts' => [
+        'title' => 'Provider Receipts',
+        'description' => 'Webhooks and transaction events recorded for this subscription.',
+        'event_type' => 'Event Type',
+        'gateway' => 'Gateway',
+        'transaction_id' => 'Transaction ID',
+        'original_id' => 'Original ID',
+        'recorded_date' => 'Recorded Date',
+        'none' => 'No provider receipts recorded for this subscription yet.',
+    ],
+
+    'activity' => [
+        'title' => 'Subscription Activity',
+        'description' => 'Plan assignments, upgrades, cancellations, and reactivations for this user.',
+        'by' => 'by :name',
+        'none' => 'No subscription activity recorded for this user yet.',
+    ],
+
+    'billing_intervals' => [
+        'day' => '{1} :count day|[2,*] :count days',
+        'week' => '{1} :count week|[2,*] :count weeks',
+        'month' => '{1} :count month|[2,*] :count months',
+        'year' => '{1} :count year|[2,*] :count years',
     ],
 ];

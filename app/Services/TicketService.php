@@ -145,8 +145,8 @@ class TicketService
         $ticket->messages()->create([
             'author_type' => TicketMessageAuthorType::System,
             'message' => $agent
-                ? "Reassigned to {$agent->name} by {$causer->name}."
-                : "Unassigned by {$causer->name}.",
+                ? __('tickets.system.reassigned', ['agent' => $agent->name, 'causer' => $causer->name])
+                : __('tickets.system.unassigned', ['causer' => $causer->name]),
         ]);
 
         ActivityLogger::log(ActivityModule::Ticket, ActivityAction::Assigned, $ticket, [
@@ -197,7 +197,7 @@ class TicketService
 
         $ticket->messages()->create([
             'author_type' => TicketMessageAuthorType::System,
-            'message' => "Auto-assigned to {$agent->name} based on current workload.",
+            'message' => __('tickets.system.auto_assigned', ['agent' => $agent->name]),
         ]);
 
         return $agent;

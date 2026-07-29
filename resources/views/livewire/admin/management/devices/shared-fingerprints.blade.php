@@ -1,17 +1,17 @@
 <div class="flex flex-col gap-6">
 
-    <x-admin.page-header title="Shared Fingerprints" description="Device fingerprints currently attached to more than one account — a possible sign of account sharing or a spoofed client."
-        :breadcrumbs="[['label' => 'Home', 'url' => route('admin.dashboard')], ['label' => 'Devices', 'url' => route('admin.devices.index')], ['label' => 'Shared Fingerprints']]"
+    <x-admin.page-header :title="__('devices.shared.title')" :description="__('devices.shared.description')"
+        :breadcrumbs="[['label' => __('navigation.home'), 'url' => route('admin.dashboard')], ['label' => __('devices.title'), 'url' => route('admin.devices.index')], ['label' => __('devices.shared.title')]]"
         :back="route('admin.devices.index')" />
 
     <div class="overflow-hidden rounded-md border border-border">
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b border-border bg-muted/40">
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Fingerprint</th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Accounts</th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Devices</th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Shared By</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('devices.fields.fingerprint') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('devices.shared.accounts') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('devices.title') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('devices.shared.shared_by') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-border">
@@ -35,7 +35,7 @@
                                     @endif
                                 @endforeach
                                 @if ($devices->unique('user_id')->count() > 5)
-                                    <span class="text-xs text-muted-foreground">+{{ $devices->unique('user_id')->count() - 5 }} more</span>
+                                    <span class="text-xs text-muted-foreground">{{ __('devices.shared.more', ['count' => $devices->unique('user_id')->count() - 5]) }}</span>
                                 @endif
                             </div>
                         </td>
@@ -44,7 +44,7 @@
                     <tr>
                         <td colspan="4" class="px-4 py-16 text-center text-muted-foreground">
                             <x-lucide-users class="mx-auto mb-2 size-8 opacity-30" />
-                            <p class="text-sm">No shared fingerprints found.</p>
+                            <p class="text-sm">{{ __('devices.shared.none_found') }}</p>
                         </td>
                     </tr>
                 @endforelse

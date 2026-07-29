@@ -3,7 +3,6 @@
 namespace App\Enum;
 
 use App\Models\Subscription;
-use Illuminate\Support\Str;
 
 /**
  * The lifecycle state of a {@see Subscription}. Closed vocabulary — adding a
@@ -20,6 +19,6 @@ enum SubscriptionStatus: string
 
     public function label(): string
     {
-        return Str::headline($this->value);
+        return __("enums.subscription_status.{$this->name}");
     }
 }

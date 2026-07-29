@@ -1,12 +1,12 @@
 <div class="flex flex-col gap-6">
 
     {{-- Page header --}}
-    <x-admin.page-header title="Staff" description="Manage staff accounts and their roles." :breadcrumbs="[['label' => 'Home', 'url' => route('admin.dashboard')], ['label' => 'Staff']]">
+    <x-admin.page-header :title="__('staff.title')" :description="__('staff.subtitle')" :breadcrumbs="[['label' => __('staff.common.home'), 'url' => route('admin.dashboard')], ['label' => __('staff.title')]]">
         @can('staff.create')
             <x-slot:actions>
                 <x-ui.button href="{{ route('admin.staff.create') }}">
                     <x-lucide-plus class="size-4" />
-                    Create Staff
+                    {{ __('staff.actions.create') }}
                 </x-ui.button>
             </x-slot:actions>
         @endcan
@@ -23,7 +23,7 @@
 
     {{-- Toolbar --}}
     <x-admin.filter-bar :config="$filterBarConfig" :filters="$filters" :has-active-filters="$this->hasActiveFilters()"
-        search-placeholder="Search name, email, ID..." />
+        :search-placeholder="__('staff.filters.search')" />
 
     {{-- Table --}}
     @php
@@ -50,7 +50,7 @@
                     </th>
                     <th class="px-4 py-3 text-left">
                         <button wire:click="sort('name')" class="flex items-center gap-1 font-medium text-foreground">
-                            Staff
+                            {{ __('staff.fields.staff') }}
                             @if ($sortBy === 'name')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -58,12 +58,12 @@
                             @endif
                         </button>
                     </th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground lg:table-cell">Roles</th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Status</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground lg:table-cell">{{ __('staff.fields.roles') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('staff.fields.status') }}</th>
                     <th class="hidden px-4 py-3 text-left md:table-cell">
                         <button wire:click="sort('registration_date')"
                             class="flex items-center gap-1 font-medium text-foreground">
-                            Registered
+                            {{ __('staff.fields.registered') }}
                             @if ($sortBy === 'registration_date')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -71,7 +71,7 @@
                             @endif
                         </button>
                     </th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground xl:table-cell">Last Login</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground xl:table-cell">{{ __('staff.fields.last_login') }}</th>
                     <th class="w-10 px-4 py-3"></th>
                 </tr>
             </thead>
@@ -129,10 +129,10 @@
                                     @if ($role->name === config('panel.super_admin_role'))
                                         <x-ui.badge class="border-0 bg-amber-500/15 text-amber-700 dark:text-amber-400">
                                             <x-lucide-crown class="size-3" />
-                                            {{ Str::headline($role->name) }}
+                                            {{ $roleLabels[$role->name] ?? Str::headline($role->name) }}
                                         </x-ui.badge>
                                     @else
-                                        <x-ui.badge variant="secondary">{{ Str::headline($role->name) }}</x-ui.badge>
+                                        <x-ui.badge variant="secondary">{{ $roleLabels[$role->name] ?? Str::headline($role->name) }}</x-ui.badge>
                                     @endif
                                 @empty
                                     <span class="text-xs text-muted-foreground">—</span>
@@ -143,18 +143,18 @@
                         {{-- Status --}}
                         <td class="px-4 py-3">
                             @if ($member->banned_at)
-                                <x-ui.badge variant="destructive">Banned</x-ui.badge>
+                                <x-ui.badge variant="destructive">{{ __('staff.status.banned') }}</x-ui.badge>
                             @elseif(!$member->email_verified_at)
-                                <x-ui.badge variant="secondary">Unverified</x-ui.badge>
+                                <x-ui.badge variant="secondary">{{ __('staff.status.unverified') }}</x-ui.badge>
                             @else
                                 <x-ui.badge variant="default"
-                                    class="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0">Active</x-ui.badge>
+                                    class="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0">{{ __('staff.status.active') }}</x-ui.badge>
                             @endif
                         </td>
 
                         {{-- Registered --}}
                         <td class="hidden px-4 py-3 text-xs text-muted-foreground md:table-cell">
-                            <x-ui.local-time :value="$member->registration_date" format="MMM D, YYYY" />
+                            <x-ui.local-time :value="$member->registration_date" :format="__('staff.index.date_format')" />
                         </td>
 
                         {{-- Last login --}}
@@ -162,17 +162,17 @@
                             @if ($member->last_login)
                                 <x-ui.local-time :value="$member->last_login" show-diff="true" />
                             @else
-                                Never
+                                {{ __('staff.common.never') }}
                             @endif
                         </td>
 
                         {{-- Row actions --}}
                         <td class="px-4 py-3 text-right">
                             @if ($canRowAct && $isProtected)
-                                <x-admin.tooltip text="Only a super admin can manage this account">
+                                <x-admin.tooltip :text="__('staff.index.protected_tooltip')">
                                     <x-ui.badge variant="outline" class="gap-1">
                                         <x-lucide-lock class="size-3" />
-                                        Protected
+                                        {{ __('staff.status.protected') }}
                                     </x-ui.badge>
                                 </x-admin.tooltip>
                             @elseif ($canRowAct)
@@ -180,14 +180,14 @@
                                     <x-slot:trigger>
                                         <x-ui.button variant="ghost" size="icon" class="size-8">
                                             <x-lucide-ellipsis class="size-4" />
-                                            <span class="sr-only">Actions</span>
+                                            <span class="sr-only">{{ __('staff.common.actions') }}</span>
                                         </x-ui.button>
                                     </x-slot:trigger>
 
                                     @can('staff.edit')
                                         <x-admin.dropdown-item href="{{ route('admin.staff.edit', $member) }}">
                                             <x-lucide-pencil class="size-4" />
-                                            Edit
+                                            {{ __('staff.actions.edit') }}
                                         </x-admin.dropdown-item>
                                     @endcan
 
@@ -197,12 +197,12 @@
                                                 @if (!$member->banned_at)
                                                     <x-admin.dropdown-item @click="$wire.openBanDialog({{ $member->id }})">
                                                         <x-lucide-ban class="size-4" />
-                                                        Ban
+                                                        {{ __('staff.actions.ban') }}
                                                     </x-admin.dropdown-item>
                                                 @else
                                                     <x-admin.dropdown-item @click="$wire.unban({{ $member->id }})">
                                                         <x-lucide-shield-check class="size-4" />
-                                                        Unban
+                                                        {{ __('staff.actions.unban') }}
                                                     </x-admin.dropdown-item>
                                                 @endif
                                             @endcan
@@ -212,14 +212,14 @@
                                                 <x-admin.dropdown-item variant="destructive"
                                                     @click="$wire.confirmDelete({{ $member->id }})">
                                                     <x-lucide-trash class="size-4" />
-                                                    Delete
+                                                    {{ __('staff.actions.delete') }}
                                                 </x-admin.dropdown-item>
                                             @endcan
                                         @else
                                             @can('staff.restore')
                                                 <x-admin.dropdown-item @click="$wire.confirmRestore({{ $member->id }})">
                                                     <x-lucide-rotate-ccw class="size-4" />
-                                                    Restore
+                                                    {{ __('staff.actions.restore') }}
                                                 </x-admin.dropdown-item>
                                             @endcan
 
@@ -228,7 +228,7 @@
                                                 <x-admin.dropdown-item variant="destructive"
                                                     @click="$wire.confirmForceDelete({{ $member->id }})">
                                                     <x-lucide-trash-2 class="size-4" />
-                                                    Permanently Delete
+                                                    {{ __('staff.actions.force_delete') }}
                                                 </x-admin.dropdown-item>
                                             @endcan
                                         @endif
@@ -242,10 +242,10 @@
                     <tr>
                         <td colspan="7" class="px-4 py-16 text-center text-muted-foreground">
                             <x-lucide-shield-user class="mx-auto mb-2 size-8 opacity-30" />
-                            <p class="text-sm">No staff found.</p>
+                            <p class="text-sm">{{ __('staff.index.empty') }}</p>
                             @if ($this->hasActiveFilters())
                                 <button wire:click="resetFilters"
-                                    class="mt-1 text-xs underline hover:no-underline">Clear filters</button>
+                                    class="mt-1 text-xs underline hover:no-underline">{{ __('staff.common.clear_filters') }}</button>
                             @endif
                         </td>
                     </tr>
@@ -262,14 +262,14 @@
         <div class="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background px-3 py-2 shadow-xl"
             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-4"
             x-transition:enter-end="opacity-100 translate-y-0">
-            <x-admin.tooltip text="Clear selection">
+            <x-admin.tooltip :text="__('staff.common.clear_selection')">
                 <x-ui.button variant="ghost" size="icon" class="size-8 rounded-full" wire:click="clearSelection">
                     <x-lucide-x class="size-4" />
                 </x-ui.button>
             </x-admin.tooltip>
 
             <div class="mx-1 h-4 w-px bg-border"></div>
-            <span class="px-1 text-sm font-medium">{{ count($selectedIds) }} selected</span>
+            <span class="px-1 text-sm font-medium">{{ __('staff.common.selected', ['count' => count($selectedIds)]) }}</span>
             <div class="mx-1 h-4 w-px bg-border"></div>
 
             @foreach ($this->availableBulkActions as $action)

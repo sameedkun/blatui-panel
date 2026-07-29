@@ -3,7 +3,6 @@
 namespace App\Enum;
 
 use App\Models\Feedback;
-use Illuminate\Support\Str;
 
 /**
  * The triage state of a {@see Feedback} submission. Closed vocabulary —
@@ -18,6 +17,6 @@ enum FeedbackStatus: string
 
     public function label(): string
     {
-        return Str::headline($this->value);
+        return __("enums.feedback_status.{$this->name}");
     }
 }

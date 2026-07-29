@@ -3,7 +3,6 @@
 namespace App\Enum;
 
 use App\Models\SubscriptionReceipt;
-use Illuminate\Support\Str;
 
 /**
  * The kind of provider event a {@see SubscriptionReceipt} records. Closed
@@ -19,6 +18,6 @@ enum ReceiptType: string
 
     public function label(): string
     {
-        return Str::headline($this->value);
+        return __("enums.receipt_type.{$this->name}");
     }
 }

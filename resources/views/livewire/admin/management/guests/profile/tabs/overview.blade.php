@@ -1,13 +1,13 @@
 @php
     /** @var \App\Models\User $record */
     $general = [
-        ['label' => __('users.fields.name'), 'value' => $record->name],
-        ['label' => __('users.fields.email'), 'value' => $record->email],
+        ['label' => __('guests.fields.name'), 'value' => $record->name],
+        ['label' => __('guests.fields.email'), 'value' => $record->email],
         [
             'label' => __('common.status'),
             'value' => $record->banned_at ? __('guests.status_labels.banned') : __('guests.status_labels.active'),
         ],
-        ['label' => __('users.fields.external_id'), 'value' => $record->external_id, 'mono' => true],
+        ['label' => __('guests.fields.external_id'), 'value' => $record->external_id, 'mono' => true],
         ['label' => __('guests.fields.guest_id'), 'value' => (string) $record->id, 'mono' => true],
     ];
 
@@ -31,8 +31,8 @@
         return compact('heading', 'rows');
     };
     $sections = [
-        $section(__('users.overview.general'), $general),
-        $section(__('users.overview.dates'), $dates),
+        $section(__('guests.overview.general'), $general),
+        $section(__('guests.overview.dates'), $dates),
         $section(__('common.status'), $status),
     ];
 
@@ -147,8 +147,11 @@
                         {{ number_format((float) $subscription->planPrice->amount, 2) }}
                     </p>
                     <p class="text-xs text-muted-foreground">
-                        / {{ $subscription->planPrice->billing_period }}
-                        {{ $subscription->planPrice->billing_interval->label() }}{{ $subscription->planPrice->billing_period > 1 ? 's' : '' }}
+                        / {{ trans_choice(
+                            'guests.billing_intervals.'.$subscription->planPrice->billing_interval->value,
+                            $subscription->planPrice->billing_period,
+                            ['count' => $subscription->planPrice->billing_period],
+                        ) }}
                     </p>
                 </div>
             </div>

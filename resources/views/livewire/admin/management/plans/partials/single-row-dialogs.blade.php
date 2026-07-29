@@ -3,11 +3,11 @@
 
 <x-admin.confirm-dialog
     id="delete-plan"
-    title="Delete Plan"
+    :title="__('plans.dialogs.delete_title')"
     confirm="$wire.delete()"
     cancel="$wire.set('deletingId', null)"
-    confirm-label="Delete"
+    :confirm-label="__('plans.actions.delete')"
     variant="destructive"
 >
-    This permanently deletes the plan and all of its prices and payment provider mappings. This action <strong>cannot be undone</strong>.
+    {{ __('plans.dialogs.delete_description') }}
 </x-admin.confirm-dialog>

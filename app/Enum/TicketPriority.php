@@ -3,7 +3,6 @@
 namespace App\Enum;
 
 use App\Models\Ticket;
-use Illuminate\Support\Str;
 
 /**
  * The urgency of a {@see Ticket}, set on creation and adjustable by staff.
@@ -17,6 +16,6 @@ enum TicketPriority: string
 
     public function label(): string
     {
-        return Str::headline($this->value);
+        return __("enums.ticket_priority.{$this->name}");
     }
 }

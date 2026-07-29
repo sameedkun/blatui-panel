@@ -3,42 +3,42 @@
 
 <x-admin.confirm-dialog
     id="delete-category"
-    title="Delete Category"
+    :title="__('ticket_categories.dialogs.delete_title')"
     confirm="$wire.delete()"
     cancel="$wire.set('deletingId', null)"
-    confirm-label="Delete"
+    :confirm-label="__('ticket_categories.actions.delete')"
     variant="destructive"
 >
-    This will permanently delete the category. This action cannot be undone.
+    {{ __('ticket_categories.dialogs.delete_description') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="bulk-activate"
-    title="Activate {{ count($selectedIds) }} Categories"
+    :title="__('ticket_categories.dialogs.activate_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkActivate()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Activate"
+    :confirm-label="__('ticket_categories.actions.activate')"
 >
-    Every selected category becomes available for ticket routing.
+    {{ __('ticket_categories.dialogs.activate_description') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="bulk-deactivate"
-    title="Deactivate {{ count($selectedIds) }} Categories"
+    :title="__('ticket_categories.dialogs.deactivate_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkDeactivate()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Deactivate"
+    :confirm-label="__('ticket_categories.actions.deactivate')"
 >
-    Every selected category stops being available for ticket routing.
+    {{ __('ticket_categories.dialogs.deactivate_description') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="bulk-delete"
-    title="Delete {{ count($selectedIds) }} Categories"
+    :title="__('ticket_categories.dialogs.bulk_delete_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkDelete()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Delete"
+    :confirm-label="__('ticket_categories.actions.delete')"
     variant="destructive"
 >
-    This permanently deletes every selected category that has no tickets. This action <strong>cannot be undone</strong>.
+    {{ __('ticket_categories.dialogs.bulk_delete_description') }}
 </x-admin.confirm-dialog>

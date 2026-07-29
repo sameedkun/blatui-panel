@@ -4,7 +4,6 @@ namespace App\Enum;
 
 use App\Jobs\SendPushNotification;
 use App\Models\Notification;
-use Illuminate\Support\Str;
 
 /**
  * The push-delivery state of a {@see Notification}. Closed vocabulary —
@@ -24,6 +23,6 @@ enum NotificationPushStatus: string
 
     public function label(): string
     {
-        return Str::headline($this->value);
+        return __("enums.notification_push_status.{$this->name}");
     }
 }

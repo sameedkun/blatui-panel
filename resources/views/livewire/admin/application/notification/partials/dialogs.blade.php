@@ -3,24 +3,24 @@
 
 <x-admin.confirm-dialog
     id="delete-notification"
-    title="Delete Notification"
+    :title="__('notifications.dialogs.delete_title')"
     confirm="$wire.delete()"
     cancel="$wire.set('deletingId', null)"
-    confirm-label="Delete"
+    :confirm-label="__('notifications.actions.delete')"
     variant="destructive"
 >
-    This will permanently delete the notification. This action cannot be undone.
+    {{ __('notifications.dialogs.delete_description') }}
 </x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="bulk-delete"
-    title="Delete {{ count($selectedIds) }} Notifications"
+    :title="__('notifications.dialogs.bulk_delete_title', ['count' => count($selectedIds)])"
     confirm="$wire.executeBulkDelete()"
     cancel="$wire.cancelBulkAction()"
-    confirm-label="Delete"
+    :confirm-label="__('notifications.actions.delete')"
     variant="destructive"
 >
-    This permanently deletes all selected notifications. This action <strong>cannot be undone</strong>.
+    {{ __('notifications.dialogs.bulk_delete_description') }}
 </x-admin.confirm-dialog>
 
 {{--
@@ -44,7 +44,7 @@
         @endif
 
         <x-ui.dialog-header>
-            <x-ui.dialog-title>Push Notification Status</x-ui.dialog-title>
+            <x-ui.dialog-title>{{ __('notifications.dialogs.status_title') }}</x-ui.dialog-title>
             @if ($viewingNotification)
                 <x-ui.dialog-description>{{ $viewingNotification->title }}</x-ui.dialog-description>
             @endif
@@ -56,13 +56,13 @@
             @if ($viewingNotification->push_status === \App\Enum\NotificationPushStatus::Pending)
                 <p class="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <x-ui.spinner class="size-3.5" />
-                    Watching for a status update…
+                    {{ __('notifications.dialogs.watching') }}
                 </p>
             @endif
         @endif
 
         <x-ui.dialog-footer>
-            <x-ui.button variant="outline" @click="open = false">Close</x-ui.button>
+            <x-ui.button variant="outline" @click="open = false">{{ __('notifications.actions.close') }}</x-ui.button>
         </x-ui.dialog-footer>
     </x-ui.dialog-content>
 </x-ui.dialog>

@@ -1,12 +1,12 @@
 <div class="flex flex-col gap-6">
 
     {{-- Page header --}}
-    <x-admin.page-header title="Ticket Categories" description="Categories route tickets to a pool of agents, load-balanced by open ticket count." :breadcrumbs="[['label' => 'Home', 'url' => route('admin.dashboard')], ['label' => 'Ticket Categories']]">
+    <x-admin.page-header :title="__('ticket_categories.title')" :description="__('ticket_categories.subtitle')" :breadcrumbs="[['label' => __('ticket_categories.common.home'), 'url' => route('admin.dashboard')], ['label' => __('ticket_categories.title')]]">
         @can('ticket_categories.create')
             <x-slot:actions>
                 <x-ui.button href="{{ route('admin.ticket-categories.create') }}">
                     <x-lucide-plus class="size-4" />
-                    Create Category
+                    {{ __('ticket_categories.actions.create') }}
                 </x-ui.button>
             </x-slot:actions>
         @endcan
@@ -23,7 +23,7 @@
 
     {{-- Toolbar --}}
     <x-admin.filter-bar :config="$filterBarConfig" :filters="$filters" :has-active-filters="$this->hasActiveFilters()"
-        search-placeholder="Search category name..." />
+        :search-placeholder="__('ticket_categories.index.search')" />
 
     {{-- Table --}}
     @php
@@ -45,7 +45,7 @@
                     </th>
                     <th class="px-4 py-3 text-left">
                         <button wire:click="sort('name')" class="flex items-center gap-1 font-medium text-foreground">
-                            Category
+                            {{ __('ticket_categories.singular') }}
                             @if ($sortBy === 'name')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -53,12 +53,12 @@
                             @endif
                         </button>
                     </th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Status</th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground sm:table-cell">Agents</th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground md:table-cell">Tickets</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('ticket_categories.fields.status') }}</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground sm:table-cell">{{ __('ticket_categories.fields.agents') }}</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground md:table-cell">{{ __('ticket_categories.fields.tickets') }}</th>
                     <th class="hidden px-4 py-3 text-left lg:table-cell">
                         <button wire:click="sort('sort_order')" class="flex items-center gap-1 font-medium text-foreground">
-                            Order
+                            {{ __('ticket_categories.fields.sort_order') }}
                             @if ($sortBy === 'sort_order')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -95,18 +95,18 @@
                         {{-- Status --}}
                         <td class="px-4 py-3">
                             @if ($category->is_active)
-                                <x-ui.badge variant="default" class="border-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">Active</x-ui.badge>
+                                <x-ui.badge variant="default" class="border-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">{{ __('ticket_categories.status.active') }}</x-ui.badge>
                             @else
-                                <x-ui.badge variant="secondary">Inactive</x-ui.badge>
+                                <x-ui.badge variant="secondary">{{ __('ticket_categories.status.inactive') }}</x-ui.badge>
                             @endif
                         </td>
 
                         {{-- Agents --}}
                         <td class="hidden px-4 py-3 sm:table-cell">
                             @if ($category->agents_count > 0)
-                                <x-ui.badge variant="secondary">{{ $category->agents_count }} {{ \Illuminate\Support\Str::plural('agent', $category->agents_count) }}</x-ui.badge>
+                                <x-ui.badge variant="secondary">{{ trans_choice('ticket_categories.index.agent_count', $category->agents_count, ['count' => $category->agents_count]) }}</x-ui.badge>
                             @else
-                                <span class="text-xs text-muted-foreground italic">No agents</span>
+                                <span class="text-xs text-muted-foreground italic">{{ __('ticket_categories.index.no_agents') }}</span>
                             @endif
                         </td>
 
@@ -125,23 +125,23 @@
                                     <x-slot:trigger>
                                         <x-ui.button variant="ghost" size="icon" class="size-8">
                                             <x-lucide-ellipsis class="size-4" />
-                                            <span class="sr-only">Actions</span>
+                                            <span class="sr-only">{{ __('ticket_categories.common.actions') }}</span>
                                         </x-ui.button>
                                     </x-slot:trigger>
 
                                     @can('ticket_categories.edit')
                                         <x-admin.dropdown-item href="{{ route('admin.ticket-categories.edit', $category) }}">
                                             <x-lucide-pencil class="size-4" />
-                                            Edit
+                                            {{ __('ticket_categories.actions.edit') }}
                                         </x-admin.dropdown-item>
 
                                         <x-admin.dropdown-item @click="$wire.toggleActive({{ $category->id }})">
                                             @if ($category->is_active)
                                                 <x-lucide-circle-slash class="size-4" />
-                                                Deactivate
+                                                {{ __('ticket_categories.actions.deactivate') }}
                                             @else
                                                 <x-lucide-check-circle class="size-4" />
-                                                Activate
+                                                {{ __('ticket_categories.actions.activate') }}
                                             @endif
                                         </x-admin.dropdown-item>
                                     @endcan
@@ -151,7 +151,7 @@
                                         <x-admin.dropdown-item variant="destructive"
                                             @click="$wire.confirmDelete({{ $category->id }})">
                                             <x-lucide-trash class="size-4" />
-                                            Delete
+                                            {{ __('ticket_categories.actions.delete') }}
                                         </x-admin.dropdown-item>
                                     @endcan
                                 </x-admin.dropdown>
@@ -163,10 +163,10 @@
                     <tr>
                         <td colspan="7" class="px-4 py-16 text-center text-muted-foreground">
                             <x-lucide-tags class="mx-auto mb-2 size-8 opacity-30" />
-                            <p class="text-sm">No categories found.</p>
+                            <p class="text-sm">{{ __('ticket_categories.index.empty') }}</p>
                             @if ($this->hasActiveFilters())
                                 <button wire:click="resetFilters"
-                                    class="mt-1 text-xs underline hover:no-underline">Clear filters</button>
+                                    class="mt-1 text-xs underline hover:no-underline">{{ __('ticket_categories.common.clear_filters') }}</button>
                             @endif
                         </td>
                     </tr>
@@ -183,14 +183,14 @@
         <div class="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background px-3 py-2 shadow-xl"
             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-4"
             x-transition:enter-end="opacity-100 translate-y-0">
-            <x-admin.tooltip text="Clear selection">
+            <x-admin.tooltip :text="__('ticket_categories.common.clear_selection')">
                 <x-ui.button variant="ghost" size="icon" class="size-8 rounded-full" wire:click="clearSelection">
                     <x-lucide-x class="size-4" />
                 </x-ui.button>
             </x-admin.tooltip>
 
             <div class="mx-1 h-4 w-px bg-border"></div>
-            <span class="px-1 text-sm font-medium">{{ count($selectedIds) }} selected</span>
+            <span class="px-1 text-sm font-medium">{{ __('ticket_categories.common.selected', ['count' => count($selectedIds)]) }}</span>
             <div class="mx-1 h-4 w-px bg-border"></div>
 
             @foreach ($this->availableBulkActions as $action)

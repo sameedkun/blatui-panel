@@ -15,13 +15,13 @@
 <x-ui.card>
     <div class="mb-4 flex items-center justify-between">
         <div>
-            <p class="text-sm font-medium">Subscription Activity</p>
-            <p class="text-xs text-muted-foreground">Plan assignments, upgrades, cancellations, and reactivations for this user.</p>
+            <p class="text-sm font-medium">{{ __('subscriptions.activity.title') }}</p>
+            <p class="text-xs text-muted-foreground">{{ __('subscriptions.activity.description') }}</p>
         </div>
         @can('activity_logs.view')
             @if ($record->user)
                 <a href="{{ route('admin.activity-logs.index', ['subjectType' => User::class, 'subjectId' => $record->user_id]) }}" class="text-xs text-primary underline hover:no-underline">
-                    View full user history
+                    {{ __('subscriptions.actions.view_user_history') }}
                 </a>
             @endif
         @endcan
@@ -63,14 +63,14 @@
                     @endif
 
                     @if ($activity->causer)
-                        <p class="text-xs text-muted-foreground">by {{ $activity->causer->name }}</p>
+                        <p class="text-xs text-muted-foreground">{{ __('subscriptions.activity.by', ['name' => $activity->causer->name]) }}</p>
                     @endif
                 </div>
             </div>
         @empty
             <div class="flex flex-col items-center justify-center gap-2 py-12 text-center">
                 <x-lucide-clipboard-list class="size-8 text-muted-foreground/30" />
-                <p class="text-sm text-muted-foreground">No subscription activity recorded for this user yet.</p>
+                <p class="text-sm text-muted-foreground">{{ __('subscriptions.activity.none') }}</p>
             </div>
         @endforelse
     </div>

@@ -3,7 +3,6 @@
 namespace App\Enum;
 
 use App\Models\UserDevice;
-use Illuminate\Support\Str;
 
 /**
  * Coarse device form-factor. Kept separate from the free-text `platform`/`os`
@@ -18,6 +17,6 @@ enum DeviceType: string
 
     public function label(): string
     {
-        return Str::headline($this->value);
+        return __("enums.device_type.{$this->name}");
     }
 }

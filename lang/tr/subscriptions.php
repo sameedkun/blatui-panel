@@ -3,7 +3,7 @@
 return [
     'title' => 'Abonelikler',
     'singular' => 'Abonelik',
-    'subtitle' => 'Tüm aktif, deneme ve geçmiş aboneliklerin genel görünümü.',
+    'subtitle' => 'Tüm kullanıcı ve planlardaki geçmiş ve mevcut abonelikleri yönetin.',
     'gateway' => 'Ödeme Sağlayıcı: :provider',
     'access_until' => 'Erişim Bitişi',
     'renews_on' => 'Yenilenme Tarihi',
@@ -20,16 +20,42 @@ return [
     'active_subscription_desc' => 'Mevcut aktif plan detayları.',
     'no_history' => 'Abonelik geçmişi yok.',
     'no_history_desc' => ':name daha önce hiçbir plana abone olmadı.',
+    'cancelled_by' => ':actor tarafından iptal edildi',
+    'cancellation_reason' => 'Sebep: :reason',
+    'no_reason_provided' => 'Sebep belirtilmedi',
+    'reactivatable_notice' => 'Abonelik iptal edildi — erişim :date tarihine kadar devam eder. Bu tarihten önce aboneliği yeniden etkinleştirebilirsiniz.',
+    'view_subscription' => 'Aboneliği görüntüle',
+
     'stats' => [
         'total' => 'Toplam Abonelik',
-        'active' => 'Aktif Abonelikler',
-        'cancelled' => 'İptal Edilen Abonelikler',
+        'active' => 'Aktif',
+        'cancelled' => 'İptal Edilmiş',
         'revenue' => 'Toplanan Gelir',
+        'all_time_records' => 'Tüm zamanlardaki kayıtlar',
+        'active_description' => 'Deneme, aktif veya ek süre durumunda',
+        'cancelled_description' => 'Dönem sonuna kadar erişimi devam edebilir',
+        'revenue_description' => 'Tüm zamanlarda ödenen toplam tutar',
     ],
+
+    'tabs' => [
+        'overview' => 'Genel Bakış',
+        'receipts' => 'Makbuzlar',
+        'activity' => 'Etkinlik',
+    ],
+
     'actions' => [
         'cancel' => 'Aboneliği İptal Et',
         'reactivate' => 'Yeniden Etkinleştir',
+        'reactivate_subscription' => 'Aboneliği Yeniden Etkinleştir',
+        'cancel_immediately' => 'Hemen İptal Et',
+        'cancel_period_end' => 'Dönem Sonunda İptal Et',
+        'actions' => 'İşlemler',
+        'clear_filters' => 'Filtreleri temizle',
+        'view_user_profile' => 'Kullanıcı Profilinin Tamamını Görüntüle',
+        'view_plan_details' => 'Plan Ayrıntılarını Görüntüle',
+        'view_user_history' => 'Tüm kullanıcı geçmişini görüntüle',
     ],
+
     'fields' => [
         'user' => 'Abone',
         'plan' => 'Plan',
@@ -40,5 +66,102 @@ return [
         'trial_ends_at' => 'Deneme Bitişi',
         'grace_ends_at' => 'Ek Süre Bitişi',
         'price' => 'Fiyat',
+        'started' => 'Başlangıç',
+        'ends' => 'Bitiş',
+        'paid' => 'Ödenen',
+        'amount_paid' => 'Ödenen Tutar',
+        'auto_renew' => 'Otomatik Yenileme',
+    ],
+
+    'status' => [
+        'active' => 'Aktif',
+        'enabled' => 'Etkin',
+        'disabled' => 'Devre Dışı',
+        'retired' => 'Kullanımdan Kaldırılmış',
+        'deleted_user' => 'Silinmiş kullanıcı',
+        'unknown_user' => 'Bilinmeyen Kullanıcı',
+        'deleted_plan' => 'Silinmiş Plan',
+        'subscriber_deleted' => 'Abone hesabı silinmiş.',
+        'historical_record' => 'Geçmiş Kayıt',
+        'none_found' => 'Abonelik bulunamadı.',
+    ],
+
+    'placeholders' => [
+        'search' => 'Kullanıcı, e-posta veya planda ara...',
+        'reason_optional' => 'Sebep (isteğe bağlı)',
+    ],
+
+    'dialogs' => [
+        'cancel_immediately_title' => 'Aboneliği Hemen İptal Et',
+        'cancel_immediately_description' => 'Erişim hemen sona erer — onayladığınız anda plan özellikleri bu hesaba uygulanmayı bırakır.',
+        'cancel_period_end_title' => 'Dönem Sonunda İptal Et',
+        'cancel_period_end_description' => 'Otomatik yenileme kapanır ancak kullanıcı mevcut faturalandırma dönemi bitene kadar tam erişimini korur.',
+    ],
+
+    'toasts' => [
+        'no_longer_active' => 'Bu abonelik artık bu kullanıcının aktif aboneliği değil.',
+        'cancelled_immediately' => ':plan aboneliği hemen iptal edildi.',
+        'cancelled_period_end' => ':plan aboneliği :date tarihinde sona erecek.',
+        'cannot_reactivate' => 'Bu abonelik artık yeniden etkinleştirilemez.',
+        'reactivated' => ':plan aboneliği yeniden etkinleştirildi.',
+    ],
+
+    'overview' => [
+        'subscription_id' => 'Abonelik ID',
+        'subscription_status' => 'Abonelik Durumu',
+        'payment_gateway' => 'Ödeme Ağ Geçidi',
+        'auto_renewal_state' => 'Otomatik Yenileme Durumu',
+        'total_amount_paid' => 'Toplam Ödenen Tutar',
+        'subscription_started' => 'Abonelik Başlangıcı',
+        'trial_expiration' => 'Deneme Süresi Bitişi',
+        'access_renewal_date' => 'Erişim / Yenileme Tarihi',
+        'grace_expiration' => 'Ek Süre Bitişi',
+        'lifecycle_billing' => 'Yaşam Döngüsü ve Faturalandırma Parametreleri',
+        'lifecycle_billing_description' => 'Tüm yaşam döngüsü zamanları, ağ geçidi ayrıntıları ve yenileme durumu.',
+        'proration_meta' => 'Yükseltme Oranlama Bilgileri',
+        'lineage' => 'Abonelik Geçmişi ve Zinciri',
+        'lineage_description' => 'Bu kayda bağlı yükseltme veya düşürme sırası.',
+        'previous_tier' => 'Değiştirilen (Önceki Katman)',
+        'next_tier' => 'Yerine Geçen (Sonraki Katman)',
+        'subscriber_account' => 'Abone Hesabı',
+        'subscriber_account_description' => 'Bu aboneliğin sahibi olan kullanıcı.',
+        'plan_price' => 'Plan ve Fiyat Noktası',
+        'plan_price_description' => 'Abone olunan katman bilgileri.',
+        'plan_name' => 'Plan Adı',
+        'plan_visibility' => 'Plan Görünürlüğü',
+        'price_amount' => 'Fiyat Tutarı',
+        'billing_interval' => 'Faturalandırma Aralığı',
+        'every' => 'Her :period',
+    ],
+
+    'proration_fields' => [
+        'credit' => 'Kredi',
+        'from_plan' => 'Önceki Plan',
+        'new_amount' => 'Yeni Tutar',
+    ],
+
+    'receipts' => [
+        'title' => 'Sağlayıcı Makbuzları',
+        'description' => 'Bu abonelik için kaydedilen webhook ve işlem olayları.',
+        'event_type' => 'Olay Türü',
+        'gateway' => 'Ağ Geçidi',
+        'transaction_id' => 'İşlem ID',
+        'original_id' => 'Orijinal ID',
+        'recorded_date' => 'Kayıt Tarihi',
+        'none' => 'Bu abonelik için henüz sağlayıcı makbuzu kaydedilmedi.',
+    ],
+
+    'activity' => [
+        'title' => 'Abonelik Etkinliği',
+        'description' => 'Bu kullanıcının plan atamaları, yükseltmeleri, iptalleri ve yeniden etkinleştirmeleri.',
+        'by' => ':name tarafından',
+        'none' => 'Bu kullanıcı için henüz abonelik etkinliği kaydedilmedi.',
+    ],
+
+    'billing_intervals' => [
+        'day' => ':count gün',
+        'week' => ':count hafta',
+        'month' => ':count ay',
+        'year' => ':count yıl',
     ],
 ];

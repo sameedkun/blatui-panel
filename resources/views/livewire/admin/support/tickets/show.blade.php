@@ -19,9 +19,9 @@
                         <x-admin.ticket-priority-badge :priority="$record->priority" />
                     </div>
                     <p class="text-xs text-muted-foreground">
-                        Raised by <span class="font-medium text-foreground">{{ $record->user?->name ?? 'Unknown' }}</span>
-                        &bull; <x-ui.local-time :value="$record->created_at" format="MMM D, YYYY [at] h:mm A" />
-                        &bull; Ticket #{{ $record->id }}
+                        {{ __('tickets.show.raised_by', ['name' => $record->user?->name ?? __('tickets.common.unknown')]) }}
+                        &bull; <x-ui.local-time :value="$record->created_at" :format="__('tickets.show.date_format')" />
+                        &bull; {{ __('tickets.show.ticket_number', ['id' => $record->id]) }}
                     </p>
                 </div>
             </div>
@@ -32,19 +32,19 @@
                     @if (! $record->agent || $record->agent->isNot(auth()->user()))
                         <x-ui.button size="sm" variant="outline" wire:click="assignToMe({{ $record->id }})" class="gap-1.5 shadow-2xs">
                             <x-lucide-user-check class="size-3.5" />
-                            <span>Assign to Me</span>
+                            <span>{{ __('tickets.actions.assign_me') }}</span>
                         </x-ui.button>
                     @endif
 
                     @if ($record->status !== \App\Enum\TicketStatus::Closed)
                         <x-ui.button size="sm" variant="outline" wire:click="close({{ $record->id }})" class="gap-1.5 shadow-2xs">
                             <x-lucide-circle-check class="size-3.5 text-emerald-500" />
-                            <span>Close Ticket</span>
+                            <span>{{ __('tickets.actions.close') }}</span>
                         </x-ui.button>
                     @else
                         <x-ui.button size="sm" variant="ghost" wire:click="reopen({{ $record->id }})" class="gap-1.5 shadow-2xs">
                             <x-lucide-rotate-ccw class="size-3.5" />
-                            <span>Reopen Ticket</span>
+                            <span>{{ __('tickets.actions.reopen') }}</span>
                         </x-ui.button>
                     @endif
                 </div>

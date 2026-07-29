@@ -1,7 +1,7 @@
 <div class="flex flex-col gap-6">
 
     {{-- Page header --}}
-    <x-admin.page-header title="Feedback" description="Review feedback submitted by users and visitors." :breadcrumbs="[['label' => 'Home', 'url' => route('admin.dashboard')], ['label' => 'Feedback']]" />
+    <x-admin.page-header :title="__('feedback.title')" :description="__('feedback.subtitle')" :breadcrumbs="[['label' => __('navigation.home'), 'url' => route('admin.dashboard')], ['label' => __('feedback.title')]]" />
 
     {{-- Stats --}}
     @if (count($stats))
@@ -14,17 +14,17 @@
 
     {{-- Toolbar --}}
     <x-admin.filter-bar :config="$filterBarConfig" :filters="$filters" :has-active-filters="$this->hasActiveFilters()"
-        search-placeholder="Search subject, message, email..." />
+        :search-placeholder="__('feedback.filters.search')" />
 
     {{-- Table --}}
     <div class="overflow-hidden rounded-md border border-border">
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b border-border bg-muted/40">
-                    <th class="px-4 py-3 text-left font-medium text-foreground">From</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('feedback.fields.from') }}</th>
                     <th class="px-4 py-3 text-left">
                         <button wire:click="sort('subject')" class="flex items-center gap-1 font-medium text-foreground">
-                            Subject
+                            {{ __('feedback.fields.subject') }}
                             @if ($sortBy === 'subject')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -32,11 +32,11 @@
                             @endif
                         </button>
                     </th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground sm:table-cell">Type</th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Status</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground sm:table-cell">{{ __('feedback.fields.type') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('feedback.fields.status') }}</th>
                     <th class="hidden px-4 py-3 text-left md:table-cell">
                         <button wire:click="sort('created_at')" class="flex items-center gap-1 font-medium text-foreground">
-                            Submitted
+                            {{ __('feedback.fields.submitted') }}
                             @if ($sortBy === 'created_at')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -62,7 +62,7 @@
                                 <div class="min-w-0">
                                     <x-ui.badge variant="outline" class="gap-1">
                                         <x-lucide-user-x class="size-3" />
-                                        Anonymous
+                                        {{ __('feedback.stats.anonymous') }}
                                     </x-ui.badge>
                                     @if ($item->email)
                                         <div class="mt-1 truncate text-xs text-muted-foreground">{{ $item->email }}</div>
@@ -73,7 +73,7 @@
 
                         {{-- Subject --}}
                         <td class="px-4 py-3">
-                            <span class="truncate font-medium">{{ $item->subject ?: 'No subject' }}</span>
+                            <span class="truncate font-medium">{{ $item->subject ?: __('feedback.empty.subject') }}</span>
                             <div class="line-clamp-1 max-w-md text-xs text-muted-foreground">{{ $item->message }}</div>
                         </td>
 
@@ -103,11 +103,11 @@
                         {{-- Row actions --}}
                         <td class="px-4 py-3 text-right">
                             @can('feedback.manage')
-                                <x-admin.tooltip text="View">
+                                <x-admin.tooltip :text="__('feedback.actions.view')">
                                     <x-ui.button variant="ghost" size="icon" class="size-8"
                                         href="{{ route('admin.feedback.show', $item) }}">
                                         <x-lucide-eye class="size-4" />
-                                        <span class="sr-only">View</span>
+                                        <span class="sr-only">{{ __('feedback.actions.view') }}</span>
                                     </x-ui.button>
                                 </x-admin.tooltip>
                             @endcan
@@ -118,10 +118,10 @@
                     <tr>
                         <td colspan="6" class="px-4 py-16 text-center text-muted-foreground">
                             <x-lucide-message-square-quote class="mx-auto mb-2 size-8 opacity-30" />
-                            <p class="text-sm">No feedback found.</p>
+                            <p class="text-sm">{{ __('feedback.empty.feedback') }}</p>
                             @if ($this->hasActiveFilters())
                                 <button wire:click="resetFilters"
-                                    class="mt-1 text-xs underline hover:no-underline">Clear filters</button>
+                                    class="mt-1 text-xs underline hover:no-underline">{{ __('feedback.filters.clear') }}</button>
                             @endif
                         </td>
                     </tr>

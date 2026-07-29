@@ -76,6 +76,45 @@ class Form extends BaseForm
         ];
     }
 
+    protected function validationAttributes(): array
+    {
+        return [
+            'name' => __('languages.validation_attributes.name'),
+            'native_name' => __('languages.validation_attributes.native_name'),
+            'code' => __('languages.validation_attributes.code'),
+            'flag' => __('languages.validation_attributes.flag'),
+            'is_rtl' => __('languages.validation_attributes.is_rtl'),
+            'is_default' => __('languages.validation_attributes.is_default'),
+            'is_active' => __('languages.validation_attributes.is_active'),
+            'sort_order' => __('languages.validation_attributes.sort_order'),
+            'translations' => __('languages.validation_attributes.translations'),
+        ];
+    }
+
+    protected function messages(): array
+    {
+        return [
+            'name.required' => __('languages.validation.name_required'),
+            'name.string' => __('languages.validation.name_invalid'),
+            'name.max' => __('languages.validation.name_max', ['max' => 100]),
+            'native_name.string' => __('languages.validation.native_name_invalid'),
+            'native_name.max' => __('languages.validation.native_name_max', ['max' => 100]),
+            'code.required' => __('languages.validation.code_required'),
+            'code.string' => __('languages.validation.code_invalid'),
+            'code.max' => __('languages.validation.code_max', ['max' => 10]),
+            'code.unique' => __('languages.validation.code_unique'),
+            'flag.string' => __('languages.validation.flag_invalid'),
+            'flag.max' => __('languages.validation.flag_max', ['max' => 5]),
+            'flag.alpha' => __('languages.validation.flag_alpha'),
+            'is_rtl.boolean' => __('languages.validation.is_rtl_invalid'),
+            'is_default.boolean' => __('languages.validation.is_default_invalid'),
+            'is_active.boolean' => __('languages.validation.is_active_invalid'),
+            'sort_order.integer' => __('languages.validation.sort_order_integer'),
+            'sort_order.min' => __('languages.validation.sort_order_min'),
+            'translations.json' => __('languages.validation.translations_json'),
+        ];
+    }
+
     public function save()
     {
         $this->validate();
@@ -136,12 +175,15 @@ class Form extends BaseForm
         });
 
         return $this->redirectWithSuccess(
-            "{$this->name} language ".($this->isEditing ? 'updated' : 'created').' successfully.',
+            $this->isEditing
+                ? __('languages.toasts.updated', ['name' => $this->name])
+                : __('languages.toasts.created', ['name' => $this->name]),
         );
     }
 
     public function render(): View
     {
-        return view('livewire.admin.application.language.form');
+        return view('livewire.admin.application.language.form')
+            ->title($this->isEditing ? __('languages.form.edit_title') : __('languages.form.create_title'));
     }
 }

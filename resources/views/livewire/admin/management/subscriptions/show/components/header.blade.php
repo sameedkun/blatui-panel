@@ -39,7 +39,7 @@
                         @endif
                         <p class="truncate text-xs text-muted-foreground">{{ $record->user->email }}</p>
                     @else
-                        <p class="font-semibold text-sm text-muted-foreground">Deleted User</p>
+                        <p class="font-semibold text-sm text-muted-foreground">{{ __('subscriptions.status.deleted_user') }}</p>
                     @endif
                 </div>
             </div>
@@ -65,7 +65,7 @@
                                 <p class="truncate font-bold text-sm text-foreground">{{ $record->plan->name }}</p>
                             @endif
                         @else
-                            <p class="font-semibold text-sm text-muted-foreground">Deleted Plan</p>
+                            <p class="font-semibold text-sm text-muted-foreground">{{ __('subscriptions.status.deleted_plan') }}</p>
                         @endif
 
                         @if (in_array($record->status, $liveStatuses, true))
@@ -83,7 +83,7 @@
                     @if ($record->planPrice)
                         <p class="text-xs font-medium text-muted-foreground">
                             {{ $record->planPrice->currency }} {{ number_format((float) $record->planPrice->amount, 2) }}
-                            / {{ $record->planPrice->billing_period }} {{ $record->planPrice->billing_interval->label() }}{{ $record->planPrice->billing_period > 1 ? 's' : '' }}
+                            / {{ trans_choice('subscriptions.billing_intervals.'.$record->planPrice->billing_interval->value, $record->planPrice->billing_period, ['count' => $record->planPrice->billing_period]) }}
                             &bull; {{ $record->provider->label() }}
                         </p>
                     @endif
@@ -98,25 +98,25 @@
                     @if ($record->is_recurring)
                         <x-ui.button variant="outline" wire:click="openCancelAtPeriodEndDialog({{ $record->id }})" class="gap-1.5 shadow-2xs">
                             <x-lucide-clock class="size-4" />
-                            <span>Cancel at Period End</span>
+                            <span>{{ __('subscriptions.actions.cancel_period_end') }}</span>
                         </x-ui.button>
                     @endif
 
                     <x-ui.button variant="destructive" wire:click="openCancelImmediatelyDialog({{ $record->id }})" class="gap-1.5 shadow-2xs">
                         <x-lucide-circle-slash class="size-4" />
-                        <span>Cancel Immediately</span>
+                        <span>{{ __('subscriptions.actions.cancel_immediately') }}</span>
                     </x-ui.button>
                 @elseif ($isReactivatable)
                     <x-ui.button variant="default" wire:click="reactivateRow({{ $record->id }})" class="gap-1.5 shadow-2xs">
                         <x-lucide-refresh-cw class="size-4" />
-                        <span>Reactivate Subscription</span>
+                        <span>{{ __('subscriptions.actions.reactivate_subscription') }}</span>
                     </x-ui.button>
                 @endif
             </div>
         @elseif (! $isLive)
             <x-ui.badge variant="outline" class="shrink-0 gap-1.5 text-xs text-muted-foreground">
                 <x-lucide-history class="size-3.5" />
-                Historical Record
+                {{ __('subscriptions.status.historical_record') }}
             </x-ui.badge>
         @endif
 

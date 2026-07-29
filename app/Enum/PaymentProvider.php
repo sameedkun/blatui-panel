@@ -3,7 +3,6 @@
 namespace App\Enum;
 
 use App\Models\Subscription;
-use Illuminate\Support\Str;
 
 /**
  * The payment rail a {@see PlanPrice}'s provider mapping, a {@see Subscription},
@@ -21,6 +20,6 @@ enum PaymentProvider: string
 
     public function label(): string
     {
-        return Str::headline($this->value);
+        return __("enums.payment_provider.{$this->name}");
     }
 }

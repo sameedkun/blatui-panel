@@ -3,7 +3,6 @@
 namespace App\Enum;
 
 use App\Models\Feedback;
-use Illuminate\Support\Str;
 
 /**
  * The category a {@see Feedback} submission was tagged with. Closed
@@ -19,6 +18,6 @@ enum FeedbackType: string
 
     public function label(): string
     {
-        return Str::headline($this->value);
+        return __("enums.feedback_type.{$this->name}");
     }
 }

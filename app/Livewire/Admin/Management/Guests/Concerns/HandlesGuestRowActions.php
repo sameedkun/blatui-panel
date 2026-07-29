@@ -58,7 +58,7 @@ trait HandlesGuestRowActions
         $guest = User::query()->guests()->withTrashed()->findOrFail($this->banningUserId);
         $this->assertLifecycleState($guest, ['active']);
 
-        $reason = trim($this->banReason) ?: 'Banned by administrator.';
+        $reason = trim($this->banReason) ?: __('guests.defaults.ban_reason');
         $guest->update([
             'banned_at' => now(),
             'ban_reason' => $reason,
@@ -182,7 +182,9 @@ trait HandlesGuestRowActions
         $state = $guest->lifecycleState();
 
         if (! in_array($state, $allowed, true)) {
-            throw new AuthorizationException("This action is not available while the account is {$state}.");
+            throw new AuthorizationException(__('guests.errors.action_unavailable', [
+                'state' => __("guests.lifecycle_states.{$state}"),
+            ]));
         }
     }
 }

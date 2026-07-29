@@ -1,12 +1,12 @@
 <div class="flex flex-col gap-6">
 
     {{-- Page header --}}
-    <x-admin.page-header title="Notifications" description="Broadcast push notifications to every subscribed device via OneSignal." :breadcrumbs="[['label' => 'Home', 'url' => route('admin.dashboard')], ['label' => 'Notifications']]">
+    <x-admin.page-header :title="__('notifications.title')" :description="__('notifications.subtitle')" :breadcrumbs="[['label' => __('navigation.home'), 'url' => route('admin.dashboard')], ['label' => __('notifications.title')]]">
         @can('notifications.create')
             <x-slot:actions>
                 <x-ui.button href="{{ route('admin.notifications.create') }}">
                     <x-lucide-plus class="size-4" />
-                    Create Notification
+                    {{ __('notifications.actions.create') }}
                 </x-ui.button>
             </x-slot:actions>
         @endcan
@@ -23,7 +23,7 @@
 
     {{-- Toolbar --}}
     <x-admin.filter-bar :config="$filterBarConfig" :filters="$filters" :has-active-filters="$this->hasActiveFilters()"
-        search-placeholder="Search title, message..." />
+        :search-placeholder="__('notifications.filters.search')" />
 
     {{-- Table --}}
     @php
@@ -45,7 +45,7 @@
                     </th>
                     <th class="px-4 py-3 text-left">
                         <button wire:click="sort('title')" class="flex items-center gap-1 font-medium text-foreground">
-                            Notification
+                            {{ __('notifications.fields.notification') }}
                             @if ($sortBy === 'title')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -53,11 +53,11 @@
                             @endif
                         </button>
                     </th>
-                    <th class="hidden px-4 py-3 text-left font-medium text-foreground sm:table-cell">Type</th>
-                    <th class="px-4 py-3 text-left font-medium text-foreground">Push Status</th>
+                    <th class="hidden px-4 py-3 text-left font-medium text-foreground sm:table-cell">{{ __('notifications.fields.type') }}</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">{{ __('notifications.fields.push_status') }}</th>
                     <th class="hidden px-4 py-3 text-left md:table-cell">
                         <button wire:click="sort('created_at')" class="flex items-center gap-1 font-medium text-foreground">
-                            Created
+                            {{ __('notifications.fields.created') }}
                             @if ($sortBy === 'created_at')
                                 <x-dynamic-component :component="$sortDir === 'asc' ? 'lucide-arrow-up' : 'lucide-arrow-down'" class="size-3.5" />
                             @else
@@ -118,38 +118,38 @@
                                     <x-slot:trigger>
                                         <x-ui.button variant="ghost" size="icon" class="size-8">
                                             <x-lucide-ellipsis class="size-4" />
-                                            <span class="sr-only">Actions</span>
+                                            <span class="sr-only">{{ __('common.actions') }}</span>
                                         </x-ui.button>
                                     </x-slot:trigger>
 
                                     @can('notifications.edit')
                                         <x-admin.dropdown-item href="{{ route('admin.notifications.edit', $item) }}">
                                             <x-lucide-pencil class="size-4" />
-                                            Edit
+                                            {{ __('notifications.actions.edit') }}
                                         </x-admin.dropdown-item>
 
                                         @if ($item->push_status === \App\Enum\NotificationPushStatus::Sent)
                                             <x-admin.dropdown-item @click="$wire.resend({{ $item->id }})">
                                                 <x-lucide-send class="size-4" />
-                                                Resend
+                                                {{ __('notifications.actions.resend') }}
                                             </x-admin.dropdown-item>
                                             <x-admin.dropdown-item @click="$wire.viewStatus({{ $item->id }})">
                                                 <x-lucide-info class="size-4" />
-                                                View Status
+                                                {{ __('notifications.actions.view_status') }}
                                             </x-admin.dropdown-item>
                                         @elseif ($item->push_status === \App\Enum\NotificationPushStatus::Failed)
                                             <x-admin.dropdown-item @click="$wire.resend({{ $item->id }})">
                                                 <x-lucide-rotate-ccw class="size-4" />
-                                                Retry
+                                                {{ __('notifications.actions.retry') }}
                                             </x-admin.dropdown-item>
                                             <x-admin.dropdown-item @click="$wire.viewStatus({{ $item->id }})">
                                                 <x-lucide-info class="size-4" />
-                                                View Status
+                                                {{ __('notifications.actions.view_status') }}
                                             </x-admin.dropdown-item>
                                         @elseif ($item->push_status === \App\Enum\NotificationPushStatus::Pending)
                                             <x-admin.dropdown-item @click="$wire.viewStatus({{ $item->id }})">
                                                 <x-lucide-loader class="size-4" />
-                                                View Status
+                                                {{ __('notifications.actions.view_status') }}
                                             </x-admin.dropdown-item>
                                         @endif
                                     @endcan
@@ -159,7 +159,7 @@
                                         <x-admin.dropdown-item variant="destructive"
                                             @click="$wire.confirmDelete({{ $item->id }})">
                                             <x-lucide-trash class="size-4" />
-                                            Delete
+                                            {{ __('notifications.actions.delete') }}
                                         </x-admin.dropdown-item>
                                     @endcan
                                 </x-admin.dropdown>
@@ -171,10 +171,10 @@
                     <tr>
                         <td colspan="6" class="px-4 py-16 text-center text-muted-foreground">
                             <x-lucide-bell class="mx-auto mb-2 size-8 opacity-30" />
-                            <p class="text-sm">No notifications found.</p>
+                            <p class="text-sm">{{ __('notifications.empty') }}</p>
                             @if ($this->hasActiveFilters())
                                 <button wire:click="resetFilters"
-                                    class="mt-1 text-xs underline hover:no-underline">Clear filters</button>
+                                    class="mt-1 text-xs underline hover:no-underline">{{ __('notifications.filters.clear') }}</button>
                             @endif
                         </td>
                     </tr>
@@ -191,14 +191,14 @@
         <div class="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background px-3 py-2 shadow-xl"
             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-4"
             x-transition:enter-end="opacity-100 translate-y-0">
-            <x-admin.tooltip text="Clear selection">
+            <x-admin.tooltip :text="__('notifications.actions.clear_selection')">
                 <x-ui.button variant="ghost" size="icon" class="size-8 rounded-full" wire:click="clearSelection">
                     <x-lucide-x class="size-4" />
                 </x-ui.button>
             </x-admin.tooltip>
 
             <div class="mx-1 h-4 w-px bg-border"></div>
-            <span class="px-1 text-sm font-medium">{{ count($selectedIds) }} selected</span>
+            <span class="px-1 text-sm font-medium">{{ trans_choice('notifications.actions.selected', count($selectedIds), ['count' => count($selectedIds)]) }}</span>
             <div class="mx-1 h-4 w-px bg-border"></div>
 
             @foreach ($this->availableBulkActions as $action)

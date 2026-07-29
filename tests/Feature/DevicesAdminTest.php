@@ -2,10 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Enum\DeviceType;
 use App\Livewire\Admin\Management\Devices\Index;
+use App\Livewire\Admin\Management\Devices\SharedFingerprints;
 use App\Models\User;
 use App\Models\UserDevice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Lang;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
@@ -29,6 +34,63 @@ class DevicesAdminTest extends TestCase
         $this->actingAs($admin);
 
         return $admin;
+    }
+
+    public function test_english_and_turkish_device_translations_have_matching_keys(): void
+    {
+        $englishKeys = array_keys(Arr::dot(Lang::get('devices', [], 'en')));
+        $turkishKeys = array_keys(Arr::dot(Lang::get('devices', [], 'tr')));
+
+        sort($englishKeys);
+        sort($turkishKeys);
+
+        $this->assertSame($englishKeys, $turkishKeys);
+    }
+
+    public function test_device_pages_use_the_request_locale_in_content_and_browser_titles(): void
+    {
+        $this->actingAsAdminWith(['panel.access-admin', 'devices.view', 'devices.investigate']);
+
+        $indexResponse = $this->withCookie('locale', 'tr')->get(route('admin.devices.index'));
+        $indexResponse->assertOk();
+        $indexResponse->assertSee('<title>'.__('devices.title').' — '.config('app.name').'</title>', false);
+        $indexResponse->assertSee(__('devices.subtitle'));
+        $indexResponse->assertSee('placeholder="'.__('common.search').'"', false);
+        $indexResponse->assertSee('<span class="sr-only">'.__('common.close').'</span>', false);
+
+        $sharedResponse = $this->withCookie('locale', 'tr')->get(route('admin.devices.shared-fingerprints'));
+        $sharedResponse->assertOk();
+        $sharedResponse->assertSee('<title>'.__('devices.shared.title').' — '.config('app.name').'</title>', false);
+        $sharedResponse->assertSee(__('devices.shared.description'));
+
+        Livewire::test(SharedFingerprints::class)->assertSee(__('devices.shared.none_found'));
+    }
+
+    public function test_device_validation_toast_type_and_fallback_name_use_the_active_locale(): void
+    {
+        App::setLocale('tr');
+        $this->actingAsAdminWith(['devices.view', 'devices.block']);
+        $device = UserDevice::factory()->for(User::factory()->app())->create([
+            'name' => null,
+            'model' => null,
+            'device_type' => DeviceType::Mobile,
+        ]);
+
+        Livewire::test(Index::class)
+            ->call('openBlockDialog', $device->ulid)
+            ->set('blockReason', 'kısa')
+            ->call('block')
+            ->assertHasErrors(['blockReason' => 'min'])
+            ->set('blockReason', 'Hesap sahibi cihazın çalındığını bildirdi.')
+            ->call('block')
+            ->assertDispatched(
+                'toast',
+                type: 'success',
+                title: __('devices.toasts.blocked', ['name' => __('devices.status.unnamed_device')]),
+            );
+
+        $this->assertSame(__('enums.device_type.Mobile'), DeviceType::Mobile->label());
+        $this->assertSame(__('devices.status.unnamed_device'), $device->displayName());
     }
 
     public function test_mounting_the_index_without_view_permission_is_forbidden(): void

@@ -14,7 +14,7 @@
                     <x-dynamic-component :component="'lucide-' . $stat['icon']" class="size-4 shrink-0 text-muted-foreground" />
                 </div>
                 @if (is_null($stat['value']))
-                    <p class="mt-1 text-sm text-muted-foreground/60">Coming soon</p>
+                    <p class="mt-1 text-sm text-muted-foreground/60">{{ __('guests.status_labels.coming_soon') }}</p>
                 @else
                     <p class="mt-1 text-lg font-semibold">{{ $stat['value'] }}</p>
                 @endif

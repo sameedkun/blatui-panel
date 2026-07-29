@@ -33,7 +33,7 @@
         </x-ui.field>
 
         <x-ui.field>
-            <x-ui.field-label required>{{ __('plans.fields.prices') ?? 'Price' }}</x-ui.field-label>
+            <x-ui.field-label required>{{ __('subscriptions.fields.price') }}</x-ui.field-label>
             <select wire:model="assignPriceId" class="blat-select h-9 w-full">
                 <option value="" disabled @selected($assignPriceId === null)>{{ __('users.dialogs.select_price') }}</option>
                 @foreach ($priceOptions as $id => $label)
