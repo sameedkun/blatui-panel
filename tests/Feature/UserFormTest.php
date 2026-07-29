@@ -45,10 +45,15 @@ class UserFormTest extends TestCase
             ->set('email', 'jane@example.com')
             ->set('password', 'a-real-password')
             ->set('autoVerifyEmail', false)
-            ->call('save');
+            ->call('save')
+            ->assertRedirect(route('admin.users.index'));
 
         $user = User::where('email', 'jane@example.com')->firstOrFail();
         $this->assertNull($user->email_verified_at);
+        $this->assertSame([
+            'type' => 'success',
+            'title' => __('users.toasts.user_created', ['name' => $user->name]),
+        ], session('toast'));
         Notification::assertSentTo($user, VerifyEmailNotification::class);
     }
 
@@ -77,9 +82,14 @@ class UserFormTest extends TestCase
 
         Livewire::test(Form::class, ['user' => $user])
             ->set('email', 'new@example.com')
-            ->call('save');
+            ->call('save')
+            ->assertRedirect(route('admin.users.index'));
 
         Notification::assertSentTo($user, VerifyEmailNotification::class);
+        $this->assertSame([
+            'type' => 'success',
+            'title' => __('users.toasts.user_updated', ['name' => $user->name]),
+        ], session('toast'));
     }
 
     public function test_auto_verifying_a_changed_email_sends_no_verification_email(): void

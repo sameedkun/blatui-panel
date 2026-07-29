@@ -16,7 +16,6 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
@@ -33,7 +32,6 @@ use Livewire\WithFileUploads;
  * session purge — is audit-logged as a staff credential event.
  */
 #[Layout('layouts.admin.app')]
-#[Title('My Account')]
 class Index extends Component
 {
     use HasToast;
@@ -91,7 +89,7 @@ class Index extends Component
         // Defense-in-depth: a readonly input is not security. Reject an email
         // change from anyone who isn't a super-admin, whatever the client sent.
         if ($this->email !== $user->email && ! $this->canEditEmail()) {
-            abort(403, 'You are not permitted to change your email address.');
+            abort(403, __('account.errors.email_change_forbidden'));
         }
 
         $this->validate([
@@ -134,7 +132,7 @@ class Index extends Component
         }
 
         $this->avatarUpload = null;
-        $this->toastSuccess('Your profile has been updated.');
+        $this->toastSuccess(__('account.toasts.profile_updated'));
     }
 
     // ── Password change ─────────────────────────────────────────────────────────
@@ -144,8 +142,6 @@ class Index extends Component
         $this->validate([
             'current_password' => ['required', 'current_password'],
             'password' => ['required', 'confirmed', Password::defaults()],
-        ], [
-            'current_password.current_password' => 'The current password is incorrect.',
         ]);
 
         $user = $this->user();
@@ -162,7 +158,7 @@ class Index extends Component
         $this->logActivity(ActivityModule::Staff, ActivityAction::Updated, $user, ['password_changed' => true]);
 
         $this->reset('current_password', 'password', 'password_confirmation');
-        $this->toastSuccess('Your password has been changed.');
+        $this->toastSuccess(__('account.toasts.password_updated'));
     }
 
     // ── Log out other devices ────────────────────────────────────────────────────
@@ -171,8 +167,6 @@ class Index extends Component
     {
         $this->validate([
             'logout_password' => ['required', 'current_password'],
-        ], [
-            'logout_password.current_password' => 'The password is incorrect.',
         ]);
 
         $user = $this->user();
@@ -192,7 +186,7 @@ class Index extends Component
         $this->logActivity(ActivityModule::Staff, ActivityAction::Updated, $user, ['logged_out_other_sessions' => true]);
 
         $this->reset('logout_password');
-        $this->toastSuccess('All other sessions have been logged out.');
+        $this->toastSuccess(__('account.toasts.other_sessions_logged_out'));
     }
 
     /** Re-stamp the current session with the live password hash so this device stays signed in. */
@@ -222,17 +216,110 @@ class Index extends Component
             ->groupBy(fn (string $name): string => Str::before($name, '.'));
     }
 
+    protected function validationAttributes(): array
+    {
+        return [
+            'name' => __('account.validation_attributes.name'),
+            'email' => __('account.validation_attributes.email'),
+            'avatarUpload' => __('account.validation_attributes.avatar'),
+            'current_password' => __('account.validation_attributes.current_password'),
+            'password' => __('account.validation_attributes.new_password'),
+            'logout_password' => __('account.validation_attributes.password'),
+        ];
+    }
+
+    protected function messages(): array
+    {
+        return [
+            'name.required' => __('account.validation.name_required'),
+            'name.string' => __('account.validation.name_invalid'),
+            'name.max' => __('account.validation.name_max', ['max' => 60]),
+            'email.required' => __('account.validation.email_required'),
+            'email.email' => __('account.validation.email_invalid'),
+            'email.max' => __('account.validation.email_max', ['max' => 255]),
+            'email.unique' => __('account.validation.email_unique'),
+            'avatarUpload.image' => __('account.validation.avatar_image'),
+            'avatarUpload.max' => __('account.validation.avatar_max', ['max' => 2]),
+            'current_password.required' => __('account.validation.current_password_required'),
+            'current_password.current_password' => __('account.validation.current_password_incorrect'),
+            'password.required' => __('account.validation.password_required'),
+            'password.confirmed' => __('account.validation.password_confirmation'),
+            'password.min' => __('account.validation.password_min', ['min' => app()->isProduction() ? 12 : 8]),
+            'password.letters' => __('account.validation.password_letters'),
+            'password.mixed' => __('account.validation.password_mixed'),
+            'password.numbers' => __('account.validation.password_numbers'),
+            'password.symbols' => __('account.validation.password_symbols'),
+            'password.uncompromised' => __('account.validation.password_uncompromised'),
+            'logout_password.required' => __('account.validation.logout_password_required'),
+            'logout_password.current_password' => __('account.validation.logout_password_incorrect'),
+        ];
+    }
+
     public function render(): View
     {
         $user = $this->user();
+        $roles = $user->getRoleNames();
+        $groupedPermissions = $this->groupedPermissions();
 
         return view('livewire.admin.account.index', [
             'user' => $user,
-            'roles' => $user->getRoleNames(),
-            'groupedPermissions' => $this->groupedPermissions(),
+            'roles' => $roles,
+            'roleLabels' => $roles->mapWithKeys(
+                fn (string $role): array => [$role => $this->roleLabel($role)],
+            ),
+            'groupedPermissions' => $groupedPermissions,
+            'moduleLabels' => $groupedPermissions->keys()->mapWithKeys(
+                fn (string $module): array => [$module => $this->moduleLabel($module)],
+            ),
+            'permissionLabels' => $groupedPermissions
+                ->flatten()
+                ->mapWithKeys(fn (string $permission): array => [$permission => $this->permissionLabel($permission)]),
             // The user's own audit trail — sourced from the causer relation, never rebuilt.
             'recentActivity' => $user->activitiesAsCauser()->latest()->limit(8)->get(),
             'canViewFullLog' => $user->can('activity_logs.view'),
+        ])->title(__('account.title'));
+    }
+
+    private function roleLabel(string $name): string
+    {
+        $key = 'roles.role_labels.'.str_replace('-', '_', $name);
+        $translation = __($key);
+
+        return $translation === $key ? Str::headline($name) : $translation;
+    }
+
+    private function moduleLabel(string $module): string
+    {
+        $key = 'navigation.modules.'.str_replace('-', '_', $module);
+        $translation = __($key);
+
+        return $translation === $key
+            ? config("panel.modules.{$module}.label", Str::headline($module))
+            : $translation;
+    }
+
+    private function permissionLabel(string $permission): string
+    {
+        $segments = explode('.', $permission);
+        array_shift($segments);
+        $action = array_pop($segments) ?? '';
+        $actionKey = 'roles.permissions.actions.'.$action;
+        $actionLabel = __($actionKey);
+
+        if ($actionLabel === $actionKey) {
+            $actionLabel = Str::headline($action);
+        }
+
+        if ($segments === []) {
+            return $actionLabel;
+        }
+
+        $scopeKey = 'roles.permissions.scopes.'.implode('_', $segments);
+        $scopeLabel = __($scopeKey);
+
+        return __('roles.permissions.scoped', [
+            'scope' => $scopeLabel === $scopeKey ? Str::headline(implode(' ', $segments)) : $scopeLabel,
+            'action' => $actionLabel,
         ]);
     }
 }

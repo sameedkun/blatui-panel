@@ -111,28 +111,25 @@ class Show extends BaseShow
                 'label' => __('users.tabs.devices'),
                 'icon' => 'smartphone',
                 'view' => 'livewire.admin.management.users.profile.tabs.devices',
-                'permission' => 'devices.view',
                 'data' => fn (): array => [
                     'deviceHistory' => $this->deviceHistory(),
-                ],
-            ],
-            'activity' => [
-                'label' => __('users.tabs.activity'),
-                'icon' => 'activity',
-                'view' => 'livewire.admin.management.users.profile.tabs.activity',
-                'permission' => 'activity_logs.view',
-                'data' => fn (): array => [
-                    'activities' => $this->recordActivity(),
-                    'selectedActivity' => $this->selectedActivityDetail(),
                 ],
             ],
             'tickets' => [
                 'label' => __('users.tabs.tickets'),
                 'icon' => 'ticket',
                 'view' => 'livewire.admin.management.users.profile.tabs.tickets',
-                'permission' => 'tickets.view',
                 'data' => fn (): array => [
                     'ticketHistory' => $this->ticketHistory(),
+                ],
+            ],
+            'activity' => [
+                'label' => __('users.tabs.activity'),
+                'icon' => 'activity',
+                'view' => 'livewire.admin.management.users.profile.tabs.activity',
+                'data' => fn (): array => [
+                    'activities' => $this->recordActivity(),
+                    'selectedActivity' => $this->selectedActivityDetail(),
                 ],
             ],
         ];
@@ -548,25 +545,19 @@ class Show extends BaseShow
     /** Total audit-log rows for this record, or null (renders "Coming soon") without permission to see them. */
     protected function recordActivityCount(): ?string
     {
-        return auth()->user()->can('activity_logs.view')
-            ? (string) Activity::forSubject($this->record)->count()
-            : null;
+        return (string) Activity::forSubject($this->record)->count();
     }
 
     /** Total tickets this account has opened, or null (renders "Coming soon") without permission to see them. */
     protected function ticketCount(): ?string
     {
-        return auth()->user()->can('tickets.view')
-            ? (string) $this->record->tickets()->count()
-            : null;
+        return $this->record->tickets()->count();
     }
 
     /** Active (non-revoked, non-blocked) device count, or null without permission to see them. */
     protected function deviceCount(): ?string
     {
-        return auth()->user()->can('devices.view')
-            ? (string) $this->activeDeviceCount()
-            : null;
+        return (string) $this->activeDeviceCount();
     }
 
     public function render(): View

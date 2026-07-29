@@ -68,11 +68,11 @@
                             </td>
                             @can('tickets.manage')
                                 <td class="px-4 py-3.5 text-right">
-                                    <x-admin.tooltip text="View ticket">
+                                    <x-admin.tooltip :text="__('tickets.actions.view')">
                                         <x-ui.button variant="ghost" size="icon" class="size-8"
                                             href="{{ route('admin.tickets.show', $ticket) }}">
                                             <x-lucide-eye class="size-4" />
-                                            <span class="sr-only">View ticket</span>
+                                            <span class="sr-only">{{ __('tickets.actions.view') }}</span>
                                         </x-ui.button>
                                     </x-admin.tooltip>
                                 </td>

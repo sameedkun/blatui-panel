@@ -4,6 +4,9 @@ return [
     'title' => 'Support Tickets',
     'singular' => 'Ticket',
     'subtitle' => 'Support requests routed by category and automatically assigned to agents.',
+    'subtitle_user' => 'Support tickets opened by :name.',
+    'no_tickets' => 'No support tickets yet.',
+    'no_tickets_user_desc' => ':name has not opened any support tickets.',
     'unassigned' => 'Unassigned',
     'common' => [
         'home' => 'Home',

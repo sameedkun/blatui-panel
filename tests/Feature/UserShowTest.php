@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Notifications\Auth\ResetPasswordNotification;
 use App\Notifications\Auth\VerifyEmailNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
@@ -38,6 +39,22 @@ class UserShowTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('<title>'.__('users.title').' — '.$user->name.' — '.config('app.name').'</title>', false);
+    }
+
+    public function test_ticket_tab_empty_state_uses_the_active_locale(): void
+    {
+        App::setLocale('tr');
+        $this->actingAsSuperAdmin();
+        $user = User::factory()->app()->create(['name' => 'Ayşe Yılmaz']);
+
+        Livewire::test(Show::class, ['user' => $user])
+            ->set('tab', 'tickets')
+            ->assertSee(__('tickets.subtitle_user', ['name' => $user->name]))
+            ->assertSee(__('tickets.no_tickets'))
+            ->assertSee(__('tickets.no_tickets_user_desc', ['name' => $user->name]))
+            ->assertDontSee('tickets.subtitle_user')
+            ->assertDontSee('tickets.no_tickets')
+            ->assertDontSee('tickets.no_tickets_user_desc');
     }
 
     /** Staff granted exactly the given abilities (plus panel access). */

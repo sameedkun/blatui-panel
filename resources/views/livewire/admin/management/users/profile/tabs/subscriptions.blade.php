@@ -19,7 +19,8 @@
                     <x-lucide-credit-card class="size-4.5" />
                 </div>
                 <div>
-                    <h3 class="text-base font-semibold text-foreground">{{ __('subscriptions.active_subscription') }}</h3>
+                    <h3 class="text-base font-semibold text-foreground">{{ __('subscriptions.active_subscription') }}
+                    </h3>
                     <p class="text-xs text-muted-foreground">{{ __('subscriptions.active_subscription_desc') }}</p>
                 </div>
             </div>
@@ -79,7 +80,8 @@
                                                 class="size-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
                                         </a>
                                     @else
-                                        <span class="text-lg font-bold text-foreground">{{ __('common.deleted_plan') }}</span>
+                                        <span
+                                            class="text-lg font-bold text-foreground">{{ __('common.deleted_plan') }}</span>
                                     @endif
 
                                     @if ($active->plan?->is_best_deal)
@@ -121,8 +123,9 @@
                                 {{ number_format((float) $active->planPrice->amount, 2) }}
                             </p>
                             <p class="text-xs text-muted-foreground">
-                                / {{ trans_choice(
-                                    'enums.billing_interval_count.'.$active->planPrice->billing_interval->name,
+                                /
+                                {{ trans_choice(
+                                    'enums.billing_interval_count.' . $active->planPrice->billing_interval->name,
                                     $active->planPrice->billing_period,
                                     ['count' => $active->planPrice->billing_period],
                                 ) }}
@@ -134,7 +137,8 @@
                 {{-- Parameter Cards Grid --}}
                 <div class="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-4">
                     <div class="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-1">
-                        <dt class="text-xs font-medium text-muted-foreground">{{ __('subscriptions.fields.starts_at') }}</dt>
+                        <dt class="text-xs font-medium text-muted-foreground">
+                            {{ __('subscriptions.fields.starts_at') }}</dt>
                         <dd class="text-xs font-semibold text-foreground">
                             <x-ui.local-time :value="$active->starts_at" format="MMM D, YYYY" />
                         </dd>
@@ -142,7 +146,8 @@
 
                     @if ($active->trial_ends_at)
                         <div class="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-1">
-                            <dt class="text-xs font-medium text-muted-foreground">{{ __('subscriptions.fields.trial_ends_at') }}</dt>
+                            <dt class="text-xs font-medium text-muted-foreground">
+                                {{ __('subscriptions.fields.trial_ends_at') }}</dt>
                             <dd class="text-xs font-semibold text-foreground">
                                 <x-ui.local-time :value="$active->trial_ends_at" format="MMM D, YYYY" />
                             </dd>
@@ -151,7 +156,8 @@
 
                     <div class="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-1">
                         <dt class="text-xs font-medium text-muted-foreground">
-                            {{ $active->cancelled_by ? __('subscriptions.access_until') : __('subscriptions.renews_on') }}</dt>
+                            {{ $active->cancelled_by ? __('subscriptions.access_until') : __('subscriptions.renews_on') }}
+                        </dt>
                         <dd class="text-xs font-semibold text-foreground">
                             @if ($active->ends_at)
                                 <x-ui.local-time :value="$active->ends_at" format="MMM D, YYYY" />
@@ -163,7 +169,8 @@
 
                     @if ($active->grace_ends_at)
                         <div class="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-1">
-                            <dt class="text-xs font-medium text-muted-foreground">{{ __('subscriptions.fields.grace_ends_at') }}</dt>
+                            <dt class="text-xs font-medium text-muted-foreground">
+                                {{ __('subscriptions.fields.grace_ends_at') }}</dt>
                             <dd class="text-xs font-semibold text-foreground">
                                 <x-ui.local-time :value="$active->grace_ends_at" format="MMM D, YYYY" />
                             </dd>
@@ -171,7 +178,8 @@
                     @endif
 
                     <div class="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-1">
-                        <dt class="text-xs font-medium text-muted-foreground">{{ __('subscriptions.auto_renewal') }}</dt>
+                        <dt class="text-xs font-medium text-muted-foreground">{{ __('subscriptions.auto_renewal') }}
+                        </dt>
                         <dd class="text-xs font-semibold text-foreground">
                             {{ $active->is_recurring ? __('common.enabled') : __('common.disabled') }}
                         </dd>
@@ -234,7 +242,8 @@
     <x-ui.card class="p-0 overflow-hidden">
         <div class="border-b border-border/50 p-4">
             <h3 class="text-sm font-semibold text-foreground">{{ __('subscriptions.history') }}</h3>
-            <p class="text-xs text-muted-foreground">{{ __('subscriptions.history_desc', ['name' => $record->name]) }}</p>
+            <p class="text-xs text-muted-foreground">{{ __('subscriptions.history_desc', ['name' => $record->name]) }}
+            </p>
         </div>
 
         <div class="overflow-x-auto">
@@ -244,8 +253,10 @@
                         class="border-b border-border bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
                         <th class="px-4 py-3 text-left font-semibold">{{ __('subscriptions.fields.plan') }}</th>
                         <th class="px-4 py-3 text-left font-semibold">{{ __('subscriptions.fields.status') }}</th>
-                        <th class="hidden px-4 py-3 text-left font-semibold md:table-cell">{{ __('subscriptions.fields.starts_at') }}</th>
-                        <th class="hidden px-4 py-3 text-left font-semibold md:table-cell">{{ __('subscriptions.fields.ends_at') }}</th>
+                        <th class="hidden px-4 py-3 text-left font-semibold md:table-cell">
+                            {{ __('subscriptions.fields.starts_at') }}</th>
+                        <th class="hidden px-4 py-3 text-left font-semibold md:table-cell">
+                            {{ __('subscriptions.fields.ends_at') }}</th>
                         <th class="px-4 py-3 text-right font-semibold">{{ __('subscriptions.total_paid') }}</th>
                         <th class="w-10 px-4 py-3"></th>
                     </tr>
@@ -256,12 +267,17 @@
                             <td class="px-4 py-3.5">
                                 <div class="space-y-0.5">
                                     @if ($subscription->plan)
-                                        <a href="{{ route('admin.plans.show', $subscription->plan) }}"
-                                            class="inline-flex items-center gap-1 font-semibold text-foreground hover:text-primary transition-colors group">
-                                            <span>{{ $subscription->plan->name }}</span>
-                                            <x-lucide-arrow-up-right
-                                                class="size-3.5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
-                                        </a>
+                                        @can('plans.manage')
+                                            <a href="{{ route('admin.plans.show', $subscription->plan) }}"
+                                                class="inline-flex items-center gap-1 font-semibold text-foreground hover:text-primary transition-colors group">
+                                                <span>{{ $subscription->plan->name }}</span>
+                                                <x-lucide-arrow-up-right
+                                                    class="size-3.5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                                            </a>
+                                        @else
+                                            <span
+                                                class="font-semibold text-foreground">{{ $subscription->plan->name }}</span>
+                                        @endcan
                                     @else
                                         <span class="font-semibold text-foreground">—</span>
                                     @endif

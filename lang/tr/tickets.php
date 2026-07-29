@@ -4,6 +4,9 @@ return [
     'title' => 'Destek Talepleri',
     'singular' => 'Talep',
     'subtitle' => 'Kategoriye göre yönlendirilen ve temsilcilere otomatik atanan destek talepleri.',
+    'subtitle_user' => ':name tarafından açılan destek talepleri.',
+    'no_tickets' => 'Henüz destek talebi yok.',
+    'no_tickets_user_desc' => ':name henüz herhangi bir destek talebi açmadı.',
     'unassigned' => 'Atanmamış',
     'common' => [
         'home' => 'Ana Sayfa',

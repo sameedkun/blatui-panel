@@ -82,11 +82,29 @@
     {{-- Flash toast (fires after Livewire redirect) --}}
     @if (session('toast'))
         <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                window.dispatchEvent(new CustomEvent('toast', {
-                    detail: @json(session('toast'))
-                }));
-            });
+            (function() {
+                let delivered = false;
+
+                const deliverToast = function() {
+                    if (delivered) {
+                        return;
+                    }
+
+                    delivered = true;
+
+                    window.dispatchEvent(new CustomEvent('toast', {
+                        detail: @json(session('toast'))
+                    }));
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', deliverToast, { once: true });
+                } else {
+                    requestAnimationFrame(deliverToast);
+                }
+
+                document.addEventListener('livewire:navigated', deliverToast, { once: true });
+            })();
         </script>
     @endif
 
