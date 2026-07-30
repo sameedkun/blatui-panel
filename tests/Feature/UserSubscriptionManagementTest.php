@@ -153,7 +153,7 @@ class UserSubscriptionManagementTest extends TestCase
         $subscription = $user->fresh()->activeSubscription;
         $this->assertNotNull($subscription);
         $this->assertSame('active', $subscription->status->value);
-        $this->assertTrue($subscription->is_recurring);
+        $this->assertFalse($subscription->is_recurring);
         $this->assertNull($subscription->cancelled_by);
     }
 

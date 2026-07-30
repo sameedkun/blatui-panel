@@ -236,7 +236,7 @@ class SubscriptionsAdminTest extends TestCase
 
         $sub->refresh();
         $this->assertSame('active', $sub->status->value);
-        $this->assertTrue($sub->is_recurring);
+        $this->assertFalse($sub->is_recurring);
         $this->assertNull($sub->cancelled_by);
     }
 

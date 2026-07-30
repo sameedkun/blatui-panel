@@ -4,46 +4,44 @@ namespace Tests\Feature;
 
 use App\Livewire\Admin\Components\LanguageSwitcher;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Cookie;
 use Livewire\Livewire;
 use Tests\TestCase;
 
 class SetLocaleTest extends TestCase
 {
-    public function test_default_locale_is_en_without_cookie(): void
+    public function test_supported_locale_cookie_is_applied_to_the_request(): void
     {
-        $response = $this->get('/');
+        $this->withCookie('locale', 'tr')
+            ->get('/')
+            ->assertOk();
 
-        $response->assertStatus(200);
-        $this->assertSame('en', App::getLocale());
+        $this->assertSame('tr', App::getLocale());
     }
 
-    public function test_locale_is_set_from_cookie(): void
+    public function test_locale_switch_route_persists_a_supported_locale(): void
     {
-        $response = $this->withCookie('locale', 'ur')->get('/');
-
-        $response->assertStatus(200);
-        $this->assertSame('ur', App::getLocale());
+        $this->post(route('locale.switch', ['locale' => 'tr']))
+            ->assertRedirect()
+            ->assertCookie('locale', 'tr');
     }
 
-    public function test_post_route_switches_locale_and_sets_cookie(): void
+    public function test_locale_switch_route_rejects_an_unsupported_locale(): void
     {
-        $response = $this->post(route('locale.switch', ['locale' => 'ur']));
-
-        $response->assertCookie('locale', 'ur');
-        $response->assertRedirect();
+        $this->post(route('locale.switch', ['locale' => 'fr']))
+            ->assertNotFound();
     }
 
-    public function test_invalid_locale_returns_404(): void
+    public function test_language_switcher_queues_the_locale_cookie_and_redirects(): void
     {
-        $response = $this->post('/locale/fr');
+        Cookie::spy();
 
-        $response->assertStatus(404);
-    }
-
-    public function test_language_switcher_livewire_component_switches_locale(): void
-    {
         Livewire::test(LanguageSwitcher::class)
-            ->call('switchLocale', 'ur')
+            ->call('switchLocale', 'tr')
             ->assertRedirect();
+
+        Cookie::shouldHaveReceived('queue')
+            ->once()
+            ->with('locale', 'tr', 60 * 24 * 365);
     }
 }

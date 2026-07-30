@@ -238,6 +238,23 @@ class ActivityLogsViewerTest extends TestCase
         Bus::assertDispatched(ExportActivityLog::class);
     }
 
+    public function test_queued_export_preserves_the_active_locale(): void
+    {
+        Bus::fake();
+        config(['panel.activity_log_export_queue_threshold' => 0]);
+        app()->setLocale('tr');
+
+        $this->actingAsSuperAdmin();
+        ActivityLogger::log(ActivityModule::User, ActivityAction::Created);
+
+        Livewire::test(Index::class)->call('export');
+
+        Bus::assertDispatched(
+            ExportActivityLog::class,
+            fn (ExportActivityLog $job): bool => $job->locale === 'tr',
+        );
+    }
+
     public function test_export_job_writes_a_csv_of_the_filtered_set(): void
     {
         Storage::fake('local');

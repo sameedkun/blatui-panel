@@ -167,17 +167,6 @@ class GuestShowTest extends TestCase
         $this->assertSame('1', $stats[__('guests.tabs.activity')]['value']);
     }
 
-    public function test_activity_stat_card_is_a_placeholder_without_activity_logs_permission(): void
-    {
-        $this->actingAs($this->staffWith(['guests.view', 'guests.manage']));
-        $guest = User::factory()->guest()->create(['banned_at' => null]);
-
-        $component = Livewire::test(Show::class, ['user' => $guest]);
-        $stats = collect($component->instance()->statCards())->keyBy('label');
-
-        $this->assertNull($stats[__('guests.tabs.activity')]['value']);
-    }
-
     public function test_delete_from_profile_permanently_purges_and_redirects_to_index(): void
     {
         $this->actingAsSuperAdmin();

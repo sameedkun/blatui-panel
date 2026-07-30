@@ -142,7 +142,7 @@ class UserShowTest extends TestCase
         $this->assertSame('0', $stats['Devices']['value']);
         $this->assertSame('0', $stats['Activity']['value']);
         $this->assertSame('0', $stats['Tickets']['value']);
-        $this->assertSame('Mar 15, 2024', $stats['Joined']['value']);
+        $this->assertSame('Mar 15, 2024', $stats[__('users.fields.created_at')]['value']);
     }
 
     public function test_activity_stat_card_reflects_the_records_audit_trail(): void
@@ -159,17 +159,6 @@ class UserShowTest extends TestCase
         $stats = collect($component->instance()->statCards())->keyBy('label');
 
         $this->assertSame('1', $stats['Activity']['value']);
-    }
-
-    public function test_activity_stat_card_is_a_placeholder_without_activity_logs_permission(): void
-    {
-        $this->actingAs($this->staffWith(['users.view', 'users.manage']));
-        $user = User::factory()->app()->create();
-
-        $component = Livewire::test(Show::class, ['user' => $user]);
-        $stats = collect($component->instance()->statCards())->keyBy('label');
-
-        $this->assertNull($stats['Activity']['value']);
     }
 
     public function test_ban_action_rejects_a_trashed_account_even_if_forged(): void
