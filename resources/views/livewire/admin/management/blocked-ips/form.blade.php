@@ -27,16 +27,18 @@
                     @enderror
                 </x-ui.field>
 
-                <x-ui.field>
-                    <x-ui.field-label for="scope" required>{{ __('blocked_ips.fields.scope') }}</x-ui.field-label>
-                    <x-ui.select id="scope" native wire:model.live="scope" :options="[
-                        'user' => __('blocked_ips.scopes.per_user'),
-                        'global' => __('blocked_ips.scopes.global_every_user'),
-                    ]" />
-                    @error('scope')
-                        <x-ui.field-error>{{ $message }}</x-ui.field-error>
-                    @enderror
-                </x-ui.field>
+                @if ($this->canCreateGlobal())
+                    <x-ui.field>
+                        <x-ui.field-label for="scope" required>{{ __('blocked_ips.fields.scope') }}</x-ui.field-label>
+                        <x-ui.select id="scope" native wire:model.live="scope" :options="[
+                            'user' => __('blocked_ips.scopes.per_user'),
+                            'global' => __('blocked_ips.scopes.global_every_user'),
+                        ]" />
+                        @error('scope')
+                            <x-ui.field-error>{{ $message }}</x-ui.field-error>
+                        @enderror
+                    </x-ui.field>
+                @endif
 
                 @if ($scope === 'user')
                     <x-ui.field>
@@ -114,7 +116,7 @@
                             <x-ui.field-error>{{ $message }}</x-ui.field-error>
                         @enderror
                     </x-ui.field>
-                @else
+                @elseif ($this->canCreateGlobal())
                     <div class="rounded-md border border-destructive/30 bg-destructive/5 p-3">
                         <p class="flex items-center gap-1.5 text-sm font-medium text-destructive">
                             <x-lucide-triangle-alert class="size-4" />

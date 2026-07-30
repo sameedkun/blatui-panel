@@ -112,8 +112,14 @@ class Form extends BaseForm
             $this->expiresAt = $blockedIp->expires_at?->format('Y-m-d\TH:i');
             $this->globalConfirmed = true; // editing an already-existing global block doesn't need re-confirming
         } else {
+            $this->scope = $this->canCreateGlobal() ? $this->scope : 'user';
             $this->expiresAt = now()->addDays(7)->format('Y-m-d\TH:i');
         }
+    }
+
+    public function canCreateGlobal(): bool
+    {
+        return auth()->user()->can('blocked-ips.create-global');
     }
 
     protected function rules(): array

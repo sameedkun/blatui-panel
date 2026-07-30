@@ -189,7 +189,17 @@ class Show extends BaseShow
 
         app(TicketService::class)->changeCategory($ticket, $category, auth()->user());
 
-        $this->toastSuccess(__('tickets.toasts.category_changed', ['category' => $category->name]));
+        $message = __('tickets.toasts.category_changed', ['category' => $category->name]);
+
+        if (! Ticket::visibleTo(auth()->user())->whereKey($ticket->id)->exists()) {
+            session()->flash('toast', ['type' => 'success', 'title' => $message]);
+
+            $this->redirectRoute($this->indexRoute());
+
+            return;
+        }
+
+        $this->toastSuccess($message);
     }
 
     /** Accepts a string so a blank "Unassigned" option from a native <select> coerces to null, not 0. */
@@ -217,9 +227,19 @@ class Show extends BaseShow
 
         app(TicketService::class)->reassign($ticket, $agent, auth()->user());
 
-        $this->toastSuccess($agent
+        $message = $agent
             ? __('tickets.toasts.reassigned', ['agent' => $agent->name])
-            : __('tickets.toasts.unassigned'));
+            : __('tickets.toasts.unassigned');
+
+        if (! Ticket::visibleTo(auth()->user())->whereKey($ticket->id)->exists()) {
+            session()->flash('toast', ['type' => 'success', 'title' => $message]);
+
+            $this->redirectRoute($this->indexRoute());
+
+            return;
+        }
+
+        $this->toastSuccess($message);
     }
 
     public function render(): View

@@ -207,6 +207,7 @@ class Show extends BaseShow
 
         $this->blockingDeviceUlid = null;
         $this->blockDeviceReason = '';
+        $this->dispatch('close-dialog-block-user-device');
         $this->toastSuccess(__('users.toasts.device_blocked', ['name' => $device->displayName()]));
     }
 

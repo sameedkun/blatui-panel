@@ -1,6 +1,6 @@
 {{-- Confirmation drawers for the Blocked IPs index. Included by index.blade — shares its Livewire scope. --}}
 
-<x-admin.confirm-drawer
+<x-admin.confirm-dialog
     id="delete-blocked-ip"
     :title="__('blocked_ips.dialogs.delete_title')"
     confirm="$wire.delete()"
@@ -9,9 +9,9 @@
     variant="destructive"
 >
     {{ __('blocked_ips.dialogs.delete_description') }}
-</x-admin.confirm-drawer>
+</x-admin.confirm-dialog>
 
-<x-admin.confirm-drawer
+<x-admin.confirm-dialog
     id="delete-all-expired"
     :title="__('blocked_ips.dialogs.expired_title', ['count' => $this->expiredCount()])"
     confirm="$wire.deleteAllExpired()"
@@ -20,7 +20,7 @@
     variant="destructive"
 >
     {{ __('blocked_ips.dialogs.expired_description') }}
-</x-admin.confirm-drawer>
+</x-admin.confirm-dialog>
 
 <x-admin.confirm-dialog
     id="bulk-delete"

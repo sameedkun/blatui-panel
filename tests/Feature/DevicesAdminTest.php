@@ -140,9 +140,15 @@ class DevicesAdminTest extends TestCase
 
         Livewire::test(Index::class)
             ->call('openBlockDialog', $device->ulid)
+            ->call('block')
+            ->assertHasErrors(['blockReason' => 'required'])
+            ->assertSet('blockingUlid', $device->ulid)
+            ->assertSee(__('devices.validation.block_reason_required'))
             ->set('blockReason', 'too short')
             ->call('block')
-            ->assertHasErrors(['blockReason']);
+            ->assertHasErrors(['blockReason' => 'min'])
+            ->assertSet('blockingUlid', $device->ulid)
+            ->assertSee(__('devices.validation.block_reason_min', ['min' => 10]));
 
         $this->assertNull($device->fresh()->blocked_at);
     }

@@ -11,6 +11,7 @@
     :label="__('common.reason')"
     :placeholder="__('users.dialogs.block_device_reason_placeholder')"
     cancel="$wire.set('blockingDeviceUlid', null)"
+    :close-on-confirm="false"
 />
 
 <x-admin.confirm-dialog

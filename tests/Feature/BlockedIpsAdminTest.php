@@ -161,6 +161,18 @@ class BlockedIpsAdminTest extends TestCase
         $this->assertTrue(Activity::where('event', 'created')->where('causer_id', $admin->id)->exists());
     }
 
+    public function test_admin_without_global_block_permission_only_sees_the_per_user_scope(): void
+    {
+        $this->actingAsAdminWith(['blocked-ips.view', 'blocked-ips.create']);
+
+        Livewire::test(Form::class)
+            ->assertSet('scope', 'user')
+            ->assertDontSee(__('blocked_ips.fields.scope'))
+            ->assertDontSee(__('blocked_ips.scopes.global_every_user'))
+            ->assertDontSee(__('blocked_ips.form.global_warning_title'))
+            ->assertSee(__('blocked_ips.fields.user_email'));
+    }
+
     public function test_user_search_and_select_filters_app_users_and_populates_form_user_email(): void
     {
         $this->actingAsAdminWith(['blocked-ips.view', 'blocked-ips.create']);
@@ -265,6 +277,7 @@ class BlockedIpsAdminTest extends TestCase
 
         Livewire::test(Index::class)
             ->call('confirmDelete', $blockedIp->id)
+            ->assertDispatched('open-alert-dialog-delete-blocked-ip')
             ->call('delete');
 
         $this->assertDatabaseMissing('blocked_ips', ['id' => $blockedIp->id]);
@@ -279,6 +292,7 @@ class BlockedIpsAdminTest extends TestCase
 
         Livewire::test(Index::class)
             ->call('confirmDeleteAllExpired')
+            ->assertDispatched('open-alert-dialog-delete-all-expired')
             ->call('deleteAllExpired');
 
         $this->assertDatabaseMissing('blocked_ips', ['id' => $expired->id]);

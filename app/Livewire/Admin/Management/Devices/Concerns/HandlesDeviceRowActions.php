@@ -61,6 +61,7 @@ trait HandlesDeviceRowActions
 
         $this->blockingUlid = null;
         $this->blockReason = '';
+        $this->dispatch('close-dialog-block-device');
         $this->toastSuccess(__('devices.toasts.blocked', ['name' => $device->displayName()]));
     }
 

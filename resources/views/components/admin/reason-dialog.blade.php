@@ -11,6 +11,7 @@
       confirm       Livewire method called on confirm (wire:click), e.g. "confirmBan"
       confirmLabel  confirm button text (default "Confirm")
       cancel        optional JS expression run on cancel, e.g. "$wire.cancelBulkAction()"
+      closeOnConfirm whether to close immediately on confirmation (default true)
       variant       confirm button variant (default "destructive")
       label         textarea field label (default "Reason")
       placeholder   textarea placeholder
@@ -23,6 +24,7 @@
     'confirm',
     'confirmLabel' => 'Confirm',
     'cancel' => '',
+    'closeOnConfirm' => true,
     'variant' => 'destructive',
     'label' => 'Reason',
     'placeholder' => '',
@@ -39,14 +41,24 @@
 
         <x-ui.field>
             <x-ui.field-label>{{ $label }}</x-ui.field-label>
-            <x-ui.textarea wire:model="{{ $model }}" rows="3" placeholder="{{ $placeholder }}" />
+            <x-ui.textarea wire:model="{{ $model }}" rows="3" placeholder="{{ $placeholder }}"
+                aria-invalid="{{ $errors->has($model) ? 'true' : 'false' }}" />
+            @error($model)
+                <x-ui.field-error>{{ $message }}</x-ui.field-error>
+            @enderror
         </x-ui.field>
 
         <x-ui.dialog-footer>
             <x-ui.button variant="outline" @click="open = false; {!! $cancel !!}"> {{ __('common.cancel') }} </x-ui.button>
-            <x-ui.button variant="{{ $variant }}" @click="open = false" wire:click="{!! $confirm !!}">
-                {{ $confirmLabel }}
-            </x-ui.button>
+            @if ($closeOnConfirm)
+                <x-ui.button variant="{{ $variant }}" @click="open = false" wire:click="{!! $confirm !!}">
+                    {{ $confirmLabel }}
+                </x-ui.button>
+            @else
+                <x-ui.button variant="{{ $variant }}" wire:click="{!! $confirm !!}">
+                    {{ $confirmLabel }}
+                </x-ui.button>
+            @endif
         </x-ui.dialog-footer>
     </x-ui.dialog-content>
 </x-ui.dialog>

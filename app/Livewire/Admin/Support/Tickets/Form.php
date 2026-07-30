@@ -135,7 +135,11 @@ class Form extends BaseForm
 
         session()->flash('toast', ['type' => 'success', 'title' => __('tickets.toasts.created')]);
 
-        return $this->redirect(route('admin.tickets.show', $ticket));
+        $redirectRoute = auth()->user()->can('tickets.manage')
+        ? route('admin.tickets.show', $ticket)
+        : route('admin.tickets.index');
+
+        return $this->redirect($redirectRoute);
     }
 
     public function render(): View

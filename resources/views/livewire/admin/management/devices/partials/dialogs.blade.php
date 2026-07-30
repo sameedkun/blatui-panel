@@ -10,6 +10,7 @@
     :label="__('devices.dialogs.reason')"
     :placeholder="__('devices.placeholders.block_reason')"
     cancel="$wire.set('blockingUlid', null)"
+    :close-on-confirm="false"
 />
 
 <x-admin.confirm-dialog

@@ -162,7 +162,7 @@ class Index extends BaseIndex
         $this->authorize('blocked-ips.delete');
 
         $this->confirmingDeleteAllExpired = true;
-        $this->dispatch('open-drawer-delete-all-expired');
+        $this->dispatch('open-alert-dialog-delete-all-expired');
     }
 
     public function expiredCount(): int
@@ -175,7 +175,7 @@ class Index extends BaseIndex
         $this->authorize('blocked-ips.delete');
 
         $this->deletingId = $id;
-        $this->dispatch('open-drawer-delete-blocked-ip');
+        $this->dispatch('open-alert-dialog-delete-blocked-ip');
     }
 
     public function delete(): void
