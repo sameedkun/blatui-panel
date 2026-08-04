@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Jobs\RecordBlockedIpHit;
+use App\Jobs\Auth\RecordBlockedIpHit;
 use App\Models\BlockedIp;
 use Closure;
 use Illuminate\Http\Request;

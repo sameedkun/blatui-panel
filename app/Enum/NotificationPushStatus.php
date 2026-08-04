@@ -2,7 +2,7 @@
 
 namespace App\Enum;
 
-use App\Jobs\SendPushNotification;
+use App\Jobs\Notification\SendPushNotification;
 use App\Models\Notification;
 
 /**

@@ -170,7 +170,7 @@ System), `ActivityModule` (feature — User/Guest/Staff/Role/Permission/Plan/Ser
 `ActivityAction` (reusable verb — Created/Updated/Deleted/Banned/Converted/Merged/…),
 `ActivityContext` (originating runtime — Admin/Api/Scheduler/Queue/Console/Webhook, mostly
 auto-detected). The viewer + CSV export share one query builder, `App\Support\ActivityLogQuery`,
-built from a serializable filter-state array — so `App\Jobs\ExportActivityLog` (queued CSV export
+built from a serializable filter-state array — so `App\Jobs\Activity\ExportActivityLog` (queued CSV export
 for exports past `panel.activity_log_export_queue_threshold`, default 5000 rows) always matches
 what the admin was looking at on screen. `App\Listeners\AuthActivityListener` auto-logs
 login/failed-login (rate-limited)/password-reset via Laravel's event discovery — guests are never
@@ -320,7 +320,7 @@ mirroring `DeletionService::purge()`'s scheduled path. Types logged: `subscripti
 `cancellation_ended`), `subscription_trial_converted`, `subscription_entered_grace` — all three
 extend `ActivityPresenter` the same way the four `SubscriptionService`-logged types do.
 
-`App\Jobs\SyncSubscriptionStatuses` is a thin scheduled trigger (mirrors `PurgeExpiredAccounts`):
+`App\Jobs\Subscription\SyncSubscriptionStatuses` is a thin scheduled trigger (mirrors `PurgeExpiredAccounts`):
 constructor takes `array $providers = [PaymentProvider::Local]`, `handle()` just calls
 `LifecycleService::syncStatuses($this->providers)`. Scheduled hourly in
 `routes/console.php` as `new SyncSubscriptionStatuses([PaymentProvider::Local])`.
@@ -447,7 +447,7 @@ scheduler, not in response to a staff action:
 
 Both log with `causer: null` + `ActivityContext::Scheduler` (module `Ticket`, reusing `Updated`/
 `Deleted` with a distinguishing `type` property rather than new verbs). `App\Jobs\
-{AutoCloseInactiveTickets,PurgeClosedTickets}` are thin scheduled triggers (mirroring
+{CloseInactiveTickets,PurgeClosedTickets}` are thin scheduled triggers (mirroring
 `PurgeExpiredAccounts`) reading their threshold from config; both scheduled daily in
 `routes/console.php` since the thresholds are day/month-granularity.
 
@@ -656,7 +656,7 @@ rather than colliding with generic titles.
 - `SyncSubscriptionStatuses` job — hourly, `withoutOverlapping()`, 1 retry, 300s timeout; scheduled
   as `new SyncSubscriptionStatuses`; the job selects supported providers itself. Delegates to
   `LifecycleService::syncStatuses()` — see "Plans & Subscriptions" above.
-- `AutoCloseInactiveTickets` / `PurgeClosedTickets` jobs — both daily, `withoutOverlapping()`, 1
+- `CloseInactiveTickets` / `PurgeClosedTickets` jobs — both daily, `withoutOverlapping()`, 1
   retry, 300s timeout; delegate to `LifecycleService` — see "Ticket lifecycle sweeps" above.
 - `PruneExpiredBlockedIps` job — daily, `withoutOverlapping()`, 1 retry, 300s timeout.
 - `PruneRevokedDevices` job — monthly, `withoutOverlapping()`, 1 retry, 300s timeout; delegates to
@@ -679,9 +679,11 @@ app/
   Http/Middleware/ EnsurePanelAccess (alias: panel), EnsureDeviceIsValid (alias: device.valid),
                    CheckBlockedIp (prepended to the global `api` middleware group)
   Http/Resources/  UserDeviceResource
-  Jobs/            PurgeExpiredAccounts, ExportActivityLog, SyncSubscriptionStatuses,
-                   AutoCloseInactiveTickets, PurgeClosedTickets, PruneExpiredBlockedIps,
-                   PruneRevokedDevices, RecordBlockedIpHit (queued, dispatched by CheckBlockedIp)
+  Jobs/            Account/PurgeExpiredAccounts, Activity/ExportActivityLog,
+                   Auth/{PruneExpiredBlockedIps, RecordBlockedIpHit},
+                   Device/{PruneRevokedDevices, ResolveDeviceLocation},
+                   Notification/SendPushNotification, Subscription/SyncSubscriptionStatuses,
+                   Ticket/{CloseInactiveTickets, PurgeClosedTickets}
   Listeners/       AuthActivityListener
   Livewire/
     Auth/          Login, Logout, VerifyEmail, PasswordReset (reset-with-token form only)

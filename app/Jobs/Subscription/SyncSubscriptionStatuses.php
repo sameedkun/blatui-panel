@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Jobs;
+namespace App\Jobs\Subscription;
 
 use App\Enum\PaymentProvider;
 use App\Services\Subscription\LifecycleService;

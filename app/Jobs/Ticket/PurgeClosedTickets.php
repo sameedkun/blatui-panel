@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Jobs;
+namespace App\Jobs\Ticket;
 
 use App\Services\Ticket\LifecycleService;
 use Illuminate\Contracts\Queue\ShouldQueue;

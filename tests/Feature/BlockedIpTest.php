@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\PruneExpiredBlockedIps;
+use App\Jobs\Auth\PruneExpiredBlockedIps;
 use App\Models\BlockedIp;
 use App\Models\User;
 use App\Services\Device\DeviceService;

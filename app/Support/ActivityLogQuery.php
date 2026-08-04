@@ -2,7 +2,7 @@
 
 namespace App\Support;
 
-use App\Jobs\ExportActivityLog;
+use App\Jobs\Activity\ExportActivityLog;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\Activitylog\Models\Activity;

@@ -7,7 +7,7 @@ use App\Enum\ActivityContext;
 use App\Enum\ActivityModule;
 use App\Enum\PaymentProvider;
 use App\Enum\SubscriptionStatus;
-use App\Jobs\SyncSubscriptionStatuses;
+use App\Jobs\Subscription\SyncSubscriptionStatuses;
 use App\Models\Subscription;
 use App\Support\ActivityLogger;
 use Closure;

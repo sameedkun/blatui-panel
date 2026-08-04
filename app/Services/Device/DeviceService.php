@@ -7,7 +7,7 @@ use App\Enum\ActivityContext;
 use App\Enum\ActivityModule;
 use App\Exceptions\DeviceBlockedException;
 use App\Exceptions\DeviceLimitExceededException;
-use App\Jobs\ResolveDeviceLocation;
+use App\Jobs\Device\ResolveDeviceLocation;
 use App\Models\User;
 use App\Models\UserDevice;
 use App\Support\ActivityLogger;

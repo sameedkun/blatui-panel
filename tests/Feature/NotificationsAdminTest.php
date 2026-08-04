@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Enum\NotificationPushStatus;
 use App\Enum\NotificationType;
-use App\Jobs\SendPushNotification;
+use App\Jobs\Notification\SendPushNotification;
 use App\Livewire\Admin\Application\Notification\Form;
 use App\Livewire\Admin\Application\Notification\Index;
 use App\Models\Notification;

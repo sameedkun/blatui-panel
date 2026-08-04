@@ -6,7 +6,7 @@ use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
 use App\Enum\NotificationPushStatus;
 use App\Enum\NotificationType;
-use App\Jobs\SendPushNotification;
+use App\Jobs\Notification\SendPushNotification;
 use App\Livewire\Admin\BaseIndex;
 use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Models\Notification;

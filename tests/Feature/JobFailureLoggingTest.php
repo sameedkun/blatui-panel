@@ -2,16 +2,16 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\AutoCloseInactiveTickets;
-use App\Jobs\ExportActivityLog;
-use App\Jobs\PruneExpiredBlockedIps;
-use App\Jobs\PruneRevokedDevices;
-use App\Jobs\PurgeClosedTickets;
-use App\Jobs\PurgeExpiredAccounts;
-use App\Jobs\RecordBlockedIpHit;
-use App\Jobs\ResolveDeviceLocation;
-use App\Jobs\SendPushNotification;
-use App\Jobs\SyncSubscriptionStatuses;
+use App\Jobs\Account\PurgeExpiredAccounts;
+use App\Jobs\Activity\ExportActivityLog;
+use App\Jobs\Auth\PruneExpiredBlockedIps;
+use App\Jobs\Auth\RecordBlockedIpHit;
+use App\Jobs\Device\PruneRevokedDevices;
+use App\Jobs\Device\ResolveDeviceLocation;
+use App\Jobs\Notification\SendPushNotification;
+use App\Jobs\Subscription\SyncSubscriptionStatuses;
+use App\Jobs\Ticket\CloseInactiveTickets;
+use App\Jobs\Ticket\PurgeClosedTickets;
 use Illuminate\Support\Facades\Log;
 use Mockery;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -46,7 +46,7 @@ class JobFailureLoggingTest extends TestCase
     public static function jobs(): array
     {
         return [
-            'auto close inactive tickets' => [new AutoCloseInactiveTickets, 'AutoCloseInactiveTickets'],
+            'auto close inactive tickets' => [new CloseInactiveTickets, 'CloseInactiveTickets'],
             'export activity log' => [new ExportActivityLog([]), 'ExportActivityLog'],
             'prune expired blocked IPs' => [new PruneExpiredBlockedIps, 'PruneExpiredBlockedIps'],
             'prune revoked devices' => [new PruneRevokedDevices, 'PruneRevokedDevices'],

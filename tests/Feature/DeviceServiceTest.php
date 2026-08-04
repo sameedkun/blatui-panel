@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Exceptions\DeviceBlockedException;
 use App\Exceptions\DeviceLimitExceededException;
-use App\Jobs\ResolveDeviceLocation;
+use App\Jobs\Device\ResolveDeviceLocation;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\User;

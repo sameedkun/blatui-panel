@@ -3,7 +3,7 @@
 namespace App\Support;
 
 use App\Enum\DeviceType;
-use App\Jobs\ResolveDeviceLocation;
+use App\Jobs\Device\ResolveDeviceLocation;
 use App\Services\Device\DeviceService;
 
 /**

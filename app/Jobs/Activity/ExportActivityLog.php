@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Jobs;
+namespace App\Jobs\Activity;
 
 use App\Support\ActivityLogQuery;
 use Illuminate\Contracts\Queue\ShouldQueue;

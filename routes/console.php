@@ -1,11 +1,11 @@
 <?php
 
-use App\Jobs\AutoCloseInactiveTickets;
-use App\Jobs\PruneExpiredBlockedIps;
-use App\Jobs\PruneRevokedDevices;
-use App\Jobs\PurgeClosedTickets;
-use App\Jobs\PurgeExpiredAccounts;
-use App\Jobs\SyncSubscriptionStatuses;
+use App\Jobs\Account\PurgeExpiredAccounts;
+use App\Jobs\Auth\PruneExpiredBlockedIps;
+use App\Jobs\Device\PruneRevokedDevices;
+use App\Jobs\Subscription\SyncSubscriptionStatuses;
+use App\Jobs\Ticket\CloseInactiveTickets;
+use App\Jobs\Ticket\PurgeClosedTickets;
 use Illuminate\Support\Facades\Schedule;
 
 // Hourly
@@ -22,7 +22,7 @@ Schedule::job(new SyncSubscriptionStatuses)
 
 // Daily
 // Day-granularity thresholds, so daily is frequent enough for both sweeps.
-Schedule::job(new AutoCloseInactiveTickets)
+Schedule::job(new CloseInactiveTickets)
     ->daily()
     ->name('ticket-auto-close')
     ->withoutOverlapping();

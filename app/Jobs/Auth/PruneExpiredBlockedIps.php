@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Jobs;
+namespace App\Jobs\Auth;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityContext;

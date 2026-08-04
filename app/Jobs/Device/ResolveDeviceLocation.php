@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Jobs;
+namespace App\Jobs\Device;
 
 use App\Models\UserDevice;
 use App\Services\Device\DeviceService;

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\PurgeExpiredAccounts;
+use App\Jobs\Account\PurgeExpiredAccounts;
 use App\Models\User;
 use App\Services\Account\DeletionService;
 use Illuminate\Console\Scheduling\Schedule;

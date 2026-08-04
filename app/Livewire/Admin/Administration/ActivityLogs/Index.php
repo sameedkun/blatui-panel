@@ -6,7 +6,7 @@ use App\Enum\ActivityAction;
 use App\Enum\ActivityContext;
 use App\Enum\ActivityLogName;
 use App\Enum\ActivityModule;
-use App\Jobs\ExportActivityLog;
+use App\Jobs\Activity\ExportActivityLog;
 use App\Livewire\Admin\BaseIndex;
 use App\Models\User;
 use App\Support\ActivityLogQuery;
