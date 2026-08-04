@@ -14,9 +14,9 @@ use App\Models\Plan;
 use App\Models\PlanPrice;
 use App\Models\Subscription;
 use App\Models\User;
-use App\Services\AccountDeletionService;
-use App\Services\GuestConversionService;
-use App\Services\SubscriptionService;
+use App\Services\Account\DeletionService;
+use App\Services\Account\GuestConversionService;
+use App\Services\Subscription\SubscriptionService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
@@ -315,10 +315,10 @@ class Show extends BaseShow
     /**
      * Instant delete removes the record, so — unlike the index — the profile
      * has nowhere to stay and returns to the list. The deletion itself (and
-     * its audit entry) still runs through {@see AccountDeletionService}; no
+     * its audit entry) still runs through {@see DeletionService}; no
      * new logic here.
      */
-    public function delete(AccountDeletionService $deletions)
+    public function delete(DeletionService $deletions)
     {
         $this->authorize('guests.delete');
 

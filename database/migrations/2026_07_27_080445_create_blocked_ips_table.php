@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('ip_address', 45);
             // restrictOnDelete(), not cascadeOnDelete(): InnoDB refuses to create a FK with
             // ON DELETE CASCADE/SET NULL on a column that a stored generated column depends on
-            // (user_scope, below, depends on user_id) — MySQL error 1215. AccountDeletionService
+            // (user_scope, below, depends on user_id) — MySQL error 1215. DeletionService
             // explicitly deletes a user's blocked_ips rows before force-deleting the account, so
             // this restriction is never actually hit in practice; it's just the DB-level backstop.
             $table->foreignId('user_id')->nullable()->constrained('users')->restrictOnDelete();

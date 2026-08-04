@@ -9,7 +9,7 @@ use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Models\UserDevice;
-use App\Services\DeviceService;
+use App\Services\Device\DeviceService;
 use App\Support\DeviceData;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;

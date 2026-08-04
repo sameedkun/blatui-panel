@@ -6,7 +6,7 @@ use App\Livewire\Admin\Concerns\HasToast;
 use App\Livewire\Admin\Management\Devices\Index;
 use App\Livewire\Admin\Management\Users\Show;
 use App\Models\UserDevice;
-use App\Services\DeviceService;
+use App\Services\Device\DeviceService;
 
 /**
  * Single-device mutating actions (block, unblock, revoke) for the global

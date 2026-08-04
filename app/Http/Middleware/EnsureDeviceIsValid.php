@@ -3,7 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\UserDevice;
-use App\Services\DeviceService;
+use App\Services\Device\DeviceService;
 use Closure;
 use Illuminate\Http\Request;
 use Laravel\Sanctum\PersonalAccessToken;

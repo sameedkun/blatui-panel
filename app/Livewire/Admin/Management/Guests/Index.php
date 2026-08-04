@@ -8,7 +8,7 @@ use App\Livewire\Admin\BaseIndex;
 use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Livewire\Admin\Management\Guests\Concerns\HandlesGuestRowActions;
 use App\Models\User;
-use App\Services\AccountDeletionService;
+use App\Services\Account\DeletionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
@@ -211,7 +211,7 @@ class Index extends BaseIndex
      * their related data, same as the single-row {@see HandlesGuestRowActions::delete()}.
      * Fetches first, then mutates, since purging changes each row's scope mid-loop.
      */
-    public function executeBulkDelete(AccountDeletionService $deletions): void
+    public function executeBulkDelete(DeletionService $deletions): void
     {
         $this->authorize('guests.delete');
 

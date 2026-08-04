@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Subscription;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;

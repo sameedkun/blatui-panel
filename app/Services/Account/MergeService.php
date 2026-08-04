@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Account;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
@@ -8,6 +8,7 @@ use App\Enum\CancelledBy;
 use App\Enum\PaymentProvider;
 use App\Enum\UserType;
 use App\Models\User;
+use App\Services\Subscription\SubscriptionService;
 use App\Support\ActivityLogger;
 use Illuminate\Support\Facades\Auth;
 use InvalidArgumentException;
@@ -18,7 +19,7 @@ use InvalidArgumentException;
  * of. Historical activity_log rows are left untouched — a single `merged`
  * event provides the linkage rather than rewriting old rows.
  */
-class AccountMergeService
+class MergeService
 {
     public function __construct(
         private readonly SubscriptionService $subscriptions,

@@ -7,7 +7,7 @@ use App\Enum\ActivityModule;
 use App\Livewire\Admin\BaseForm;
 use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Models\TicketCategory;
-use App\Services\TicketAssignmentService;
+use App\Services\Ticket\AssignmentService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -45,7 +45,7 @@ class Form extends BaseForm
 
             // Intersect with the eligible pool so a staff member who has since lost
             // ticket access doesn't stay silently checked (and re-synced) via a hidden ID.
-            $eligibleIds = app(TicketAssignmentService::class)->eligibleAgents()->pluck('id')->all();
+            $eligibleIds = app(AssignmentService::class)->eligibleAgents()->pluck('id')->all();
             $this->agentIds = array_values(array_intersect(
                 $category->agents()->pluck('users.id')->all(),
                 $eligibleIds,
@@ -130,7 +130,7 @@ class Form extends BaseForm
     public function render(): View
     {
         return view('livewire.admin.support.categories.form', [
-            'agentOptions' => app(TicketAssignmentService::class)->eligibleAgents(),
+            'agentOptions' => app(AssignmentService::class)->eligibleAgents(),
         ])->title($this->isEditing
             ? __('ticket_categories.form.edit_title')
             : __('ticket_categories.form.create_title'));

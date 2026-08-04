@@ -7,7 +7,7 @@ use App\Enum\ActivityContext;
 use App\Enum\ActivityModule;
 use App\Enum\NotificationPushStatus;
 use App\Models\Notification;
-use App\Services\OneSignalService;
+use App\Services\Notification\OneSignalService;
 use App\Support\ActivityLogger;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;

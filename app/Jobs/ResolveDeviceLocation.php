@@ -3,8 +3,8 @@
 namespace App\Jobs;
 
 use App\Models\UserDevice;
-use App\Services\DeviceService;
-use App\Services\LocationService;
+use App\Services\Device\DeviceService;
+use App\Services\Device\LocationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;

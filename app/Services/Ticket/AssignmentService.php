@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Ticket;
 
 use App\Enum\TicketStatus;
 use App\Models\TicketCategory;
@@ -22,7 +22,7 @@ use Illuminate\Support\Collection;
  * bulk-assign dialog, the ticket filters) goes through this rather than
  * re-deriving the permission check.
  */
-class TicketAssignmentService
+class AssignmentService
 {
     /**
      * Staff who can actually view and reply to tickets — the only ones

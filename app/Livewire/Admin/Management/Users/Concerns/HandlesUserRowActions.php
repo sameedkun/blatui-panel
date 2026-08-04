@@ -5,7 +5,7 @@ namespace App\Livewire\Admin\Management\Users\Concerns;
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
 use App\Models\User;
-use App\Services\AccountDeletionService;
+use App\Services\Account\DeletionService;
 use Illuminate\Auth\Access\AuthorizationException;
 
 /**
@@ -185,7 +185,7 @@ trait HandlesUserRowActions
         $this->dispatch('open-dialog-schedule-deletion');
     }
 
-    public function confirmScheduleDeletion(AccountDeletionService $deletions): void
+    public function confirmScheduleDeletion(DeletionService $deletions): void
     {
         $this->authorize('users.delete');
 
@@ -199,7 +199,7 @@ trait HandlesUserRowActions
         $this->toastSuccess(__('users.toasts.user_scheduled_deletion', ['name' => $user->name]));
     }
 
-    public function stopDeletion(int $userId, AccountDeletionService $deletions): void
+    public function stopDeletion(int $userId, DeletionService $deletions): void
     {
         $this->authorize('users.delete');
 
@@ -223,7 +223,7 @@ trait HandlesUserRowActions
         $this->dispatch('open-dialog-instant-purge');
     }
 
-    public function instantPurge(AccountDeletionService $deletions): void
+    public function instantPurge(DeletionService $deletions): void
     {
         $this->authorize('users.force-delete');
 

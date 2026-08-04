@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Enum\DeviceType;
-use App\Services\DeviceService;
+use App\Services\Device\DeviceService;
 use Database\Factories\UserDeviceFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;

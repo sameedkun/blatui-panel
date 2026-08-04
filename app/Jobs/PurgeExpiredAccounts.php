@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Services\AccountDeletionService;
+use App\Services\Account\DeletionService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -10,7 +10,7 @@ use Throwable;
 
 /**
  * Thin hourly trigger for the account-deletion sweep. All logic lives in
- * {@see AccountDeletionService::purgeExpired()} — this job just invokes it.
+ * {@see DeletionService::purgeExpired()} — this job just invokes it.
  */
 class PurgeExpiredAccounts implements ShouldQueue
 {
@@ -28,7 +28,7 @@ class PurgeExpiredAccounts implements ShouldQueue
      */
     public int $timeout = 300;
 
-    public function handle(AccountDeletionService $deletions): void
+    public function handle(DeletionService $deletions): void
     {
         $deletions->purgeExpired();
     }

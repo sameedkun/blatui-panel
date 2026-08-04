@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Enum\TicketMessageAuthorType;
-use App\Services\TicketService;
+use App\Services\Ticket\TicketService;
 use Database\Factories\TicketMessageFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

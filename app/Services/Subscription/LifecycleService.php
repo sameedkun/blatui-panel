@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Subscription;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityContext;
@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Builder;
  * subscribe, upgrade, cancel, reactivate) because this one runs unattended off
  * a schedule rather than in response to an action.
  */
-class SubscriptionLifecycleService
+class LifecycleService
 {
     /**
      * Advances every non-terminal subscription — across however many providers
@@ -188,7 +188,7 @@ class SubscriptionLifecycleService
     /**
      * The sweep runs with no auth() session, so log with an explicit null
      * (system) causer and a Scheduler context rather than trusting the ambient
-     * runtime — mirrors AccountDeletionService::purge()'s scheduled path.
+     * runtime — mirrors DeletionService::purge()'s scheduled path.
      */
     protected function logTransition(Subscription $subscription, string $type, ?string $reason = null): void
     {

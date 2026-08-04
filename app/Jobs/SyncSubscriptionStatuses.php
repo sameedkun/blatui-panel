@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Enum\PaymentProvider;
-use App\Services\SubscriptionLifecycleService;
+use App\Services\Subscription\LifecycleService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -11,7 +11,7 @@ use Throwable;
 
 /**
  * Thin scheduled trigger for the subscription-status sweep. All logic lives in
- * {@see SubscriptionLifecycleService::syncStatuses()} — this job just passes
+ * {@see LifecycleService::syncStatuses()} — this job just passes
  * through whichever providers it was given, so adding a new provider once its
  * integration exists is a one-line change in routes/console.php, not here.
  */
@@ -27,7 +27,7 @@ class SyncSubscriptionStatuses implements ShouldQueue
 
     public int $timeout = 300;
 
-    public function handle(SubscriptionLifecycleService $lifecycle): void
+    public function handle(LifecycleService $lifecycle): void
     {
         $lifecycle->syncStatuses([PaymentProvider::Local]);
     }

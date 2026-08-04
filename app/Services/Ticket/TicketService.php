@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Ticket;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
@@ -19,12 +19,12 @@ use Illuminate\Support\Facades\DB;
  * The only place a ticket's state changes — mirrors {@see SubscriptionService}:
  * every caller (admin panel today, a future public API tomorrow) gets the same
  * behavior and the same audit trail for free. Auto-assignment itself is
- * delegated to {@see TicketAssignmentService}; this class is what applies the
+ * delegated to {@see AssignmentService}; this class is what applies the
  * pick, appends the visible system note, and logs it.
  */
 class TicketService
 {
-    public function __construct(protected TicketAssignmentService $assignment) {}
+    public function __construct(protected AssignmentService $assignment) {}
 
     /**
      * Raise a new ticket on behalf of a requester, auto-assigning it to the
@@ -181,7 +181,7 @@ class TicketService
     }
 
     /**
-     * Apply {@see TicketAssignmentService::pickAgent()} to the ticket and, when
+     * Apply {@see AssignmentService::pickAgent()} to the ticket and, when
      * an agent is found, leave a system note in the thread so the load-balancing
      * decision is visible in the conversation, not just the audit log.
      */

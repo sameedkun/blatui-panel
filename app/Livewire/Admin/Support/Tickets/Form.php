@@ -6,7 +6,7 @@ use App\Enum\TicketPriority;
 use App\Livewire\Admin\BaseForm;
 use App\Models\TicketCategory;
 use App\Models\User;
-use App\Services\TicketService;
+use App\Services\Ticket\TicketService;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 use Illuminate\View\View;

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Ticket;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityContext;
@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * The calendar-driven counterpart to {@see TicketService} — mirrors
- * {@see SubscriptionLifecycleService}'s split from {@see SubscriptionService}:
+ * {@see LifecycleService}'s split from {@see SubscriptionService}:
  * these transitions run unattended off the scheduler rather than in response
  * to a staff action, so they live in their own class. Both logs with
  * `causer: null` + `ActivityContext::Scheduler`, same as every other
@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\DB;
  * scanned up front (never a live re-querying `chunkById()`, since the
  * chunk's own work would otherwise mutate the very columns the filter
  * matches on and skip/duplicate rows mid-sweep — the same snapshot-first
- * reasoning `SubscriptionLifecycleService` documents); full rows are loaded
+ * reasoning `LifecycleService` documents); full rows are loaded
  * one chunk at a time, right before they're needed, so a large backlog
  * never sits fully in memory at once. Auto-close additionally re-checks its
  * own eligibility conditions fresh, per chunk, immediately before the
@@ -39,7 +39,7 @@ use Illuminate\Support\Facades\DB;
  * bulk-action logging already used by `Tickets/Index::executeBulkClose()`
  * etc.
  */
-class TicketLifecycleService
+class LifecycleService
 {
     private const CHUNK_SIZE = 500;
 

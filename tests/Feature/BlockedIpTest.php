@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\PruneExpiredBlockedIps;
 use App\Models\BlockedIp;
 use App\Models\User;
-use App\Services\DeviceService;
+use App\Services\Device\DeviceService;
 use App\Support\DeviceData;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;

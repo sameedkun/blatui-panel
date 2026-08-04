@@ -9,8 +9,8 @@ use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Livewire\Admin\Support\Tickets\Concerns\HandlesTicketRowActions;
 use App\Models\Ticket;
 use App\Models\TicketCategory;
-use App\Services\TicketAssignmentService;
-use App\Services\TicketService;
+use App\Services\Ticket\AssignmentService;
+use App\Services\Ticket\TicketService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -110,7 +110,7 @@ class Index extends BaseIndex
     /** @return array<int|string, string> */
     private function assignedOptions(): array
     {
-        return ['unassigned' => __('tickets.unassigned')] + app(TicketAssignmentService::class)->eligibleAgentOptions();
+        return ['unassigned' => __('tickets.unassigned')] + app(AssignmentService::class)->eligibleAgentOptions();
     }
 
     protected function statsConfig(): array
@@ -186,7 +186,7 @@ class Index extends BaseIndex
     {
         $this->authorize('tickets.manage');
 
-        $assignment = app(TicketAssignmentService::class);
+        $assignment = app(AssignmentService::class);
 
         Validator::make(
             ['bulkAssignAgentId' => $this->bulkAssignAgentId],
@@ -224,7 +224,7 @@ class Index extends BaseIndex
             'pageIds' => $tickets->pluck('id')->map(fn ($id) => (string) $id)->toArray(),
             'stats' => $this->resolveStats(),
             'filterBarConfig' => $this->filterBarConfig(),
-            'agentOptions' => app(TicketAssignmentService::class)->eligibleAgentOptions(),
+            'agentOptions' => app(AssignmentService::class)->eligibleAgentOptions(),
         ])->title(__('tickets.title'));
     }
 }

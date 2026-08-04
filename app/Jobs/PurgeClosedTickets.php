@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Services\TicketLifecycleService;
+use App\Services\Ticket\LifecycleService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -10,7 +10,7 @@ use Throwable;
 
 /**
  * Thin scheduled trigger for the closed-ticket retention purge. All logic
- * lives in {@see TicketLifecycleService::purgeClosedTickets()} — this job
+ * lives in {@see LifecycleService::purgeClosedTickets()} — this job
  * just invokes it.
  */
 class PurgeClosedTickets implements ShouldQueue
@@ -25,7 +25,7 @@ class PurgeClosedTickets implements ShouldQueue
 
     public int $timeout = 300;
 
-    public function handle(TicketLifecycleService $lifecycle): void
+    public function handle(LifecycleService $lifecycle): void
     {
         $lifecycle->purgeClosedTickets(config('panel.ticket_purge_closed_after_months'));
     }

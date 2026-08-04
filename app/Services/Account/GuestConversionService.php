@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Account;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
@@ -17,7 +17,7 @@ use InvalidArgumentException;
 class GuestConversionService
 {
     public function __construct(
-        private readonly AccountMergeService $merger,
+        private readonly MergeService $merger,
     ) {}
 
     public function convertBySelf(User $guest, string $email, string $password, ?string $name = null): User

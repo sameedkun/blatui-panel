@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Jobs\PurgeExpiredAccounts;
 use App\Models\User;
-use App\Services\AccountDeletionService;
+use App\Services\Account\DeletionService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
@@ -40,7 +40,7 @@ class PurgeExpiredAccountsTest extends TestCase
         $expired = User::factory()->pendingDeletion('user', now()->subHours(25))->create();
         $withinGrace = User::factory()->pendingDeletion('user', now()->subHour())->create();
 
-        (new PurgeExpiredAccounts)->handle(app(AccountDeletionService::class));
+        (new PurgeExpiredAccounts)->handle(app(DeletionService::class));
 
         $this->assertNull(User::withTrashed()->find($expired->id), 'Expired account should be purged');
         $this->assertNotNull($withinGrace->fresh(), 'Account within grace should survive');

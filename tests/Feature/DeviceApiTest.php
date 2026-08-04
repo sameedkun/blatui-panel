@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Models\UserDevice;
-use App\Services\DeviceService;
+use App\Services\Device\DeviceService;
 use App\Support\DeviceData;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;

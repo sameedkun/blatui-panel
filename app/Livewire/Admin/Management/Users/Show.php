@@ -15,9 +15,9 @@ use App\Models\PlanPrice;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Models\UserDevice;
-use App\Services\AccountDeletionService;
-use App\Services\DeviceService;
-use App\Services\SubscriptionService;
+use App\Services\Account\DeletionService;
+use App\Services\Device\DeviceService;
+use App\Services\Subscription\SubscriptionService;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Password;
@@ -423,9 +423,9 @@ class Show extends BaseShow
     /**
      * Instant purge removes the record, so — unlike the index — the profile has
      * nowhere to stay and returns to the list. The deletion itself (and its audit
-     * entry) still runs through {@see AccountDeletionService}; no new logic here.
+     * entry) still runs through {@see DeletionService}; no new logic here.
      */
-    public function instantPurge(AccountDeletionService $deletions)
+    public function instantPurge(DeletionService $deletions)
     {
         $this->authorize('users.force-delete');
 

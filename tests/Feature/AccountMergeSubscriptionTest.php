@@ -7,7 +7,7 @@ use App\Enum\PaymentProvider;
 use App\Enum\SubscriptionStatus;
 use App\Models\Subscription;
 use App\Models\User;
-use App\Services\AccountMergeService;
+use App\Services\Account\MergeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
@@ -16,9 +16,9 @@ class AccountMergeSubscriptionTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function service(): AccountMergeService
+    private function service(): MergeService
     {
-        return app(AccountMergeService::class);
+        return app(MergeService::class);
     }
 
     private function guest(): User

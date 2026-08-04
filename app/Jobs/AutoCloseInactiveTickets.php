@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Services\TicketLifecycleService;
+use App\Services\Ticket\LifecycleService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -10,7 +10,7 @@ use Throwable;
 
 /**
  * Thin scheduled trigger for the ticket auto-close sweep. All logic lives in
- * {@see TicketLifecycleService::autoCloseInactive()} — this job just invokes it.
+ * {@see LifecycleService::autoCloseInactive()} — this job just invokes it.
  */
 class AutoCloseInactiveTickets implements ShouldQueue
 {
@@ -25,7 +25,7 @@ class AutoCloseInactiveTickets implements ShouldQueue
 
     public int $timeout = 300;
 
-    public function handle(TicketLifecycleService $lifecycle): void
+    public function handle(LifecycleService $lifecycle): void
     {
         $lifecycle->autoCloseInactive(config('panel.ticket_auto_close_inactive_days'));
     }

@@ -2,7 +2,7 @@
 
 namespace App\Exceptions;
 
-use App\Services\DeviceService;
+use App\Services\Device\DeviceService;
 use RuntimeException;
 
 /**

@@ -4,14 +4,14 @@ namespace App\Notifications\Support;
 
 use App\Mail\Support\TicketAutoClosedMail;
 use App\Models\Ticket;
-use App\Services\TicketLifecycleService;
+use App\Services\Ticket\LifecycleService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Notifications\Notification;
 
 /**
- * Queueable notification sent when {@see TicketLifecycleService}
+ * Queueable notification sent when {@see LifecycleService}
  * auto-closes an inactive ticket.
  */
 class TicketAutoClosedNotification extends Notification implements ShouldQueue

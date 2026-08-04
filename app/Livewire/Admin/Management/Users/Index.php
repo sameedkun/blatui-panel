@@ -8,7 +8,7 @@ use App\Livewire\Admin\BaseIndex;
 use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Livewire\Admin\Management\Users\Concerns\HandlesUserRowActions;
 use App\Models\User;
-use App\Services\AccountDeletionService;
+use App\Services\Account\DeletionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
@@ -358,7 +358,7 @@ class Index extends BaseIndex
         $this->toastSuccess("{$count} users permanently deleted.");
     }
 
-    public function executeBulkScheduleDeletion(AccountDeletionService $deletions): void
+    public function executeBulkScheduleDeletion(DeletionService $deletions): void
     {
         $this->authorize('users.delete');
 
@@ -377,7 +377,7 @@ class Index extends BaseIndex
         $this->toastSuccess("{$count} users scheduled for deletion.");
     }
 
-    public function executeBulkStopDeletion(AccountDeletionService $deletions): void
+    public function executeBulkStopDeletion(DeletionService $deletions): void
     {
         $this->authorize('users.delete');
 
@@ -393,7 +393,7 @@ class Index extends BaseIndex
         $this->toastSuccess("Deletion cancelled for {$count} users.");
     }
 
-    public function executeBulkInstantPurge(AccountDeletionService $deletions): void
+    public function executeBulkInstantPurge(DeletionService $deletions): void
     {
         $this->authorize('users.force-delete');
 

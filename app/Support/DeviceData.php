@@ -4,7 +4,7 @@ namespace App\Support;
 
 use App\Enum\DeviceType;
 use App\Jobs\ResolveDeviceLocation;
-use App\Services\DeviceService;
+use App\Services\Device\DeviceService;
 
 /**
  * Client-supplied device payload passed into {@see DeviceService::register()}.

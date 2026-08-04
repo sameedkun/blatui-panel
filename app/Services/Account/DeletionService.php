@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Account;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityContext;
@@ -21,7 +21,7 @@ use InvalidArgumentException;
  * the grace period), then a purge permanently removes it. Guests never enter
  * this flow; it is exclusively for {@see UserType::App} accounts.
  */
-class AccountDeletionService
+class DeletionService
 {
     /**
      * The user asks to delete their own account. The account stays live for the

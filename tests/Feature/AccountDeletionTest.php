@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use App\Services\AccountDeletionService;
+use App\Services\Account\DeletionService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
@@ -13,9 +13,9 @@ class AccountDeletionTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function service(): AccountDeletionService
+    private function service(): DeletionService
     {
-        return app(AccountDeletionService::class);
+        return app(DeletionService::class);
     }
 
     public function test_user_can_request_and_cancel_their_own_deletion(): void

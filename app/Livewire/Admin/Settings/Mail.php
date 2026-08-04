@@ -10,7 +10,7 @@ use App\Mail\TestMail;
 use App\Models\EmailDomain;
 use App\Models\EmailSender;
 use App\Models\SmtpSetting;
-use App\Services\MailConfigurator;
+use App\Services\Mail\Configurator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail as MailFacade;
 use Illuminate\Validation\Rule;
@@ -187,7 +187,7 @@ class Mail extends BaseSettings
         $smtp->save();
         $this->smtp_password = '';
 
-        MailConfigurator::clearCache();
+        Configurator::clearCache();
 
         $this->logActivity(ActivityModule::Setting, ActivityAction::Updated, null, ['area' => 'smtp']);
     }

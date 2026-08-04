@@ -8,7 +8,7 @@ use App\Livewire\Admin\BaseIndex;
 use App\Livewire\Admin\BaseShow;
 use App\Livewire\Admin\Concerns\HasToast;
 use App\Models\Subscription;
-use App\Services\SubscriptionService;
+use App\Services\Subscription\SubscriptionService;
 use InvalidArgumentException;
 
 /**

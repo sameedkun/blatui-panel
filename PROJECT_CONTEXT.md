@@ -126,7 +126,7 @@ instead flashes `session('toast')`, which the layout turns into a `toast` event 
 All destructive/state-transition logic for accounts lives here — **never duplicate deletion,
 conversion, or merge logic inline in a Livewire component.**
 
-- **`AccountDeletionService`** — the only place account deletion happens, for both app users
+- **`DeletionService`** — the only place account deletion happens, for both app users
   and guests, from both the admin panel and the scheduled sweep.
   - App users: two-phase — `requestByUser()`/`requestByAdmin()` marks the account (stays live for
     `panel.account_deletion_grace_hours`, default 24h via `ACCOUNT_DELETION_GRACE_HOURS` env);
@@ -148,8 +148,8 @@ conversion, or merge logic inline in a Livewire component.**
   password is a random unusable string — admin never sets/sees a real password; a reset-link send
   is TODO-deferred), `convertWithGoogle()`/`convertWithApple()` (OAuth — auto-merges into an
   existing app account if one already matches on provider-id or email). Also exposes
-  `mergeByAdmin()` which delegates to `AccountMergeService`.
-- **`AccountMergeService`** — merges a guest's identity into an *existing* app account; the
+  `mergeByAdmin()` which delegates to `MergeService`.
+- **`MergeService`** — merges a guest's identity into an *existing* app account; the
   destination survives, the guest row is `forceDelete()`d. `mergeFromProvider()` (self-service,
   OAuth-driven, no reason needed) vs `mergeByAdmin()` (requires a non-empty `$reason` — no
   provider proof, so it must be traceable as an admin judgment call). `migrateRelatedData()` is
@@ -157,7 +157,7 @@ conversion, or merge logic inline in a Livewire component.**
   account on merge isn't wired up yet, even though both tables now exist.
 
 These three services are why **the current uncommitted work** (per git status) exists: guest
-conversion/merge functionality was just added — `AccountMergeService` is new, and
+conversion/merge functionality was just added — `MergeService` is new, and
 `GuestConversionServiceTest` / `GuestShowTest` / the guest dialogs were updated alongside it.
 
 ## Activity logging
@@ -202,7 +202,7 @@ via `is_active = false`; `Subscription` rows themselves are permanent records, n
   `billing_period`+`billing_interval`, `trial_period`+`trial_interval`, `grace_period`+
   `grace_interval` (the three `*_interval` columns cast to `App\Enum\BillingInterval`).
   `billingDurationInDays()`/`trialEndsAt()`/`graceEndsAt()` compute the date math
-  `App\Services\SubscriptionService` relies on. Has many `providers()` (`PlanPriceProvider`) and
+  `App\Services\Subscription\SubscriptionService` relies on. Has many `providers()` (`PlanPriceProvider`) and
   `subscriptions()`.
 - **`PlanPriceProvider`** — belongs to `PlanPrice` via `planPrice()`; maps a price to an external
   provider price/product id (`provider` cast to `App\Enum\PaymentProvider`, `external_id`). Unique
@@ -273,8 +273,8 @@ period actually ends, unless done "immediately"), `isSubscribed()`, `isOnTrial()
 `currentPlan()`, `planFeature()`. `App\Traits\HasFeatures` (mixed into `Plan`) resolves a feature
 key against `config('panel.features')`'s type/default.
 
-**`App\Services\SubscriptionService`** is the only place subscription state changes — mirroring
-`AccountDeletionService`, it logs its own audit rows (module `User`, subject the affected user) so
+**`App\Services\Subscription\SubscriptionService`** is the only place subscription state changes — mirroring
+`DeletionService`, it logs its own audit rows (module `User`, subject the affected user) so
 every caller (admin panel, future API) gets the trail for free:
 - `subscribe(User, PlanPrice, provider='local')` — brand-new subscription; cancels any existing
   active one first (immediate, `cancelled_by: system`). Logs `Assigned` /
@@ -290,7 +290,7 @@ every caller (admin panel, future API) gets the trail for free:
 - `reactivate(User)` — undoes a cancel while still cancelled-but-live (`ends_at` still future);
   throws if there's nothing eligible. Logs `Updated` / `subscription_reactivated`.
 
-**`App\Services\SubscriptionLifecycleService`** is the counterpart for the *calendar-driven*
+**`App\Services\Subscription\LifecycleService`** is the counterpart for the *calendar-driven*
 transitions — deliberately a separate class from `SubscriptionService` because it runs unattended
 off the scheduler rather than in response to a user/admin action. `syncStatuses(array $providers =
 [PaymentProvider::Local])` loops each provider and, per provider, moves every non-terminal
@@ -315,14 +315,14 @@ audit properties are subject-specific. One transition, `trialing`→`expired` (n
 fully per-row even for its update — its `proration_meta` JSON merge depends on each row's own
 existing value, so there's no static payload a bulk statement could write across every row at once.
 Logs with `causer: null` + `ActivityContext::Scheduler` (no `auth()` session in this context),
-mirroring `AccountDeletionService::purge()`'s scheduled path. Types logged: `subscription_expired`
+mirroring `DeletionService::purge()`'s scheduled path. Types logged: `subscription_expired`
 (with a `reason` property: `trial_lapsed`/`not_recurring`/`renewal_unconfirmed`/`grace_exhausted`/
 `cancellation_ended`), `subscription_trial_converted`, `subscription_entered_grace` — all three
 extend `ActivityPresenter` the same way the four `SubscriptionService`-logged types do.
 
 `App\Jobs\SyncSubscriptionStatuses` is a thin scheduled trigger (mirrors `PurgeExpiredAccounts`):
 constructor takes `array $providers = [PaymentProvider::Local]`, `handle()` just calls
-`SubscriptionLifecycleService::syncStatuses($this->providers)`. Scheduled hourly in
+`LifecycleService::syncStatuses($this->providers)`. Scheduled hourly in
 `routes/console.php` as `new SyncSubscriptionStatuses([PaymentProvider::Local])`.
 
 Admin panel surface: `Users/Show.php` (`app/Livewire/Admin/Management/Users/`) — an "Assign /
@@ -371,7 +371,7 @@ mirroring `Plan`).
   System notes make the load-balancing decision visible directly in the conversation thread, not
   just the audit log.
 
-**`App\Services\TicketAssignmentService`** is the single source of truth for two related things:
+**`App\Services\Ticket\AssignmentService`** is the single source of truth for two related things:
 
 - **Agent eligibility** — a staff member only counts as an "agent" if they hold *both*
   `tickets.view` and `tickets.manage` (checked via Spatie's `permission()` scope, chained — two
@@ -387,9 +387,9 @@ mirroring `Plan`).
   user id. Returns `null` if the category has no *eligible* agents (a category can have agents
   attached who've since lost permission — they're skipped, not just deprioritized).
 
-**`App\Services\TicketService`** is the only place ticket state changes (mirrors
+**`App\Services\Ticket\TicketService`** is the only place ticket state changes (mirrors
 `SubscriptionService`): `create()` (creates the ticket + first message, then auto-assigns via
-`TicketAssignmentService`), `reply()` (staff reply, optionally with file attachments — see below;
+`AssignmentService`), `reply()` (staff reply, optionally with file attachments — see below;
 flips `Open` → `Pending`, never silently overrides `Resolved`/`Closed`), `changeStatus()`,
 `changePriority()`, `reassign()` (manual override — not restricted to the category's agent pool,
 since an admin may need to override the automatic pick), `changeCategory()` (re-runs
@@ -429,8 +429,8 @@ down to the new message (`x-ref`s, no polling).
 
 ### Ticket lifecycle sweeps
 
-**`App\Services\TicketLifecycleService`** is the calendar-driven counterpart to `TicketService`,
-mirroring the `SubscriptionService`/`SubscriptionLifecycleService` split — these two run off the
+**`App\Services\Ticket\LifecycleService`** is the calendar-driven counterpart to `TicketService`,
+mirroring the `SubscriptionService`/`LifecycleService` split — these two run off the
 scheduler, not in response to a staff action:
 - `autoCloseInactive(int $days)` (`panel.ticket_auto_close_inactive_days`, default 7) — closes every
   Pending/Resolved ticket whose `last_staff_response_at` is at least that old **and** hasn't had a
@@ -503,11 +503,11 @@ access, plus block traffic by IP.
   increments `hits` + stamps `last_hit_at` in one query. `user_id`'s FK is `restrictOnDelete()`,
   not `cascadeOnDelete()` — InnoDB (MySQL error 1215) refuses a cascading `ON DELETE`/`ON UPDATE`
   action on a column that a stored generated column depends on, and `user_scope` depends on
-  `user_id`. `AccountDeletionService::deleteRelatedData()` explicitly deletes a user's
+  `user_id`. `DeletionService::deleteRelatedData()` explicitly deletes a user's
   `blocked_ips` rows before `forceDelete()` instead, so the restriction is never actually hit.
 
-**`App\Services\DeviceService`** is the only place device rows are mutated (mirrors
-`AccountDeletionService`'s "one service, everything goes through here" shape). `register()` hashes
+**`App\Services\Device\DeviceService`** is the only place device rows are mutated (mirrors
+`DeletionService`'s "one service, everything goes through here" shape). `register()` hashes
 the incoming fingerprint, locks the *user* row (`lockForUpdate()`, not just the device row — two
 concurrent logins for two different fingerprints would otherwise both pass the limit check) inside
 a transaction, checks the caller's plan `device_limit` feature (`$user->planFeature('device_limit',
@@ -655,9 +655,9 @@ rather than colliding with generic titles.
   hourly run catches stragglers on failure), 300s timeout.
 - `SyncSubscriptionStatuses` job — hourly, `withoutOverlapping()`, 1 retry, 300s timeout; scheduled
   as `new SyncSubscriptionStatuses`; the job selects supported providers itself. Delegates to
-  `SubscriptionLifecycleService::syncStatuses()` — see "Plans & Subscriptions" above.
+  `LifecycleService::syncStatuses()` — see "Plans & Subscriptions" above.
 - `AutoCloseInactiveTickets` / `PurgeClosedTickets` jobs — both daily, `withoutOverlapping()`, 1
-  retry, 300s timeout; delegate to `TicketLifecycleService` — see "Ticket lifecycle sweeps" above.
+  retry, 300s timeout; delegate to `LifecycleService` — see "Ticket lifecycle sweeps" above.
 - `PruneExpiredBlockedIps` job — daily, `withoutOverlapping()`, 1 retry, 300s timeout.
 - `PruneRevokedDevices` job — monthly, `withoutOverlapping()`, 1 retry, 300s timeout; delegates to
   `DeviceService::pruneRevoked()` — see "Device Management & IP Blocking" above.
@@ -709,8 +709,10 @@ app/
                    Support/TicketAutoClosedNotification.php
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
                                              module view permission inheritance policy
-  Services/        AccountDeletionService, AccountMergeService, GuestConversionService, MailConfigurator, Auth/UrlResolver, SubscriptionService, SubscriptionLifecycleService,
-                   TicketService, TicketAssignmentService, TicketLifecycleService, DeviceService
+  Services/        Account/{DeletionService, MergeService, GuestConversionService}, Auth/UrlResolver,
+                   Device/{DeviceService, LocationService}, Mail/Configurator, Notification/OneSignalService,
+                   Subscription/{LifecycleService, SubscriptionService},
+                   Ticket/{AssignmentService, LifecycleService, TicketService}
   Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter, DeviceData
   Traits/          HasSubscriptions (mixed into User), HasFeatures (mixed into Plan)
 config/panel.php    RBAC modules/actions/children, grace period, export threshold, seeded admin creds
@@ -759,7 +761,7 @@ tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogT
     looks like leftover/aspirational code.
 - Several TODOs mark intentionally-deferred wiring: email verification notifications on guest
   conversion, password-reset-link dispatch on admin-initiated conversion, and
-  `AccountMergeService::migrateRelatedData()`'s `user_devices` reassignment — a guest's devices
+  `MergeService::migrateRelatedData()`'s `user_devices` reassignment — a guest's devices
   aren't moved to the destination account on merge yet. Its `subscriptions` reassignment *is*
   wired up: every guest subscription is reassigned to the destination up front (so history
   survives the guest's `forceDelete()`), and if both accounts have an active subscription the

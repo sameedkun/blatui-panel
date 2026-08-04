@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Notifications\Auth\ResetPasswordNotification;
 use App\Notifications\Auth\VerifyEmailNotification;
-use App\Services\GuestConversionService;
+use App\Services\Account\GuestConversionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;

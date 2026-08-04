@@ -11,8 +11,8 @@ use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Livewire\Admin\Support\Tickets\Concerns\HandlesTicketRowActions;
 use App\Models\Ticket;
 use App\Models\TicketCategory;
-use App\Services\TicketAssignmentService;
-use App\Services\TicketService;
+use App\Services\Ticket\AssignmentService;
+use App\Services\Ticket\TicketService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -83,7 +83,7 @@ class Show extends BaseShow
                 'view' => 'livewire.admin.support.tickets.show.tabs.conversation',
                 'data' => fn (): array => [
                     'categoryOptions' => TicketCategory::orderBy('name')->pluck('name', 'id')->all(),
-                    'agentOptions' => app(TicketAssignmentService::class)->eligibleAgentOptions(),
+                    'agentOptions' => app(AssignmentService::class)->eligibleAgentOptions(),
                     'statusOptions' => collect(TicketStatus::cases())->mapWithKeys(fn (TicketStatus $c) => [$c->value => $c->label()])->all(),
                     'priorityOptions' => collect(TicketPriority::cases())->mapWithKeys(fn (TicketPriority $c) => [$c->value => $c->label()])->all(),
                 ],
@@ -208,7 +208,7 @@ class Show extends BaseShow
         $this->authorize('tickets.manage');
 
         $agentId = $agentId !== null && $agentId !== '' ? (int) $agentId : null;
-        $assignment = app(TicketAssignmentService::class);
+        $assignment = app(AssignmentService::class);
 
         Validator::make(
             ['agentId' => $agentId],

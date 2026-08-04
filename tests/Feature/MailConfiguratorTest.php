@@ -12,7 +12,7 @@ use App\Models\SmtpSetting;
 use App\Models\User;
 use App\Notifications\Auth\ResetPasswordNotification;
 use App\Notifications\Auth\VerifyEmailNotification;
-use App\Services\MailConfigurator;
+use App\Services\Mail\Configurator;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Mail\Mailable;
@@ -38,7 +38,7 @@ class MailConfiguratorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        MailConfigurator::clearCache();
+        Configurator::clearCache();
     }
 
     public function test_get_sender_returns_smtp_from_identity_when_driver_is_smtp(): void
@@ -55,7 +55,7 @@ class MailConfiguratorTest extends TestCase
             'from_name' => 'SMTP System',
         ]);
 
-        $configurator = new MailConfigurator;
+        $configurator = new Configurator;
 
         $authSender = $configurator->getSender(MailPurpose::Auth);
         $notifSender = $configurator->getSender(MailPurpose::Notifications);
@@ -92,7 +92,7 @@ class MailConfiguratorTest extends TestCase
             'is_enabled' => true,
         ]);
 
-        $configurator = new MailConfigurator;
+        $configurator = new Configurator;
 
         $authSender = $configurator->getSender(MailPurpose::Auth);
         $billingSender = $configurator->getSender(MailPurpose::Billing);

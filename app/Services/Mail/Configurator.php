@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Mail;
 
 use App\Enum\MailPurpose;
 use App\Models\EmailSender;
@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Cache;
  *  - 'smtp'   → Single cached SMTP configuration and single From identity.
  *  - 'resend' → Purpose-based sender resolution via {@see EmailSender::resolve()}.
  */
-class MailConfigurator
+class Configurator
 {
     public const string SMTP_CACHE_KEY = 'settings.smtp_config';
 

@@ -5,7 +5,7 @@ namespace App\Livewire\Admin\Support\Tickets\Concerns;
 use App\Enum\TicketStatus;
 use App\Livewire\Admin\Concerns\HasToast;
 use App\Models\Ticket;
-use App\Services\TicketService;
+use App\Services\Ticket\TicketService;
 
 /**
  * Single-ticket actions shared by the Tickets index and the ticket detail

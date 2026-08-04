@@ -7,7 +7,7 @@ use App\Livewire\Admin\Concerns\HasShowTabs;
 use App\Livewire\Admin\Management\Subscriptions\Concerns\HandlesSubscriptionRowActions;
 use App\Models\Subscription;
 use App\Models\User;
-use App\Services\SubscriptionService;
+use App\Services\Subscription\SubscriptionService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;

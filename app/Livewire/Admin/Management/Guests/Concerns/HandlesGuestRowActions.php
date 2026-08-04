@@ -8,7 +8,7 @@ use App\Livewire\Admin\Concerns\HasToast;
 use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Livewire\Admin\Management\Users\Concerns\HandlesUserRowActions;
 use App\Models\User;
-use App\Services\AccountDeletionService;
+use App\Services\Account\DeletionService;
 use Illuminate\Auth\Access\AuthorizationException;
 
 /**
@@ -20,7 +20,7 @@ use Illuminate\Auth\Access\AuthorizationException;
  *
  * Guests never enter the app-user grace-period deletion flow, so there is no
  * scheduling/pending state here: Delete is a single, immediate, permanent
- * purge via {@see AccountDeletionService::purgeGuestByAdmin()}. Restore and
+ * purge via {@see DeletionService::purgeGuestByAdmin()}. Restore and
  * Force-Delete remain as a safety net for any guest that reaches a trashed
  * state some other way.
  *
@@ -101,7 +101,7 @@ trait HandlesGuestRowActions
      * related data in one step. Unlike the Users module, there is no
      * soft-delete stage to go through first.
      */
-    public function delete(AccountDeletionService $deletions): void
+    public function delete(DeletionService $deletions): void
     {
         $this->authorize('guests.delete');
 

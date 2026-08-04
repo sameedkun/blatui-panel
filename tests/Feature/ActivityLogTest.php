@@ -8,7 +8,7 @@ use App\Enum\ActivityModule;
 use App\Livewire\Admin\Management\Users\Form as UserForm;
 use App\Livewire\Admin\Management\Users\Index as UsersIndex;
 use App\Models\User;
-use App\Services\AccountDeletionService;
+use App\Services\Account\DeletionService;
 use App\Support\ActivityLogger;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
@@ -167,7 +167,7 @@ class ActivityLogTest extends TestCase
         config(['panel.account_deletion_grace_hours' => 24]);
         $user = User::factory()->pendingDeletion('user', now()->subHours(25))->create();
 
-        app(AccountDeletionService::class)->purgeExpired();
+        app(DeletionService::class)->purgeExpired();
 
         $activity = Activity::where('event', 'purged')->firstOrFail();
         $this->assertSame('audit', $activity->log_name);
