@@ -13,22 +13,12 @@ class LanguageSwitcher extends Component
     /**
      * @var array<string, array{name: string, flag: string, native: string}>
      */
-    public array $locales = [
-        'en' => [
-            'name' => 'English',
-            'flag' => '🇬🇧',
-            'native' => 'English',
-        ],
-        'tr' => [
-            'name' => 'Turkish',
-            'flag' => '🇹🇷',
-            'native' => 'Türkçe',
-        ],
-    ];
+    public array $locales = [];
 
     public function mount(): void
     {
         $this->currentLocale = App::getLocale();
+        $this->locales = config('panel.locales');
     }
 
     public function switchLocale(string $locale): void

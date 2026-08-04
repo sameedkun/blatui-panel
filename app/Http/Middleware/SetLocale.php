@@ -10,13 +10,6 @@ use Symfony\Component\HttpFoundation\Response;
 class SetLocale
 {
     /**
-     * Supported locales.
-     *
-     * @var array<string>
-     */
-    protected array $supportedLocales = ['en', 'tr'];
-
-    /**
      * Handle an incoming request.
      *
      * @param  Closure(Request): (Response)  $next
@@ -25,7 +18,7 @@ class SetLocale
     {
         $locale = $request->cookie('locale', config('app.locale'));
 
-        if (is_string($locale) && in_array($locale, $this->supportedLocales, true)) {
+        if (is_string($locale) && array_key_exists($locale, config('panel.locales'))) {
             App::setLocale($locale);
         }
 

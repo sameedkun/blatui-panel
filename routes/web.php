@@ -7,7 +7,7 @@ Route::get('/', function () {
 });
 
 Route::post('/locale/{locale}', function (string $locale) {
-    abort_unless(in_array($locale, ['en', 'tr'], true), 404);
+    abort_unless(array_key_exists($locale, config('panel.locales')), 404);
 
     return back()->withCookie(cookie('locale', $locale, 60 * 24 * 365));
 })->name('locale.switch');

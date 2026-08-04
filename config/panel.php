@@ -367,6 +367,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Supported Locales
+    |--------------------------------------------------------------------------
+    |
+    | The single source of truth for which locales the panel UI supports.
+    | Adding a locale here (plus its lang/{code} translation files) is all
+    | that's needed to wire it into the locale-switch route, the SetLocale
+    | middleware, and the language-switcher component.
+    |
+    */
+    'locales' => [
+        'en' => [
+            'name' => 'English',
+            'native' => 'English',
+            'flag' => '🇬🇧',
+        ],
+        'tr' => [
+            'name' => 'Turkish',
+            'native' => 'Türkçe',
+            'flag' => '🇹🇷',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Features
     |--------------------------------------------------------------------------
     |
