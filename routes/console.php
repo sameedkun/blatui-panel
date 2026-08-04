@@ -8,15 +8,19 @@ use App\Jobs\PurgeExpiredAccounts;
 use App\Jobs\SyncSubscriptionStatuses;
 use Illuminate\Support\Facades\Schedule;
 
-Schedule::job(new PurgeExpiredAccounts)->hourly()->name('account-deletion-purge')->withoutOverlapping();
+// Hourly
+Schedule::job(new PurgeExpiredAccounts)
+    ->hourly()
+    ->name('account-deletion-purge')
+    ->withoutOverlapping();
 
 // Only local subscriptions can have their status inferred from dates alone.
-// Provider selection belongs to the job so the scheduler remains configuration-free.
 Schedule::job(new SyncSubscriptionStatuses)
     ->hourly()
     ->name('subscription-status-sync')
     ->withoutOverlapping();
 
+// Daily
 // Day-granularity thresholds, so daily is frequent enough for both sweeps.
 Schedule::job(new AutoCloseInactiveTickets)
     ->daily()
@@ -28,11 +32,19 @@ Schedule::job(new PurgeClosedTickets)
     ->name('ticket-purge-closed')
     ->withoutOverlapping();
 
+Schedule::job(new PruneExpiredBlockedIps)
+    ->daily()
+    ->name('blocked-ips-prune-expired')
+    ->withoutOverlapping();
+
+// Weekly
 // Prune activity-log entries older than config('activitylog.clean_after_days').
-Schedule::command('activitylog:clean')->weekly()->name('activitylog-clean')->withoutOverlapping();
+Schedule::command('activitylog:clean')
+    ->weekly()
+    ->name('activitylog-clean')
+    ->withoutOverlapping();
 
-Schedule::job(new PruneExpiredBlockedIps)->daily()->name('blocked-ips-prune-expired')->withoutOverlapping();
-
+// Monthly
 Schedule::job(new PruneRevokedDevices)
     ->monthly()
     ->name('devices-prune-revoked')

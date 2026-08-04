@@ -10,7 +10,7 @@ A Laravel 13 **admin panel** (BLAT stack: Blade, Livewire 4, Alpine.js v3, Tailw
 managing three kinds of accounts that all live in a single `users` table: **app users**
 (the real product's end users), **guests** (anonymous/unconverted accounts), and **staff**
 (admin-panel operators with RBAC roles). There is currently no public-facing product UI in
-this repo — just the admin panel itself (`/admin/*`) plus login/logout.
+this repo — just the admin panel itself (`/*`) plus login/logout.
 
 ## Stack & versions
 

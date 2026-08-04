@@ -3,7 +3,9 @@
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return 'Hello World';
+    return auth()->check()
+        ? redirect()->route('admin.dashboard')
+        : redirect()->route('login');
 });
 
 Route::post('/locale/{locale}', function (string $locale) {
