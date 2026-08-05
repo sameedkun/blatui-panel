@@ -1,16 +1,21 @@
 <?php
 
+use App\Exceptions\Api\ApiExceptionRenderer;
 use App\Http\Middleware\CheckBlockedIp;
 use App\Http\Middleware\EnsureDeviceIsValid;
 use App\Http\Middleware\EnsurePanelAccess;
 use App\Http\Middleware\SetLocale;
+use App\Support\ApiRequest;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -37,6 +42,13 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
+            fn (Request $request) => ApiRequest::targets($request),
         );
+
+        // Unifies every API error response (thrown or explicit) under
+        // ApiController's envelope — see ApiExceptionRenderer's docblock.
+        $exceptions->render(fn (ValidationException $e, Request $request) => ApiExceptionRenderer::validation($e, $request));
+        $exceptions->render(fn (AuthenticationException $e, Request $request) => ApiExceptionRenderer::unauthenticated($e, $request));
+        $exceptions->render(fn (HttpExceptionInterface $e, Request $request) => ApiExceptionRenderer::http($e, $request));
+        $exceptions->render(fn (Throwable $e, Request $request) => ApiExceptionRenderer::fallback($e, $request));
     })->create();

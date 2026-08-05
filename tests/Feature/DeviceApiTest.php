@@ -38,7 +38,7 @@ class DeviceApiTest extends TestCase
         app(DeviceService::class)->revoke($device);
 
         $this->withHeader('Authorization', 'Bearer '.$plainTextToken)
-            ->getJson('/api/devices')
+            ->getJson('/api/v1/devices')
             ->assertStatus(401);
     }
 
@@ -50,7 +50,7 @@ class DeviceApiTest extends TestCase
         app(DeviceService::class)->block($device, 'Reported stolen.');
 
         $this->withHeader('Authorization', 'Bearer '.$plainTextToken)
-            ->getJson('/api/devices')
+            ->getJson('/api/v1/devices')
             ->assertStatus(401);
     }
 
@@ -66,7 +66,7 @@ class DeviceApiTest extends TestCase
         DB::table('user_devices')->where('id', $device->id)->update(['revoked_at' => now()]);
 
         $this->withHeader('Authorization', 'Bearer '.$plainTextToken)
-            ->getJson('/api/devices')
+            ->getJson('/api/v1/devices')
             ->assertStatus(401)
             ->assertJson(['error' => 'DEVICE_REVOKED']);
     }
@@ -80,7 +80,7 @@ class DeviceApiTest extends TestCase
         [, $tokenA] = $this->registerDevice($userA);
 
         $this->withHeader('Authorization', 'Bearer '.$tokenA)
-            ->deleteJson('/api/devices/'.$deviceB->ulid)
+            ->deleteJson('/api/v1/devices/'.$deviceB->ulid)
             ->assertStatus(404);
 
         $this->assertNull($deviceB->fresh()->revoked_at);
@@ -92,7 +92,7 @@ class DeviceApiTest extends TestCase
         [$device, $plainTextToken] = $this->registerDevice($user);
 
         $this->withHeader('Authorization', 'Bearer '.$plainTextToken)
-            ->deleteJson('/api/devices/'.$device->ulid)
+            ->deleteJson('/api/v1/devices/'.$device->ulid)
             ->assertOk();
 
         $this->assertNotNull($device->fresh()->revoked_at);

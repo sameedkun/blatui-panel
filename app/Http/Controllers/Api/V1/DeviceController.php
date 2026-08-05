@@ -1,13 +1,14 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+declare(strict_types=1);
 
-use App\Http\Controllers\Controller;
-use App\Http\Resources\UserDeviceResource;
+namespace App\Http\Controllers\Api\V1;
+
+use App\Http\Controllers\Api\ApiController;
+use App\Http\Resources\V1\UserDeviceResource;
 use App\Services\Device\DeviceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 /**
  * Self-service device management — a user managing their own devices, e.g.
@@ -17,12 +18,14 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
  * Blocking a device stays admin-only (see the admin panel's Devices module);
  * there is no self-service equivalent.
  */
-class DeviceController extends Controller
+class DeviceController extends ApiController
 {
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(Request $request): JsonResponse
     {
-        return UserDeviceResource::collection(
-            $request->user()->devices()->latest('last_seen_at')->get(),
+        return $this->success(
+            UserDeviceResource::collection(
+                $request->user()->devices()->latest('last_seen_at')->get(),
+            ),
         );
     }
 
@@ -32,6 +35,6 @@ class DeviceController extends Controller
 
         $devices->revoke($device);
 
-        return response()->json(['message' => 'Device signed out.']);
+        return $this->success(message: 'Device signed out.');
     }
 }

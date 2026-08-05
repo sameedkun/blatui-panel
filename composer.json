@@ -9,6 +9,7 @@
         "php": "^8.3",
         "anousss007/blatui": "^1.15",
         "gehrisandro/tailwind-merge-laravel": "^1.4",
+        "grazulex/laravel-apiroute": "^2.1",
         "laravel/framework": "^13.8",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",

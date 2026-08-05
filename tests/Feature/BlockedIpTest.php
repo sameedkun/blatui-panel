@@ -45,7 +45,7 @@ class BlockedIpTest extends TestCase
 
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.10'])
             ->withHeader('Authorization', 'Bearer '.$token)
-            ->getJson('/api/devices')
+            ->getJson('/api/v1/devices')
             ->assertStatus(403)
             ->assertJson(['error' => 'IP_BLOCKED']);
     }
@@ -62,13 +62,13 @@ class BlockedIpTest extends TestCase
 
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.20'])
             ->withHeader('Authorization', 'Bearer '.$blockedToken)
-            ->getJson('/api/devices')
+            ->getJson('/api/v1/devices')
             ->assertStatus(403)
             ->assertJson(['error' => 'IP_BLOCKED']);
 
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.20'])
             ->withHeader('Authorization', 'Bearer '.$otherToken)
-            ->getJson('/api/devices')
+            ->getJson('/api/v1/devices')
             ->assertOk();
     }
 
@@ -81,7 +81,7 @@ class BlockedIpTest extends TestCase
 
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.30'])
             ->withHeader('Authorization', 'Bearer '.$token)
-            ->getJson('/api/devices')
+            ->getJson('/api/v1/devices')
             ->assertOk();
     }
 
@@ -105,14 +105,14 @@ class BlockedIpTest extends TestCase
         // Cache the "blocked" result.
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.50'])
             ->withHeader('Authorization', 'Bearer '.$token)
-            ->getJson('/api/devices')
+            ->getJson('/api/v1/devices')
             ->assertStatus(403);
 
         $block->delete();
 
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.50'])
             ->withHeader('Authorization', 'Bearer '.$token)
-            ->getJson('/api/devices')
+            ->getJson('/api/v1/devices')
             ->assertOk();
     }
 
@@ -133,7 +133,7 @@ class BlockedIpTest extends TestCase
 
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.60'])
             ->withHeader('Authorization', 'Bearer '.$token)
-            ->getJson('/api/devices')
+            ->getJson('/api/v1/devices')
             ->assertStatus(403);
 
         // Row expires and gets pruned, but well inside the 60s cache TTL — a stale
@@ -143,7 +143,7 @@ class BlockedIpTest extends TestCase
 
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.60'])
             ->withHeader('Authorization', 'Bearer '.$token)
-            ->getJson('/api/devices')
+            ->getJson('/api/v1/devices')
             ->assertOk();
     }
 }

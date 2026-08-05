@@ -1,14 +1,7 @@
 <?php
 
-use App\Http\Controllers\Api\DeviceController;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-
-Route::middleware(['auth:sanctum', 'device.valid'])->group(function () {
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
-
-    Route::get('/devices', [DeviceController::class, 'index']);
-    Route::delete('/devices/{ulid}', [DeviceController::class, 'destroy']);
-});
+// Versioned routes are registered by grazulex/laravel-apiroute directly from
+// config/apiroute.php's "versions" map (routes/api/v1.php, etc.) — see
+// ApiRouteServiceProvider::boot(). This file only exists because
+// bootstrap/app.php's withRouting(api: ...) requires an entry point; it stays
+// empty unless a route genuinely needs to live outside version negotiation.

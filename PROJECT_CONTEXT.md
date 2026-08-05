@@ -21,6 +21,7 @@ this repo — just the admin panel itself (`/*`) plus login/logout.
 - `spatie/laravel-sluggable` — `User::slug` generated from `name`
 - `league/flysystem-aws-s3-v3` — powers a Cloudflare R2 disk (`r2` in `config/filesystems.php`, S3-compatible) for avatars/exports
 - `mallardduck/blade-lucide-icons` — icon set used throughout (`<x-lucide-*>`)
+- `grazulex/laravel-apiroute` — URI-path API versioning (`/api/v1/...`); see "REST API" below
 - Laravel Boost (MCP dev-tooling), Pint, PHPUnit 12
 
 Dev loop: `composer run dev` runs server + queue listener + pail (log viewer) + vite concurrently.
@@ -657,6 +658,63 @@ to the shared enums; `ActivityPresenter` has `device`/`blocked_ip` branches (sam
 `ticket`/`ticket_category` ones) so these events read as "Device Blocked"/"IP Block Created" etc.
 rather than colliding with generic titles.
 
+## REST API
+
+The mobile/API surface (currently just device self-service — see "Device Management & IP
+Blocking" above) is versioned by URI path via `grazulex/laravel-apiroute`, configured entirely
+through `config/apiroute.php`'s `versions` map — not by hand-writing `Route::prefix()` groups.
+Only `v1` exists today (`status => 'active'`).
+- Each version's routes live in their own file (`routes/api/v1.php`), required by the package's
+  service provider at boot from the config entry — `routes/api.php` (the file
+  `bootstrap/app.php`'s `withRouting(api: ...)` actually loads) is deliberately left empty aside
+  from a pointer comment; it only exists because Laravel's routing config requires an entry point.
+  `config/apiroute.php`'s `v1` entry deliberately sets **no** version-level `middleware` — `v1`
+  will eventually mix authenticated endpoints with guest ones (login, signup, ...) in the same
+  file, so `auth:sanctum` + `device.valid` is applied to an explicit `Route::middleware([...])
+  ->group(...)` inside `routes/api/v1.php` itself, with guest routes living outside that group in
+  the same file, rather than blanket at the version-config level.
+- **Controllers**: `App\Http\Controllers\Api\ApiController` (unversioned, shared) is the base every
+  `App\Http\Controllers\Api\V1\*` controller extends — it exposes `success()`/`created()`/
+  `noContent()`/`error()`/`notFound()`/`unauthorized()`/`forbidden()`/`validationError()` as
+  **static** methods (called the normal instance way, `$this->success(...)` — PHP allows invoking
+  a static method through `->`) so `App\Exceptions\Api\ApiExceptionRenderer` (see below), which
+  runs outside any controller instance, can reuse the exact same envelope builders instead of a
+  separate `Support` class duplicating them. A `V2` controller base, if one is ever needed, would
+  extend `ApiController` rather than duplicate it.
+- **Requests**: `App\Http\Requests\V1\{Resource}\*Request.php` — no `Api\` segment, since this
+  namespace is API-only in this app (the admin panel is all Livewire; it never uses FormRequests).
+  None exist yet — this is the ready convention for the first one.
+- **Resources**: `App\Http\Resources\V1\{Resource}.php` (e.g. `UserDeviceResource`) — folder-versioned
+  to match Controllers/Requests, not suffix-versioned (no `ResourceV2` classes). A resource is only
+  forked into a `V2` folder if a version genuinely needs a different shape for it; most resources
+  stay shared indefinitely.
+- **Response envelope**: `ApiController::success()`/`error()` (static, see above) is the single
+  source of truth for the `{status, message, data}` / `{status, message, errors?}` shape.
+  `App\Exceptions\Api\ApiExceptionRenderer` (registered from `bootstrap/app.php`'s
+  `withExceptions()`) calls `ApiController::error()` directly to reformat framework-thrown
+  `ValidationException`/`AuthenticationException`/`HttpExceptionInterface` (covers
+  `NotFoundHttpException`, `AccessDeniedHttpException` from a converted `AuthorizationException`,
+  etc.) and any other `Throwable` into that same envelope for API requests — so a 422 from a
+  FormRequest looks identical to one built by hand via `validationError()`.
+  `JsonResource::withoutWrapping()` is set in `AppServiceProvider::configureDefaults()` so a
+  Resource nested inside `success()`'s own `data` key doesn't double-wrap under two `data` keys.
+- **`App\Support\ApiRequest::targets(Request)`** decides whether a request belongs to the API
+  surface at all — used both by `bootstrap/app.php`'s `shouldRenderJsonWhen()` and by every
+  `ApiExceptionRenderer` method's null-guard, instead of a hardcoded `$request->is('api/*')`
+  repeated in five places. It checks (in order): whether laravel-apiroute's `ResolveApiVersion`
+  middleware already stamped `api_version` onto the request (works under *any* detection strategy —
+  uri, header, query, accept — and is set for every matched, versioned request regardless of URL
+  shape); then falls back to `config('apiroute.strategies.uri')`'s own `domain`/`prefix` for
+  requests that never matched a route at all (a typo'd endpoint still needs a JSON 404, not HTML,
+  but never reaches `ResolveApiVersion` since no route matched). This is what makes the check
+  survive a future move to domain-based routing (e.g. `api.example.com` serving bare `/v1/...`
+  paths with `strategies.uri.prefix` set to `''`) without touching this code — only the config
+  changes.
+- laravel-apiroute's own version-negotiation errors (unknown/sunset version) render through the
+  package's own JSON shape, not `ApiController`'s envelope — left as-is, since that's a distinct
+  concern (version negotiation, not endpoint-level success/error) and the package's shape is
+  already sensible.
+
 ## Routes
 
 - `routes/web.php` requires `auth.php` then `admin.php`.
@@ -701,11 +759,13 @@ rather than colliding with generic titles.
   (self-service "My Account" page — no extra permission, every staff member can reach it).
 - Each route group carries its own `permission:{module}.{action}` middleware layered on top of the
   group-level `permission:{module}.view`.
-- `routes/api.php` — the first real content beyond the skeleton `/user` route: everything is under
-  `auth:sanctum + device.valid` (`EnsureDeviceIsValid`). `GET /devices` / `DELETE
-  /devices/{ulid}` are the self-service device endpoints (see "Device Management & IP Blocking"
-  above). `CheckBlockedIp` isn't route-level — it's prepended to the whole `api` middleware group
-  in `bootstrap/app.php` instead, since it has to run before `auth:sanctum` resolves the user.
+- `routes/api/v1.php` (registered via `config/apiroute.php`, see "REST API" above) — `GET
+  /api/v1/user`, `GET /api/v1/devices` / `DELETE /api/v1/devices/{ulid}` (the self-service device
+  endpoints, see "Device Management & IP Blocking" above), all under `auth:sanctum + device.valid`
+  (`EnsureDeviceIsValid`) via the version's config-level middleware. `CheckBlockedIp` isn't
+  route-level — it's prepended to the whole `api` middleware group in `bootstrap/app.php` instead,
+  since it has to run before `auth:sanctum` resolves the user (and laravel-apiroute's own
+  version-registered routes explicitly include the `api` group, so this still applies to them).
 
 ## Scheduled/queued work (`routes/console.php`)
 
@@ -734,11 +794,13 @@ app/
                    BillingInterval, PaymentProvider, SubscriptionStatus, CancelledBy, ReceiptType,
                    TicketStatus, TicketPriority, TicketMessageAuthorType, DeviceType,
                    AppleNotificationType, AppleNotificationSubtype
-  Exceptions/      DeviceLimitExceededException, DeviceBlockedException
-  Http/Controllers/Api/DeviceController.php     self-service list/revoke own devices
+  Exceptions/      DeviceLimitExceededException, DeviceBlockedException,
+                   Api/ApiExceptionRenderer (unifies framework exceptions into ApiResponse's envelope)
+  Http/Controllers/Api/ApiController.php        unversioned base (success/error/etc. helpers)
+                   Api/V1/DeviceController.php  self-service list/revoke own devices
   Http/Middleware/ EnsurePanelAccess (alias: panel), EnsureDeviceIsValid (alias: device.valid),
                    CheckBlockedIp (prepended to the global `api` middleware group)
-  Http/Resources/  UserDeviceResource
+  Http/Resources/V1/UserDeviceResource.php
   Jobs/            Account/PurgeExpiredAccounts, Activity/ExportActivityLog,
                    Auth/{PruneExpiredBlockedIps, RecordBlockedIpHit},
                    Device/{PruneRevokedDevices, ResolveDeviceLocation},
@@ -779,9 +841,11 @@ app/
                    Subscription/{LifecycleService, SubscriptionService},
                    Ticket/{AssignmentService, LifecycleService, TicketService}
   Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter, DeviceData,
-                   WebhookNotificationRegistry (provider → notification-model registry)
+                   WebhookNotificationRegistry (provider → notification-model registry),
+                   ApiRequest (decides whether a request targets the API surface — see "REST API")
   Traits/          HasSubscriptions (mixed into User), HasFeatures (mixed into Plan)
 config/panel.php    RBAC modules/actions/children, grace period, export threshold, seeded admin creds
+config/apiroute.php grazulex/laravel-apiroute — API version registry (see "REST API" above)
 database/
   migrations/       users, permission_tables (Spatie), activity_log (+ 3 hand-added indexes),
                      cache, jobs, email_domains, email_senders, smtp_settings, policies_tables,
@@ -811,8 +875,9 @@ tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogT
                      MailConfiguratorTest, UrlResolverTest, VerifyEmailTest, PasswordResetTest,
                      PlansAdminTest, PlansShowTest, SubscriptionsAdminTest,
                      UserSubscriptionManagementTest, GuestSubscriptionManagementTest,
-                     DeviceServiceTest, DeviceApiTest, BlockedIpTest, DevicesAdminTest,
-                     BlockedIpsAdminTest, WebhookNotificationTest, WebhookNotificationsAdminTest
+                     DeviceServiceTest, DeviceApiTest, ApiExceptionRenderingTest, BlockedIpTest,
+                     DevicesAdminTest, BlockedIpsAdminTest, WebhookNotificationTest,
+                     WebhookNotificationsAdminTest
 ```
 
 ## Known rough edges / deferred work (don't be surprised by these)
