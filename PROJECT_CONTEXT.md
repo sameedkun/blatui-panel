@@ -583,7 +583,7 @@ from client-supplied `App\Support\DeviceData` at registration time, never resolv
 request IP.
 
 **Middleware**: `EnsureDeviceIsValid` (alias `device.valid`, applied to the whole authenticated API
-group in `routes/api.php`) resolves the device from the current Sanctum token and 401s with a
+group in `routes/api/v1.php`) resolves the device from the current Sanctum token and 401s with a
 `DEVICE_REVOKED`/`DEVICE_BLOCKED` machine-readable code if it's missing, revoked, or blocked, then
 calls `DeviceService::touch()`. `CheckBlockedIp` is prepended to the whole `api` middleware group
 in `bootstrap/app.php` (`$middleware->api(prepend: [...])`) so it runs *before* `auth:sanctum` —
@@ -593,12 +593,45 @@ cached 60s (keyed `blocked-ip:{ip}:{userId|guest}`, via the default `Cache` faca
 `.env` already points `CACHE_STORE` at Redis); a hit dispatches the queued `RecordBlockedIpHit` job
 rather than writing synchronously, since this runs on every single API request.
 
-A minimal self-service API exists at `App\Http\Controllers\Api\DeviceController` (`GET
-/api/devices`, `DELETE /api/devices/{ulid}`) — list/revoke *your own* devices, scoped to
+A minimal self-service API exists at `App\Http\Controllers\Api\V1\DeviceController` (`GET
+/api/v1/devices`, `DELETE /api/v1/devices/{ulid}`) — list/revoke *your own* devices, scoped to
 `$request->user()->devices()`; a ulid for another account's device 404s via `firstOrFail()`, never
-a manual 403. There is deliberately no login/device-registration endpoint yet — `DeviceService::
-register()` is a ready wiring point for whenever a real auth/login controller is built, same as
-`GuestConversionService`'s deferred email-verification TODOs.
+a manual 403.
+
+`App\Http\Controllers\Api\V1\AuthController` (`App\Http\Requests\V1\Auth\{SignupRequest,
+LoginRequest}`) is where both halves of self-service auth live:
+- **`signup()`** (`POST /api/v1/signup`, guest route) creates a `type=App` user, logs it
+  (`ActivityModule::User` + `ActivityAction::Created`, same pair the admin-created path in
+  `Users/Form.php` uses — so both render identically in the Activity viewer — with an explicit
+  `causer: $user` since no session exists yet at signup, and `'initiated_by' => 'self'`
+  distinguishing it from an admin-created account), and sends the standard
+  `VerifyEmailNotification` via `sendEmailVerificationNotification()`, same call
+  `GuestConversionService::convert()` makes. Deliberately issues no Sanctum token and calls
+  `DeviceService::register()` nowhere — that's `login()`'s job.
+- **`login()`** (`POST /api/v1/login`, guest route, additionally behind a coarse per-IP
+  `throttle:10,1`) is the first real caller of `DeviceService::register()`. Looks the user up with
+  `->withTrashed()->where('type', UserType::App)` in the *same* query as the password check, so a
+  trashed/staff/guest email is indistinguishable from a wrong password in the response (never leaks
+  account existence or type) — both fall through to one generic `ValidationException` (`'email' =>
+  ['These credentials do not match our records.']`, auto-rendered by `ApiExceptionRenderer`). Past
+  that, checks run in order: **rate limit** (`RateLimiter`, 5 attempts per email+IP, prefixed
+  `api-login:` so it never collides with the panel `Login` Livewire component's own — unprefixed —
+  throttle key; `Illuminate\Auth\Events\{Failed,Lockout}` are fired manually so
+  `AuthActivityListener` logs/rate-limits failed attempts exactly like a panel login does) →
+  **trashed** (`410 Gone`) → **banned** (`403`, `errors.code = ACCOUNT_BANNED` + `ban_reason`) →
+  **device registration** (`DeviceService::register()` — a `DeviceBlockedException`/
+  `DeviceLimitExceededException` here means the just-issued Sanctum token is deleted before
+  returning `403` with `errors.code = DEVICE_BLOCKED`/`DEVICE_LIMIT_EXCEEDED`, so no orphaned token
+  survives a rejected login). A successful login fires `Illuminate\Auth\Events\Login` manually
+  (guard label `'sanctum'`) — same event a panel session login fires — so `AuthActivityListener`
+  logs it identically and writes `User::last_login` (see below). The response's
+  `pending_deletion` key (`purges_at`/`can_cancel`, from `User::deletionPurgesAt()`/
+  `canCancelDeletion()`) is populated rather than blocking login outright — the grace period exists
+  specifically so a user can cancel their own deletion, which requires being able to log back in.
+- **`AuthActivityListener::handleLogin()`** is now also the single place `User::last_login` gets
+  written (previously declared as a column/cast but nothing ever set it, despite it being rendered
+  in the Users/Guests/Staff index and profile views) — whoever fires a `Login` event, panel or API,
+  gets it for free rather than each call site writing it itself.
 
 **Admin panel** (`app/Livewire/Admin/Management/{Devices,BlockedIps}/`): `Devices/Index` is the
 global, filterable device list (`admin.devices.index`, shows a User column) — a normal
@@ -683,11 +716,11 @@ Only `v1` exists today (`status => 'active'`).
   extend `ApiController` rather than duplicate it.
 - **Requests**: `App\Http\Requests\V1\{Resource}\*Request.php` — no `Api\` segment, since this
   namespace is API-only in this app (the admin panel is all Livewire; it never uses FormRequests).
-  None exist yet — this is the ready convention for the first one.
-- **Resources**: `App\Http\Resources\V1\{Resource}.php` (e.g. `UserDeviceResource`) — folder-versioned
-  to match Controllers/Requests, not suffix-versioned (no `ResourceV2` classes). A resource is only
-  forked into a `V2` folder if a version genuinely needs a different shape for it; most resources
-  stay shared indefinitely.
+  `Auth\SignupRequest` is the first one.
+- **Resources**: `App\Http\Resources\V1\{Resource}.php` (e.g. `UserDeviceResource`, `UserResource`)
+  — folder-versioned to match Controllers/Requests, not suffix-versioned (no `ResourceV2` classes).
+  A resource is only forked into a `V2` folder if a version genuinely needs a different shape for
+  it; most resources stay shared indefinitely.
 - **Response envelope**: `ApiController::success()`/`error()` (static, see above) is the single
   source of truth for the `{status, message, data}` / `{status, message, errors?}` shape.
   `App\Exceptions\Api\ApiExceptionRenderer` (registered from `bootstrap/app.php`'s
@@ -761,11 +794,15 @@ Only `v1` exists today (`status => 'active'`).
   group-level `permission:{module}.view`.
 - `routes/api/v1.php` (registered via `config/apiroute.php`, see "REST API" above) — `GET
   /api/v1/user`, `GET /api/v1/devices` / `DELETE /api/v1/devices/{ulid}` (the self-service device
-  endpoints, see "Device Management & IP Blocking" above), all under `auth:sanctum + device.valid`
-  (`EnsureDeviceIsValid`) via the version's config-level middleware. `CheckBlockedIp` isn't
-  route-level — it's prepended to the whole `api` middleware group in `bootstrap/app.php` instead,
-  since it has to run before `auth:sanctum` resolves the user (and laravel-apiroute's own
-  version-registered routes explicitly include the `api` group, so this still applies to them).
+  endpoints, see "Device Management & IP Blocking" above), all inside an explicit
+  `Route::middleware(['auth:sanctum', 'device.valid'])->group(...)` in that file (not version-level
+  config — see "REST API" above for why). `POST /api/v1/signup` / `POST /api/v1/login`
+  (`AuthController`) sit outside that group as this file's guest routes — `login` additionally
+  carries its own `throttle:10,1` middleware (see "Device Management & IP Blocking" above for the
+  full login security write-up). `CheckBlockedIp` isn't route-level — it's
+  prepended to the whole `api` middleware group in `bootstrap/app.php` instead, since it has to run
+  before `auth:sanctum` resolves the user (and laravel-apiroute's own version-registered routes
+  explicitly include the `api` group, so this still applies to them).
 
 ## Scheduled/queued work (`routes/console.php`)
 
@@ -795,12 +832,14 @@ app/
                    TicketStatus, TicketPriority, TicketMessageAuthorType, DeviceType,
                    AppleNotificationType, AppleNotificationSubtype
   Exceptions/      DeviceLimitExceededException, DeviceBlockedException,
-                   Api/ApiExceptionRenderer (unifies framework exceptions into ApiResponse's envelope)
+                   Api/ApiExceptionRenderer (unifies framework exceptions into ApiController's envelope)
   Http/Controllers/Api/ApiController.php        unversioned base (success/error/etc. helpers)
                    Api/V1/DeviceController.php  self-service list/revoke own devices
+                   Api/V1/AuthController.php    signup + login (rate limiting, ban/trashed/device checks — see "Device Management & IP Blocking")
   Http/Middleware/ EnsurePanelAccess (alias: panel), EnsureDeviceIsValid (alias: device.valid),
                    CheckBlockedIp (prepended to the global `api` middleware group)
-  Http/Resources/V1/UserDeviceResource.php
+  Http/Requests/V1/Auth/{SignupRequest,LoginRequest}.php
+  Http/Resources/V1/{UserDeviceResource,UserResource}.php
   Jobs/            Account/PurgeExpiredAccounts, Activity/ExportActivityLog,
                    Auth/{PruneExpiredBlockedIps, RecordBlockedIpHit},
                    Device/{PruneRevokedDevices, ResolveDeviceLocation},
@@ -875,9 +914,9 @@ tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogT
                      MailConfiguratorTest, UrlResolverTest, VerifyEmailTest, PasswordResetTest,
                      PlansAdminTest, PlansShowTest, SubscriptionsAdminTest,
                      UserSubscriptionManagementTest, GuestSubscriptionManagementTest,
-                     DeviceServiceTest, DeviceApiTest, ApiExceptionRenderingTest, BlockedIpTest,
-                     DevicesAdminTest, BlockedIpsAdminTest, WebhookNotificationTest,
-                     WebhookNotificationsAdminTest
+                     DeviceServiceTest, DeviceApiTest, ApiExceptionRenderingTest, SignupTest,
+                     LoginTest, BlockedIpTest, DevicesAdminTest, BlockedIpsAdminTest,
+                     WebhookNotificationTest, WebhookNotificationsAdminTest
 ```
 
 ## Known rough edges / deferred work (don't be surprised by these)
@@ -907,8 +946,6 @@ tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogT
   destination's wins and the guest's is cancelled — except a `local` (no real gateway) app
   subscription always loses to a real external guest subscription, which is reassigned and
   linked via `previous_subscription_id` instead.
-- There is deliberately no login/device-registration API endpoint yet — see "Device Management &
-  IP Blocking" above. `DeviceService::register()` is a ready wiring point for whenever one is built.
 - `Users/Show.php` actions (`verifyEmailManually`, `resendVerificationEmail`, `sendPasswordResetLink`) are fully wired up to Laravel's email verification and password reset broker flows.
 - Staff module has no `show` route/page and no `delete` route — staff are only listed/created/edited.
 - Mail-sending data layer (`EmailDomain`, `EmailSender`, `SmtpSetting` models; `MailPurpose` enum —

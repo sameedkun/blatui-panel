@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\DeviceController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -17,5 +18,11 @@ Route::middleware(['auth:sanctum', 'device.valid'])->group(function (): void {
     Route::delete('/devices/{ulid}', [DeviceController::class, 'destroy'])->name('devices.destroy');
 });
 
-// Guest routes go here, outside the group above, e.g.:
-// Route::post('/login', [AuthController::class, 'login'])->name('login');
+// Guest routes — outside the group above, no auth:sanctum required.
+Route::post('/signup', [AuthController::class, 'signup'])->name('signup');
+
+// throttle:10,1 is a coarse per-IP backstop; the real brute-force defense is
+// AuthController::login()'s own per-email+IP RateLimiter lockout.
+Route::post('/login', [AuthController::class, 'login'])
+    ->middleware('throttle:10,1')
+    ->name('login');

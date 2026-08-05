@@ -102,7 +102,7 @@ class ActivityLogger
 
         $request = request();
 
-        return $request->is('api/*') || $request->expectsJson()
+        return ApiRequest::targets($request) || $request->expectsJson()
             ? ActivityContext::Api
             : ActivityContext::Admin;
     }

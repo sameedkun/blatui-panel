@@ -18,6 +18,10 @@ use Illuminate\Support\Str;
  * Records privileged authentication activity under the `authentication`
  * category. The handler methods are wired automatically by Laravel's event
  * discovery (each type-hints its event), so no manual registration is needed.
+ * Also the single place `User::last_login` gets written (handleLogin) —
+ * whoever fires a `Login` event (panel session login, API `AuthController::
+ * login()`, ...) gets it for free rather than each call site writing it
+ * itself.
  *
  * Guests are never logged; failed logins are rate-limited (and do no DB lookup)
  * so credential-stuffing cannot flood the audit trail.
@@ -31,6 +35,8 @@ class AuthActivityListener
         if (! $user instanceof User || $user->isGuest()) {
             return;
         }
+
+        $user->forceFill(['last_login' => now()])->save();
 
         ActivityLogger::log(
             $this->moduleFor($user),
