@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Enum\SubscriptionStatus;
 use App\Models\Plan;
+use App\Models\PlanPrice;
+use App\Models\PlanPriceProvider;
 use App\Models\Subscription;
+use App\Models\SubscriptionReceipt;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

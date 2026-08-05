@@ -12,8 +12,10 @@ class SetLocaleTest extends TestCase
 {
     public function test_supported_locale_cookie_is_applied_to_the_request(): void
     {
+        // '/' always redirects (to login or the dashboard, based on auth state) since the
+        // home-routing refactor, so this hits a guest route that actually renders instead.
         $this->withCookie('locale', 'tr')
-            ->get('/')
+            ->get('/login')
             ->assertOk();
 
         $this->assertSame('tr', App::getLocale());
