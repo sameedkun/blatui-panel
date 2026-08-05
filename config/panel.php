@@ -178,6 +178,13 @@ return [
             'icon' => 'shield-alert',
         ],
 
+        'webhook_notifications' => [
+            'label' => 'Webhook Notifications',
+            'group' => 'infrastructure',
+            'actions' => ['view', 'manage'],
+            'icon' => 'webhook',
+        ],
+
         // --- Application ---
         'languages' => [
             'label' => 'Languages',

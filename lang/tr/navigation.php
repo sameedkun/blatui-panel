@@ -18,6 +18,7 @@ return [
         'subscriptions' => 'Abonelikler',
         'devices' => 'Cihazlar',
         'blocked_ips' => 'Engellenen IP\'ler',
+        'webhook_notifications' => 'Webhook Bildirimleri',
         'languages' => 'Diller',
         'feedback' => 'Geri Bildirimler',
         'notifications' => 'Bildirimler',

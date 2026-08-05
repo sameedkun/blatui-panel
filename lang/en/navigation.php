@@ -18,6 +18,7 @@ return [
         'subscriptions' => 'Subscriptions',
         'devices' => 'Devices',
         'blocked_ips' => 'Blocked IPs',
+        'webhook_notifications' => 'Webhook Notifications',
         'languages' => 'Languages',
         'feedback' => 'Feedback',
         'notifications' => 'Notifications',

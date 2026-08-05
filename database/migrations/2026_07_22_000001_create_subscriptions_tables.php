@@ -63,10 +63,14 @@ return new class extends Migration
             $table->string('provider_original_id')->nullable();
             $table->json('payload')->nullable();
 
+            $table->string('notification_provider', 30)->nullable()->after('payload');
+            $table->unsignedBigInteger('notification_id')->nullable()->after('notification_provider');
+
             $table->timestamps();
 
             $table->index(['provider', 'provider_transaction_id']);
             $table->index(['provider', 'provider_original_id']);
+            $table->index(['notification_provider', 'notification_id'], 'subscription_receipts_notification_idx');
         });
     }
 

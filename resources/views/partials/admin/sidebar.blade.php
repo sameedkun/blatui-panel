@@ -28,7 +28,7 @@
                 </x-ui.sidebar-menu-item>
             @endcan
 
-            @canany(['users.view', 'guests.view', 'plans.view', 'subscriptions.view', 'devices.view', 'blocked-ips.view'])
+            @canany(['users.view', 'guests.view', 'plans.view', 'subscriptions.view', 'devices.view', 'blocked-ips.view', 'webhook_notifications.view'])
                 <x-ui.sidebar-group-label>{{ __('navigation.groups.management') }}</x-ui.sidebar-group-label>
 
                 <x-ui.sidebar-menu>
@@ -83,6 +83,15 @@
                             <x-ui.sidebar-menu-button href="{{ route('admin.blocked-ips.index') }}" :isActive="request()->routeIs('admin.blocked-ips.*')">
                                 <x-lucide-shield-alert />
                                 <span>{{ __('navigation.modules.blocked_ips') }}</span>
+                            </x-ui.sidebar-menu-button>
+                        </x-ui.sidebar-menu-item>
+                    @endcan
+
+                    @can('webhook_notifications.view')
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.webhook-notifications.index') }}" :isActive="request()->routeIs('admin.webhook-notifications.*')">
+                                <x-lucide-webhook />
+                                <span>{{ __('navigation.modules.webhook_notifications') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan

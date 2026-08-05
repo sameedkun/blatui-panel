@@ -6,6 +6,7 @@ use App\Enum\ActivityAction;
 use App\Enum\ActivityContext;
 use App\Enum\ActivityLogName;
 use App\Enum\ActivityModule;
+use App\Enum\PaymentProvider;
 use App\Enum\PolicyType;
 use App\Enum\TicketPriority;
 use App\Models\Feedback;
@@ -16,6 +17,7 @@ use App\Models\Ticket;
 use App\Models\TicketCategory;
 use App\Models\User;
 use App\Models\UserDevice;
+use App\Models\Webhooks\AppleNotification;
 use Carbon\CarbonInterface;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
@@ -214,6 +216,10 @@ class ActivityPresenter
             };
         }
 
+        if (($properties['module'] ?? null) === 'webhook_notification') {
+            return 'webhook_notification_redispatched';
+        }
+
         if (($properties['module'] ?? null) === 'setting') {
             $area = $properties['area'] ?? null;
 
@@ -286,6 +292,7 @@ class ActivityPresenter
             'blocked_ip_created' => 'shield-alert',
             'blocked_ip_updated' => 'pencil',
             'blocked_ip_deleted' => 'shield-check',
+            'webhook_notification_redispatched' => 'refresh-cw',
             default => 'activity',
         };
     }
@@ -316,7 +323,7 @@ class ActivityPresenter
             'subscription_cancelled', 'subscription_expired', 'ticket_category_deleted',
             'device_blocked', 'blocked_ip_created' => 'danger',
             'device_unblocked', 'device_revoked', 'blocked_ip_deleted' => 'warning',
-            'blocked_ip_updated' => 'info',
+            'blocked_ip_updated', 'webhook_notification_redispatched' => 'info',
             default => 'muted',
         };
     }
@@ -481,6 +488,10 @@ class ActivityPresenter
             'blocked_ip_deleted' => [
                 self::row(__('activity_logs.fields.ip_address'), $properties['ip_address'] ?? null),
             ],
+            'webhook_notification_redispatched' => [
+                self::row(__('activity_logs.fields.provider'), isset($properties['provider']) ? Str::headline((string) $properties['provider']) : null),
+                self::row(__('activity_logs.fields.notification_type'), isset($properties['notification_type']) ? Str::headline((string) $properties['notification_type']) : null),
+            ],
             default => [],
         }];
 
@@ -598,6 +609,9 @@ class ActivityPresenter
             Role::class => fn (Role $role): ?string => auth()->user()->can('roles.edit') ? route('admin.roles.edit', $role) : null,
             UserDevice::class => fn (UserDevice $device): ?string => auth()->user()->can('users.manage')
                 ? route('admin.users.show', $device->user_id)
+                : null,
+            AppleNotification::class => fn (AppleNotification $notification): ?string => auth()->user()->can('webhook_notifications.view')
+                ? route('admin.webhook-notifications.show', ['provider' => PaymentProvider::AppStore->value, 'id' => $notification->id])
                 : null,
         ];
     }

@@ -27,6 +27,8 @@ use App\Livewire\Admin\Management\Subscriptions\Show as SubscriptionsShow;
 use App\Livewire\Admin\Management\Users\Form as UsersForm;
 use App\Livewire\Admin\Management\Users\Index as UsersIndex;
 use App\Livewire\Admin\Management\Users\Show as UsersShow;
+use App\Livewire\Admin\Management\WebhookNotifications\Index as WebhookNotificationsIndex;
+use App\Livewire\Admin\Management\WebhookNotifications\Show as WebhookNotificationsShow;
 use App\Livewire\Admin\Settings\General;
 use App\Livewire\Admin\Settings\Mail;
 use App\Livewire\Admin\Settings\Policies;
@@ -84,6 +86,12 @@ Route::middleware(['auth', 'panel', AuthenticateSession::class])->name('admin.')
         Route::get('/', BlockedIpsIndex::class)->name('index');
         Route::get('/create', BlockedIpsForm::class)->name('create')->middleware('permission:blocked-ips.create');
         Route::get('/{blockedIp}/edit', BlockedIpsForm::class)->name('edit')->middleware('permission:blocked-ips.update');
+    });
+
+    // ── Webhook Notifications (read-only raw provider notification log) ─────
+    Route::prefix('webhook-notifications')->name('webhook-notifications.')->middleware('permission:webhook_notifications.view')->group(function () {
+        Route::get('/', WebhookNotificationsIndex::class)->name('index');
+        Route::get('/{provider}/{id}', WebhookNotificationsShow::class)->name('show')->whereNumber('id');
     });
 
     // ── Languages ─────────────────────────────────────────────────────────

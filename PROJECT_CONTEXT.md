@@ -264,6 +264,63 @@ subscription ever sold, independent of which plan or user it's for:
   subscriptions tab all link out to `admin.subscriptions.show` per row (gated on
   `subscriptions.manage`) — every subscription surface in the panel ties back to this one detail page.
 
+### Webhook Notifications (`app/Livewire/Admin/Management/WebhookNotifications/`)
+
+Raw inbound provider webhook logs (`apple_notifications` today; RevenueCat/Google/Stripe are
+placeholders in the same pattern, not yet built) are a separate concern from `SubscriptionReceipt`
+— a receipt is the normalized "this happened to this subscription" record, a notification row is
+the unprocessed payload as the provider sent it, deduplicated by its own UUID/notification id.
+Since which providers a given deployment integrates with is a per-project decision, nothing here
+branches on provider name:
+- **`App\Contracts\ProviderNotification`** — the one thing every provider's model agrees to expose:
+  `notificationType()`, `transactionId()`, `originalTransactionId()`, `productId()`,
+  `environment()`, `occurredAt()`, `isProcessed()`, `processedAt()`, `rawPayload()`. Implementations
+  read their own raw columns; `notificationType()`/`environment()` stay plain strings since
+  providers don't share a type vocabulary — a model may optionally expose a `notificationTypeLabel()`
+  (and Apple additionally `subtypeLabel()`), discovered generically via `method_exists()` in the
+  shared Blade partial, never hardcoded per provider.
+- **`App\Models\Webhooks\AppleNotification`** (`apple_notifications` table) — the only implementation
+  so far. `notification_type`/`subtype` cast to `App\Enum\AppleNotificationType`/
+  `AppleNotificationSubtype` (Apple's closed vocabularies, labels in `enums.php` alongside
+  `payment_provider`). `environment()` reads `payload.data.environment` — Apple doesn't give it its
+  own column. A soft convention (not contract-enforced) that future provider tables also name their
+  shared columns `transaction_id`/`original_transaction_id`/`product_id`/`processed` keeps the admin
+  Index's search/filters generic across providers without per-provider query branching.
+- **`App\Support\WebhookNotificationRegistry`** — same shape as
+  `ActivityPresenter::subjectUrlResolvers()`: a `PaymentProvider::value → model class` array plus a
+  `resolve(?PaymentProvider, ?int): ?ProviderNotification` helper. Adding RevenueCat/Google/Stripe
+  later is one array line plus its model — no admin code changes.
+- **`SubscriptionReceipt::notification_provider`/`notification_id`** — a deliberately loose link
+  (no FK; the target table varies by provider) to the raw notification a receipt came from, resolved
+  at read time via the registry through `SubscriptionReceipt::notification()`. `subscription_receipts`
+  itself stays provider-agnostic — no provider-specific columns were added to it.
+- **Admin UI**: `admin.webhook-notifications.*` (module `webhook_notifications`, actions `view`/
+  `manage`, group `infrastructure`) is provider-filtered rather than a UNION across differently-shaped
+  tables — `Index::baseQuery()` resolves to the selected provider's model via the registry, so each
+  provider keeps its own native columns. `Show` takes `{provider}/{id}` route params (not
+  route-model binding, since the model class varies) and 404s if the registry can't resolve it. Both
+  pages, and the `webhook_notifications` tab on `Subscriptions/Show` (gated on `webhook_notifications.view`,
+  separate from the existing Receipts tab), render through one generic Blade partial
+  (`.../webhook-notifications/partials/detail.blade.php`) built purely off the contract — a new
+  provider needs zero new Blade. Listed in the sidebar's Management section (not Application — this
+  is billing/account operational tooling, same bucket as Blocked IPs, not product-content config).
+- **Reprocessing**: `App\Contracts\RedispatchableNotification` (a second, optional capability
+  interface separate from `ProviderNotification`, discovered via `instanceof` rather than the
+  registry — not every provider needs it) exposes `redispatch(): void`. `AppleNotification`
+  implements it by re-firing `App\Events\Webhooks\AppStoreWebhookReceived` (a plain event using
+  `Illuminate\Foundation\Events\Dispatchable` for `::dispatch()` sugar) with the row's already-stored
+  `notification_type`/`subtype`/`transaction_info`/`renewal_info`/`payload`/itself — the same event
+  shape a real inbound webhook controller would dispatch. **No listener exists yet** — this is
+  deliberately just the redispatch mechanism; the actual subscription-processing logic is future
+  work. Index and Show both expose a permission-gated ("Process"/"Reprocess", label depends on
+  `isProcessed()`) action via the shared `Concerns/HandlesWebhookNotificationRowActions` trait
+  (mirrors `HandlesPlanRowActions`'s reuse pattern) — gated on `webhook_notifications.manage`
+  specifically (not `.view`), since it's a real mutating action. Logs through `ActivityLogger`
+  (module `ActivityModule::WebhookNotification`, reusing the `Updated` verb with a
+  `type: notification_redispatched` property, per the "reusable verbs" convention) — `ActivityPresenter`
+  has a matching `webhook_notification` module branch. Deliberately never touches
+  `processed`/`processed_at` itself — that stays owned by whatever listener eventually gets wired up.
+
 ### User-facing subscription management
 
 `App\Traits\HasSubscriptions` (mixed into `User`) — `subscriptions()`, `activeSubscription()` (a
@@ -639,8 +696,9 @@ rather than colliding with generic titles.
   ticket's mutable fields all change via `Show` page actions, not a form), `ticket-categories.*`
   (index/create/edit), `devices.*` (index only, plus `shared-fingerprints` gated
   `devices.investigate`), `blocked-ips.*` (index only — create/edit/delete are drawer actions on
-  the index, not routes), and a single `account` route (self-service "My Account" page — no extra
-  permission, every staff member can reach it).
+  the index, not routes), `webhook-notifications.*` (index only, plus `show` at `{provider}/{id}` —
+  not route-model bound, since the model class varies by provider), and a single `account` route
+  (self-service "My Account" page — no extra permission, every staff member can reach it).
 - Each route group carries its own `permission:{module}.{action}` middleware layered on top of the
   group-level `permission:{module}.view`.
 - `routes/api.php` — the first real content beyond the skeleton `/user` route: everything is under
@@ -671,9 +729,11 @@ time, leaving `routes/console.php` responsible only for cadence and overlap prot
 
 ```
 app/
+  Contracts/       ProviderNotification (webhook-notification presentation contract)
   Enum/            UserType, Activity{LogName,Module,Action,Context}, MailPurpose,
                    BillingInterval, PaymentProvider, SubscriptionStatus, CancelledBy, ReceiptType,
-                   TicketStatus, TicketPriority, TicketMessageAuthorType, DeviceType
+                   TicketStatus, TicketPriority, TicketMessageAuthorType, DeviceType,
+                   AppleNotificationType, AppleNotificationSubtype
   Exceptions/      DeviceLimitExceededException, DeviceBlockedException
   Http/Controllers/Api/DeviceController.php     self-service list/revoke own devices
   Http/Middleware/ EnsurePanelAccess (alias: panel), EnsureDeviceIsValid (alias: device.valid),
@@ -696,6 +756,7 @@ app/
       Management/Subscriptions/             Index, Show + Concerns/HandlesSubscriptionRowActions
       Management/Devices/                   Index, SharedFingerprints + Concerns/HandlesDeviceRowActions
       Management/BlockedIps/                Index + Concerns/{HandlesBlockedIpForm,HandlesIpActivityPanel}
+      Management/WebhookNotifications/      Index, Show (provider-filtered raw webhook log)
       Support/Tickets/                      Index, Show, Form + Concerns/HandlesTicketRowActions
       Support/Categories/                   Index, Form + Concerns/HandlesCategoryRowActions
       Administration/Staff/                         Index, Form (staff CRUD + role assignment)
@@ -707,6 +768,8 @@ app/
   Models/          User.php (canAccessModule helper), EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php,
                    Plan.php, PlanPrice.php, PlanPriceProvider.php, Subscription.php, SubscriptionReceipt.php,
                    Ticket.php, TicketCategory.php, TicketMessage.php, UserDevice.php, BlockedIp.php
+    Webhooks/      AppleNotification.php (implements ProviderNotification; RevenueCat/Google/Stripe
+                   are future additions in the same subnamespace, not yet built)
   Notifications/   Auth/VerifyEmailNotification.php, Auth/ResetPasswordNotification.php,
                    Support/TicketAutoClosedNotification.php
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
@@ -715,7 +778,8 @@ app/
                    Device/{DeviceService, LocationService}, Mail/Configurator, Notification/OneSignalService,
                    Subscription/{LifecycleService, SubscriptionService},
                    Ticket/{AssignmentService, LifecycleService, TicketService}
-  Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter, DeviceData
+  Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter, DeviceData,
+                   WebhookNotificationRegistry (provider → notification-model registry)
   Traits/          HasSubscriptions (mixed into User), HasFeatures (mixed into Plan)
 config/panel.php    RBAC modules/actions/children, grace period, export threshold, seeded admin creds
 database/
@@ -725,11 +789,13 @@ database/
                      subscriptions_tables (subscriptions/subscription_receipts),
                      tickets_table (categories/tickets/ticket_messages/category_agent),
                      user_devices_table, blocked_ips_table (generated `user_scope` column backing
-                     its unique constraint)
+                     its unique constraint), apple_notifications_table (subscriptions_tables' own
+                     `subscription_receipts` block carries the loose `notification_provider`/
+                     `notification_id` link columns directly, no separate migration)
   seeders/          DatabaseSeeder, RolesAndPermissionsSeeder (idempotent), UserSeeder,
                      EmailSendersSeeder (idempotent)
   factories/         one per model, incl. Plan/PlanPrice/PlanPriceProvider/Subscription/SubscriptionReceipt,
-                     TicketCategory/Ticket/TicketMessage, UserDevice, BlockedIp
+                     TicketCategory/Ticket/TicketMessage, UserDevice, BlockedIp, Webhooks/AppleNotification
 resources/
   views/components/ui/       BlatUI copy-paste components (x-ui.*) — see CLAUDE.md BlatUI section;
                               `drawer` extended with the same id-driven open/close prop `dialog` has
@@ -746,7 +812,7 @@ tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogT
                      PlansAdminTest, PlansShowTest, SubscriptionsAdminTest,
                      UserSubscriptionManagementTest, GuestSubscriptionManagementTest,
                      DeviceServiceTest, DeviceApiTest, BlockedIpTest, DevicesAdminTest,
-                     BlockedIpsAdminTest
+                     BlockedIpsAdminTest, WebhookNotificationTest, WebhookNotificationsAdminTest
 ```
 
 ## Known rough edges / deferred work (don't be surprised by these)
@@ -756,6 +822,12 @@ tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogT
   inbound-email parsing per "What this is" above), so this is aspirational copy matching a
   future capability, not a working link/flow today. Reopening currently only happens via the
   admin panel (`TicketService::changeStatus()`).
+- No listener is wired up to `App\Events\Webhooks\AppStoreWebhookReceived` yet — the admin
+  "Reprocess"/"Process" action on a webhook notification (see "Webhook Notifications" above) fires
+  the event but nothing currently handles it, so `processed`/`processed_at` never actually change
+  from that button today. There's also no inbound webhook controller yet that would dispatch this
+  event from a real Apple delivery — `apple_notifications` rows currently only get created by tests
+  and manual seeding.
 - `UserSeeder` assigns `config('panel.app_user_role')` to the local test user, but `panel.php`
   only defines `super_admin_role` — app users/guests are distinguished by `type`, not roles, so
   this key doesn't exist. Local-only seeding path; harmless but dead config lookup.

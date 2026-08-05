@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Management\Subscriptions;
 
+use App\Contracts\ProviderNotification;
 use App\Livewire\Admin\BaseShow;
 use App\Livewire\Admin\Concerns\HasShowTabs;
 use App\Livewire\Admin\Management\Subscriptions\Concerns\HandlesSubscriptionRowActions;
@@ -9,6 +10,7 @@ use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Subscription\SubscriptionService;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Spatie\Activitylog\Models\Activity;
@@ -64,6 +66,13 @@ class Show extends BaseShow
                 'view' => 'livewire.admin.management.subscriptions.show.tabs.receipts',
                 'data' => fn (): array => ['receipts' => $this->receipts()],
             ],
+            'webhook_notifications' => [
+                'label' => __('webhook_notifications.tab.label'),
+                'icon' => 'webhook',
+                'view' => 'livewire.admin.management.subscriptions.show.tabs.webhook-notifications',
+                'permission' => 'webhook_notifications.view',
+                'data' => fn (): array => ['notifications' => $this->webhookNotifications()],
+            ],
             'activity' => [
                 'label' => __('subscriptions.tabs.activity'),
                 'icon' => 'activity',
@@ -79,6 +88,26 @@ class Show extends BaseShow
         return $this->record->receipts()
             ->latest()
             ->paginate(10, pageName: 'receipts_page');
+    }
+
+    /**
+     * Every receipt on this subscription that's linked to a raw provider
+     * notification, resolved via {@see SubscriptionReceipt::notification()}
+     * — receipts with no link (or whose linked row no longer resolves)
+     * are left out rather than shown as an empty entry.
+     *
+     * @return Collection<int, array{receipt: \App\Models\SubscriptionReceipt, notification: ProviderNotification}>
+     */
+    protected function webhookNotifications(): Collection
+    {
+        return $this->record->receipts()
+            ->whereNotNull('notification_provider')
+            ->whereNotNull('notification_id')
+            ->latest()
+            ->get()
+            ->map(fn ($receipt) => ['receipt' => $receipt, 'notification' => $receipt->notification()])
+            ->filter(fn (array $pair): bool => $pair['notification'] !== null)
+            ->values();
     }
 
     /**

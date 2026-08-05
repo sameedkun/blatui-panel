@@ -17,6 +17,7 @@ enum PaymentProvider: string
     case AppStore = 'appstore';
     case PlayStore = 'playstore';
     case Oxapay = 'oxapay';
+    case RevenueCat = 'revenuecat';
 
     public function label(): string
     {

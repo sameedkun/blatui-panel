@@ -74,6 +74,7 @@ return [
         'user_agent' => 'Kullanıcı aracısı', 'expires_at' => 'Bitiş zamanı',
         'starts_at' => 'Başlangıç zamanı', 'ends_at' => 'Bitiş zamanı',
         'role' => 'Rol', 'permissions' => 'İzinler',
+        'notification_type' => 'Bildirim türü',
     ],
     'areas' => [
         'smtp' => 'SMTP', 'email_domain' => 'E-posta alan adı',
@@ -108,6 +109,7 @@ return [
             'device_unblocked' => 'Cihaz Engeli Kaldırıldı', 'device_revoked' => 'Cihaz Erişimi İptal Edildi',
             'blocked_ip_created' => 'IP Engeli Oluşturuldu', 'blocked_ip_updated' => 'IP Engeli Güncellendi',
             'blocked_ip_deleted' => 'IP Engeli Kaldırıldı',
+            'webhook_notification_redispatched' => 'Bildirim Yeniden Gönderildi',
         ],
     ],
     'enums' => [
@@ -131,7 +133,7 @@ return [
             'permission' => 'İzin', 'plan' => 'Plan', 'language' => 'Dil', 'feedback' => 'Geri Bildirim',
             'notification' => 'Bildirim', 'server' => 'Sunucu', 'ticket' => 'Destek Talebi',
             'ticket_category' => 'Destek Talebi Kategorisi', 'setting' => 'Ayar',
-            'device' => 'Cihaz', 'blocked_ip' => 'Engellenen IP',
+            'device' => 'Cihaz', 'blocked_ip' => 'Engellenen IP', 'webhook_notification' => 'Webhook Bildirimi',
         ],
     ],
     'export' => [

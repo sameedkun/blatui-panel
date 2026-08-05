@@ -123,6 +123,7 @@ return [
         'ends_at' => 'Ends at',
         'role' => 'Role',
         'permissions' => 'Permissions',
+        'notification_type' => 'Notification type',
     ],
     'areas' => [
         'smtp' => 'SMTP',
@@ -183,6 +184,7 @@ return [
             'blocked_ip_created' => 'IP Block Created',
             'blocked_ip_updated' => 'IP Block Updated',
             'blocked_ip_deleted' => 'IP Block Removed',
+            'webhook_notification_redispatched' => 'Notification Redispatched',
         ],
     ],
     'enums' => [
@@ -208,7 +210,7 @@ return [
             'permission' => 'Permission', 'plan' => 'Plan', 'language' => 'Language',
             'feedback' => 'Feedback', 'notification' => 'Notification', 'server' => 'Server',
             'ticket' => 'Ticket', 'ticket_category' => 'Ticket Category', 'setting' => 'Setting',
-            'device' => 'Device', 'blocked_ip' => 'Blocked IP',
+            'device' => 'Device', 'blocked_ip' => 'Blocked IP', 'webhook_notification' => 'Webhook Notification',
         ],
     ],
     'export' => [
