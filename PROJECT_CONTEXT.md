@@ -22,6 +22,8 @@ this repo — just the admin panel itself (`/*`) plus login/logout.
 - `league/flysystem-aws-s3-v3` — powers a Cloudflare R2 disk (`r2` in `config/filesystems.php`, S3-compatible) for avatars/exports
 - `mallardduck/blade-lucide-icons` — icon set used throughout (`<x-lucide-*>`)
 - `grazulex/laravel-apiroute` — URI-path API versioning (`/api/v1/...`); see "REST API" below
+- `ua-parser/uap-php` — User-Agent parsing for browser logins (display metadata only — see
+  "Device Management & IP Blocking" below)
 - Laravel Boost (MCP dev-tooling), Pint, PHPUnit 12
 
 Dev loop: `composer run dev` runs server + queue listener + pail (log viewer) + vite concurrently.
@@ -568,19 +570,31 @@ access, plus block traffic by IP.
 `DeletionService`'s "one service, everything goes through here" shape). `register()` hashes
 the incoming fingerprint, locks the *user* row (`lockForUpdate()`, not just the device row — two
 concurrent logins for two different fingerprints would otherwise both pass the limit check) inside
-a transaction, checks the caller's plan `device_limit` feature (`$user->planFeature('device_limit',
-...)` from `HasSubscriptions`/`HasFeatures`, already used by Plans/Subscriptions) only when the
-matched device is new or currently revoked — an already-active device's re-login never counts
-against the limit — then `updateOrCreate`s the row, retrying once past a `QueryException` race on
-the unique constraint. Throws `App\Exceptions\DeviceLimitExceededException` /
-`DeviceBlockedException` (a blocked device can never reactivate by logging in again, only via
-`unblock()`). `revoke()`/`revokeAll()`/`block()`/`unblock()` are the only audited device
-mutations — deliberately, `register()`/`touch()` never write an audit-log entry, since this app's
-"no login history" design would otherwise be defeated by every login becoming an auditable event.
-`touch()` (called by `EnsureDeviceIsValid`) throttles its own write to once per 5 minutes. No
-geo-IP resolution package is installed — `city`/`country`/`country_code` are only ever populated
-from client-supplied `App\Support\DeviceData` at registration time, never resolved from the
-request IP.
+a transaction, then — only when the matched device is new or currently revoked, since an
+already-active device's re-login never counts against any limit — calls `enforceLimit()` before
+`updateOrCreate`-ing the row (retrying once past a `QueryException` race on the unique constraint).
+`enforceLimit()` splits enforcement into **two entirely separate buckets** by `DeviceType`:
+- **App devices** (`Mobile`/`Tablet`/`Desktop`/unset) check the plan's `device_limit` feature
+  (`$user->planFeature('device_limit', ...)`, default `1`) — crossing it throws
+  `App\Exceptions\DeviceLimitExceededException` outright, since these are named/precious devices
+  ("my iPhone") the user should consciously choose to revoke via the Devices UI.
+- **Browser devices** (`DeviceType::Web`) check the separate `browser_device_limit` feature
+  (default `15`) — crossing it evicts the oldest active browser session instead of throwing
+  (`revoke()`, attributed to the logging-in user as causer), since browser sessions are disposable
+  and numerous by nature (work computer, home, a kiosk...) and don't compete with the app allowance
+  at all. `UserDevice::scopeBrowserType()`/`scopeAppType()` partition the active-device query for
+  this.
+
+`App\Exceptions\DeviceBlockedException` is thrown independently of either bucket (a blocked device
+can never reactivate by logging in again, only via `unblock()`). `revoke()`/`revokeAll()`/`block()`/
+`unblock()` are the only audited device mutations — deliberately, `register()`/`touch()` never
+write an audit-log entry (aside from `enforceLimit()`'s eviction, which *is* a `revoke()` call and
+so *is* audited), since this app's "no login history" design would otherwise be defeated by every
+login becoming an auditable event. `revoke()` optionally takes a `$causer` (mirroring `block()`'s
+`$admin` param) for call sites without an ambient session, like the eviction path above. `touch()`
+(called by `EnsureDeviceIsValid`) throttles its own write to once per 5 minutes. No geo-IP
+resolution package is installed — `city`/`country`/`country_code` are only ever populated from
+client-supplied `App\Support\DeviceData` at registration time, never resolved from the request IP.
 
 **Middleware**: `EnsureDeviceIsValid` (alias `device.valid`, applied to the whole authenticated API
 group in `routes/api/v1.php`) resolves the device from the current Sanctum token and 401s with a
@@ -628,10 +642,43 @@ LoginRequest}`) is where both halves of self-service auth live:
   `pending_deletion` key (`purges_at`/`can_cancel`, from `User::deletionPurgesAt()`/
   `canCancelDeletion()`) is populated rather than blocking login outright — the grace period exists
   specifically so a user can cancel their own deletion, which requires being able to log back in.
+- **Browser clients** send `X-Client-Type: web` (`LoginRequest::isBrowserClient()`, checked in
+  `rules()` too — the `device.*` fields aren't required from this client at all) instead of a
+  `device.*` payload, since a browser can't produce a stable hardware fingerprint the way a native
+  app can (privacy sandboxing, ITP, ad blockers all fight that on purpose). `login()` branches to
+  `App\Services\Device\BrowserDeviceResolver` instead of reading `validated['device']`: it parses
+  `name`/`platform`/`os` from the User-Agent via `ua-parser/uap-php` (display-only — never trusted
+  for anything security-sensitive, since a User-Agent is trivially spoofable) and resolves the
+  fingerprint itself from a `device_fp` cookie if the browser already carries one, or a fresh UUID
+  otherwise. `login()` queues that value back onto the response as a long-lived (1 year), `HttpOnly`
+  + `SameSite=Lax` cookie (refreshed — sliding expiry — on every browser login), built via the
+  `cookie()` helper first and passed to `->cookie()` as a single `Cookie` instance rather than as
+  separate positional/named args — `Response::cookie()`/`withCookie()` forward through
+  `func_get_args()`, which breaks with named arguments against their single-parameter signature.
+  `device_type: Web` on the resulting row is what routes it into `enforceLimit()`'s separate browser
+  bucket above. `X-Client-Type` is client-declared and unverified (a technical user could claim
+  "web" to get the larger, auto-evicting limit instead of the stricter app one) — accepted as a
+  low-severity tradeoff, since `device_limit`/`browser_device_limit` are session/plan caps, not a
+  credential security boundary (rate limiting + IP blocking already own that job).
 - **`AuthActivityListener::handleLogin()`** is now also the single place `User::last_login` gets
   written (previously declared as a column/cast but nothing ever set it, despite it being rendered
   in the Users/Guests/Staff index and profile views) — whoever fires a `Login` event, panel or API,
   gets it for free rather than each call site writing it itself.
+- **`logout()`** (`POST /api/v1/logout`, inside the authenticated `auth:sanctum + device.valid`
+  group) revokes only the calling device — the one tied to the token that authenticated the
+  request, looked up the same way `EnsureDeviceIsValid` does (`UserDevice::where('token_id',
+  $user->currentAccessToken()->id)`). It calls straight into `DeviceService::revoke()` rather than
+  deleting the token itself, so logout gets the exact same token-deletion + `revoked_at` +
+  `ActivityModule::Device`/`ActivityAction::Revoked` audit row (subject the device) as an
+  admin-triggered revoke, with no separate logic to maintain. **On top of that**, `logout()` writes
+  a second, explicit audit row itself — `ActivityModule::User`/`ActivityAction::Logout`, subject
+  the user, causer the user, `ActivityLogName::Authentication` — mirroring how `Login` is logged.
+  This second row is what makes "logged out" actually show up on the user's own profile Activity
+  tab: that tab queries `Activity::forSubject($user)`, which matches on `subject_type`/`subject_id`
+  only, so the device-subject row from `revoke()` alone would never appear there. Its properties
+  carry `device_id`/`device_name` so the entry identifies which device was logged out. There's no
+  "logout everywhere" endpoint yet — `DeviceService::revokeAll()` already exists and would make one
+  trivial to add later.
 
 **Admin panel** (`app/Livewire/Admin/Management/{Devices,BlockedIps}/`): `Devices/Index` is the
 global, filterable device list (`admin.devices.index`, shows a User column) — a normal
@@ -794,9 +841,9 @@ Only `v1` exists today (`status => 'active'`).
   group-level `permission:{module}.view`.
 - `routes/api/v1.php` (registered via `config/apiroute.php`, see "REST API" above) — `GET
   /api/v1/user`, `GET /api/v1/devices` / `DELETE /api/v1/devices/{ulid}` (the self-service device
-  endpoints, see "Device Management & IP Blocking" above), all inside an explicit
-  `Route::middleware(['auth:sanctum', 'device.valid'])->group(...)` in that file (not version-level
-  config — see "REST API" above for why). `POST /api/v1/signup` / `POST /api/v1/login`
+  endpoints, see "Device Management & IP Blocking" above), `POST /api/v1/logout`, all inside an
+  explicit `Route::middleware(['auth:sanctum', 'device.valid'])->group(...)` in that file (not
+  version-level config — see "REST API" above for why). `POST /api/v1/signup` / `POST /api/v1/login`
   (`AuthController`) sit outside that group as this file's guest routes — `login` additionally
   carries its own `throttle:10,1` middleware (see "Device Management & IP Blocking" above for the
   full login security write-up). `CheckBlockedIp` isn't route-level — it's
@@ -876,7 +923,7 @@ app/
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
                                              module view permission inheritance policy
   Services/        Account/{DeletionService, MergeService, GuestConversionService}, Auth/UrlResolver,
-                   Device/{DeviceService, LocationService}, Mail/Configurator, Notification/OneSignalService,
+                   Device/{DeviceService, BrowserDeviceResolver, LocationService}, Mail/Configurator, Notification/OneSignalService,
                    Subscription/{LifecycleService, SubscriptionService},
                    Ticket/{AssignmentService, LifecycleService, TicketService}
   Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter, DeviceData,
@@ -915,7 +962,7 @@ tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogT
                      PlansAdminTest, PlansShowTest, SubscriptionsAdminTest,
                      UserSubscriptionManagementTest, GuestSubscriptionManagementTest,
                      DeviceServiceTest, DeviceApiTest, ApiExceptionRenderingTest, SignupTest,
-                     LoginTest, BlockedIpTest, DevicesAdminTest, BlockedIpsAdminTest,
+                     LoginTest, LogoutTest, BlockedIpTest, DevicesAdminTest, BlockedIpsAdminTest,
                      WebhookNotificationTest, WebhookNotificationsAdminTest
 ```
 

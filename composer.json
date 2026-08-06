@@ -19,7 +19,8 @@
         "resend/resend-laravel": "^1.4",
         "spatie/laravel-activitylog": "^5.0",
         "spatie/laravel-permission": "^8.0",
-        "spatie/laravel-sluggable": "^4.0"
+        "spatie/laravel-sluggable": "^4.0",
+        "ua-parser/uap-php": "^3.10"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

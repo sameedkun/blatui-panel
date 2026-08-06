@@ -5,6 +5,7 @@ namespace App\Services\Device;
 use App\Enum\ActivityAction;
 use App\Enum\ActivityContext;
 use App\Enum\ActivityModule;
+use App\Enum\DeviceType;
 use App\Exceptions\DeviceBlockedException;
 use App\Exceptions\DeviceLimitExceededException;
 use App\Jobs\Device\ResolveDeviceLocation;
@@ -65,7 +66,7 @@ class DeviceService
             }
 
             if (! $existing || ! $existing->is_active) {
-                $this->assertUnderLimit($user);
+                $this->enforceLimit($user, $data->deviceType);
             }
 
             $attributes = $this->attributesFrom($data, $token, $ip);
@@ -101,13 +102,19 @@ class DeviceService
         return $device;
     }
 
-    public function revoke(UserDevice $device): void
+    /**
+     * $causer, if passed, is recorded as the causer instead of auth() — used
+     * by {@see enforceLimit()} to attribute an auto-eviction to the logging-in
+     * user rather than a null/system causer, since there's no ambient session
+     * yet at that point in the login flow.
+     */
+    public function revoke(UserDevice $device, ?User $causer = null): void
     {
         $device->update(['revoked_at' => now()]);
 
         ActivityLogger::log(ActivityModule::Device, ActivityAction::Revoked, $device, [
             'device_name' => $device->name,
-        ]);
+        ], causer: $causer !== null ? $causer : false);
     }
 
     /**
@@ -241,15 +248,42 @@ class DeviceService
     }
 
     /**
+     * Browser sessions ({@see DeviceType::Web}) have their own concurrent
+     * limit, entirely separate from every other device type ("app" devices —
+     * mobile/tablet/desktop, or unset) — so a phone login and a browser login
+     * never compete for the same allowance. Crossing the app limit rejects
+     * outright (a named/precious device — the user picks what to revoke via
+     * the Devices UI); crossing the browser limit evicts the oldest active
+     * browser session instead, since browser sessions are disposable and
+     * numerous by nature (work computer, home, a kiosk...).
+     *
      * @throws DeviceLimitExceededException
      */
-    private function assertUnderLimit(User $user): void
+    private function enforceLimit(User $user, ?DeviceType $deviceType): void
     {
-        $limit = (int) $user->planFeature('device_limit', config('panel.features.device_limit.default', 1));
-        $activeCount = UserDevice::where('user_id', $user->id)->active()->lockForUpdate()->count();
+        $isBrowser = $deviceType === DeviceType::Web;
 
-        if ($activeCount >= $limit) {
+        $baseQuery = UserDevice::where('user_id', $user->id)->active();
+        $active = ($isBrowser ? $baseQuery->browserType() : $baseQuery->appType())
+            ->lockForUpdate()
+            ->get();
+
+        $limit = $isBrowser
+            ? (int) $user->planFeature('browser_device_limit', config('panel.features.browser_device_limit.default', 15))
+            : (int) $user->planFeature('device_limit', config('panel.features.device_limit.default', 1));
+
+        if ($active->count() < $limit) {
+            return;
+        }
+
+        if (! $isBrowser) {
             throw new DeviceLimitExceededException("Device limit of {$limit} reached.");
+        }
+
+        $oldest = $active->sortBy('last_seen_at')->first();
+
+        if ($oldest !== null) {
+            $this->revoke($oldest, $user);
         }
     }
 

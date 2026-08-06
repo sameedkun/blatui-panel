@@ -241,6 +241,7 @@ return [
 
     'feature_names' => [
         'device_limit' => 'Device Limit',
+        'browser_device_limit' => 'Browser Session Limit',
         'ad_free' => 'Ad Free',
     ],
 

@@ -18,6 +18,7 @@ enum ActivityAction: string
     case Unbanned = 'unbanned';
     case Assigned = 'assigned';
     case Login = 'login';
+    case Logout = 'logout';
     case Failed = 'failed';
     case PasswordReset = 'password_reset';
     case Verified = 'verified';

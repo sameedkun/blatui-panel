@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enum\ActivityAction;
+use App\Enum\ActivityLogName;
 use App\Enum\ActivityModule;
 use App\Enum\DeviceType;
 use App\Enum\UserType;
@@ -16,6 +17,8 @@ use App\Http\Requests\V1\Auth\SignupRequest;
 use App\Http\Resources\V1\UserDeviceResource;
 use App\Http\Resources\V1\UserResource;
 use App\Models\User;
+use App\Models\UserDevice;
+use App\Services\Device\BrowserDeviceResolver;
 use App\Services\Device\DeviceService;
 use App\Support\ActivityLogger;
 use App\Support\DeviceData;
@@ -44,6 +47,7 @@ class AuthController extends ApiController
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => $validated['password'],
+            'registration_date' => now(),
         ]);
 
         // Explicit causer: the account, not auth()->user() — no session
@@ -68,7 +72,7 @@ class AuthController extends ApiController
      * indistinguishable from a wrong password in the response — anything
      * else leaks account existence/type to an unauthenticated caller.
      */
-    public function login(LoginRequest $request, DeviceService $devices): JsonResponse
+    public function login(LoginRequest $request, DeviceService $devices, BrowserDeviceResolver $browserDevices): JsonResponse
     {
         $validated = $request->validated();
         $email = $validated['email'];
@@ -98,7 +102,17 @@ class AuthController extends ApiController
         RateLimiter::clear($throttleKey);
 
         if ($user->trashed()) {
-            return $this->error('This account no longer exists.', Response::HTTP_GONE);
+            return $this->error(
+                'This account has been deleted. If you believe this is a mistake, please contact support.',
+                Response::HTTP_GONE
+            );
+        }
+
+        if ($user->isPendingDeletion() && $user->deletionPurgesAt()->isPast()) {
+            return $this->error(
+                'This account is currently being deleted. Please try again later or contact support.',
+                Response::HTTP_GONE
+            );
         }
 
         if ($user->isBanned()) {
@@ -108,15 +122,20 @@ class AuthController extends ApiController
             ]);
         }
 
-        $token = $user->createToken($validated['device']['name'] ?? 'device');
+        $isBrowser = $request->isBrowserClient();
+
+        // A browser can't produce its own stable fingerprint, so its
+        // DeviceData is resolved server-side (User-Agent + a device_fp
+        // cookie) instead of read from the request payload — see
+        // BrowserDeviceResolver's docblock.
+        $deviceData = $isBrowser
+            ? $browserDevices->resolve($request)
+            : $this->deviceDataFrom($validated['device']);
+
+        $token = $user->createToken($deviceData->name ?? 'device');
 
         try {
-            $device = $devices->register(
-                $user,
-                $this->deviceDataFrom($validated['device']),
-                $token->accessToken,
-                $request->ip(),
-            );
+            $device = $devices->register($user, $deviceData, $token->accessToken, $request->ip());
         } catch (DeviceBlockedException $e) {
             $token->accessToken->delete();
 
@@ -130,7 +149,7 @@ class AuthController extends ApiController
         // Also writes User::last_login — see AuthActivityListener::handleLogin().
         event(new Login('sanctum', $user, false));
 
-        return $this->success([
+        $response = $this->success([
             'user' => new UserResource($user),
             'device' => new UserDeviceResource($device),
             'token' => $token->plainTextToken,
@@ -139,6 +158,62 @@ class AuthController extends ApiController
                 'can_cancel' => $user->canCancelDeletion(),
             ] : null,
         ], 'Login successful.');
+
+        if ($isBrowser) {
+            // Refreshed on every browser login (sliding expiry) so the same
+            // device row keeps getting reused for as long as the browser
+            // keeps coming back, rather than only being set once. Built via
+            // the cookie() helper first, then handed to ->cookie() as a
+            // single Cookie instance — Response::cookie()/withCookie()
+            // forward arguments through func_get_args(), which only works
+            // for positional args; named arguments here would error against
+            // their single-parameter signature.
+            $response->cookie(cookie(
+                name: BrowserDeviceResolver::COOKIE_NAME,
+                value: $deviceData->fingerprint,
+                minutes: 60 * 24 * 365,
+                path: '/',
+                secure: ! app()->isLocal(),
+                httpOnly: true,
+                sameSite: 'lax',
+            ));
+        }
+
+        return $response;
+    }
+
+    /**
+     * Revokes the calling device only — the token used to authenticate this
+     * very request. Reuses DeviceService::revoke() rather than deleting the
+     * token directly, so logout gets the same token-deletion + revoked_at
+     * bookkeeping as an admin-triggered revoke, for free — that call logs
+     * its own Device/Revoked audit row (module Device, subject the device),
+     * same as it does from the admin panel.
+     *
+     * On top of that, logout also logs a second row here: module User,
+     * subject the user, Authentication category, mirroring how login() is
+     * logged — this is what makes "logged out" show up on the user's own
+     * profile Activity tab (Activity::forSubject($user) only matches rows
+     * whose subject is that exact model, so the device-subject row above
+     * alone would never appear there).
+     */
+    public function logout(Request $request, DeviceService $devices): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $device = UserDevice::where('token_id', $user->currentAccessToken()->id)->first();
+
+        if ($device) {
+            $devices->revoke($device, $user);
+
+            ActivityLogger::log(ActivityModule::User, ActivityAction::Logout, $user, [
+                'device_id' => $device->ulid,
+                'device_name' => $device->name,
+            ], causer: $user, logName: ActivityLogName::Authentication);
+        }
+
+        return $this->success(null, 'Logged out successfully.');
     }
 
     /**

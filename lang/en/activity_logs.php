@@ -156,6 +156,7 @@ return [
             'unbanned' => 'Account Unbanned',
             'assigned' => 'Role Assigned',
             'login' => 'Logged In',
+            'logout' => 'Logged Out',
             'failed' => 'Failed Login',
             'password_reset' => 'Password Reset',
             'deletion_requested' => 'Deletion Scheduled',
@@ -191,7 +192,7 @@ return [
         'actions' => [
             'created' => 'Created', 'updated' => 'Updated', 'deleted' => 'Deleted',
             'restored' => 'Restored', 'force_deleted' => 'Force Deleted', 'banned' => 'Banned',
-            'unbanned' => 'Unbanned', 'assigned' => 'Assigned', 'login' => 'Login',
+            'unbanned' => 'Unbanned', 'assigned' => 'Assigned', 'login' => 'Login', 'logout' => 'Logout',
             'failed' => 'Failed', 'password_reset' => 'Password Reset', 'verified' => 'Verified',
             'deletion_requested' => 'Deletion Requested', 'deletion_cancelled' => 'Deletion Cancelled',
             'purged' => 'Purged', 'converted' => 'Converted', 'merged' => 'Merged',

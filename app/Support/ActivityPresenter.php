@@ -260,6 +260,7 @@ class ActivityPresenter
             'unbanned' => 'shield-check',
             'assigned' => 'key',
             'login' => 'log-in',
+            'logout' => 'log-out',
             'failed' => 'triangle-alert',
             'deletion_requested' => 'clock',
             'deletion_cancelled' => 'circle-check',
@@ -322,7 +323,7 @@ class ActivityPresenter
             'deleted', 'force_deleted', 'purged', 'banned', 'setting_domain_deleted', 'plan_deleted',
             'subscription_cancelled', 'subscription_expired', 'ticket_category_deleted',
             'device_blocked', 'blocked_ip_created' => 'danger',
-            'device_unblocked', 'device_revoked', 'blocked_ip_deleted' => 'warning',
+            'logout', 'device_unblocked', 'device_revoked', 'blocked_ip_deleted' => 'warning',
             'blocked_ip_updated', 'webhook_notification_redispatched' => 'info',
             default => 'muted',
         };
@@ -383,7 +384,7 @@ class ActivityPresenter
         $rows = [];
 
         // Self-evident for auth events — never worth a "Performed by" row.
-        if (! in_array($kind, ['login', 'failed'], true)) {
+        if (! in_array($kind, ['login', 'logout', 'failed'], true)) {
             $performedByLabel = str_starts_with($kind, 'ticket_')
                 ? __('tickets.activity.performed_by')
                 : __('activity_logs.fields.performed_by');
@@ -398,6 +399,9 @@ class ActivityPresenter
             'failed' => [
                 self::row(__('activity_logs.fields.reason'), $properties['reason'] ?? __('activity_logs.values.invalid_credentials')),
                 self::row(__('activity_logs.fields.ip'), $properties['ip'] ?? null),
+            ],
+            'logout' => [
+                self::row(__('activity_logs.fields.device'), $properties['device_name'] ?? null),
             ],
             'banned' => [
                 self::row(__('activity_logs.fields.reason'), $properties['ban_reason'] ?? null),

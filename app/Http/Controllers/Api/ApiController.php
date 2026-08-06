@@ -25,11 +25,16 @@ abstract class ApiController extends Controller
         string $message = 'Success',
         int $code = Response::HTTP_OK
     ): JsonResponse {
-        return response()->json([
+        $payload = [
             'status' => true,
             'message' => $message,
-            'data' => $data,
-        ], $code);
+        ];
+
+        if ($data !== null) {
+            $payload['data'] = $data;
+        }
+
+        return response()->json($payload, $code);
     }
 
     public static function created(

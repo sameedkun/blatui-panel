@@ -94,7 +94,7 @@ return [
             'restored' => 'Hesap Geri Yüklendi', 'force_deleted' => 'Hesap Kalıcı Olarak Silindi',
             'purged' => 'Hesap Kalıcı Olarak Silindi', 'banned' => 'Hesap Engellendi',
             'unbanned' => 'Hesap Engeli Kaldırıldı', 'assigned' => 'Rol Atandı',
-            'login' => 'Giriş Yapıldı', 'failed' => 'Başarısız Giriş',
+            'login' => 'Giriş Yapıldı', 'logout' => 'Çıkış Yapıldı', 'failed' => 'Başarısız Giriş',
             'password_reset' => 'Parola Sıfırlandı', 'deletion_requested' => 'Silme Planlandı',
             'deletion_cancelled' => 'Silme İptal Edildi', 'converted' => 'Uygulama Kullanıcısına Dönüştürüldü',
             'merged' => 'Başka Bir Hesapla Birleştirildi', 'setting_smtp' => 'SMTP Ayarları Güncellendi',
@@ -116,7 +116,7 @@ return [
         'actions' => [
             'created' => 'Oluşturuldu', 'updated' => 'Güncellendi', 'deleted' => 'Silindi',
             'restored' => 'Geri Yüklendi', 'force_deleted' => 'Kalıcı Olarak Silindi', 'banned' => 'Engellendi',
-            'unbanned' => 'Engeli Kaldırıldı', 'assigned' => 'Atandı', 'login' => 'Giriş',
+            'unbanned' => 'Engeli Kaldırıldı', 'assigned' => 'Atandı', 'login' => 'Giriş', 'logout' => 'Çıkış',
             'failed' => 'Başarısız', 'password_reset' => 'Parola Sıfırlandı', 'verified' => 'Doğrulandı',
             'deletion_requested' => 'Silme İstendi', 'deletion_cancelled' => 'Silme İptal Edildi',
             'purged' => 'Temizlendi', 'converted' => 'Dönüştürüldü', 'merged' => 'Birleştirildi',

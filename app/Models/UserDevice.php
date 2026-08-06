@@ -123,6 +123,18 @@ class UserDevice extends Model
         return $query->whereNotNull('blocked_at');
     }
 
+    /** Browser sessions — their own device-limit bucket, separate from app devices. */
+    public function scopeBrowserType(Builder $query): Builder
+    {
+        return $query->where('device_type', DeviceType::Web);
+    }
+
+    /** Everything that isn't a browser session (mobile/tablet/desktop, or unset). */
+    public function scopeAppType(Builder $query): Builder
+    {
+        return $query->where(fn (Builder $q) => $q->where('device_type', '!=', DeviceType::Web)->orWhereNull('device_type'));
+    }
+
     protected function isActive(): Attribute
     {
         return Attribute::make(

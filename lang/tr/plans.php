@@ -241,6 +241,7 @@ return [
 
     'feature_names' => [
         'device_limit' => 'Cihaz Limiti',
+        'browser_device_limit' => 'Tarayıcı Oturum Limiti',
         'ad_free' => 'Reklamsız',
     ],
 

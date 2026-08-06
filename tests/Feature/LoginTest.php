@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Enum\DeviceType;
+use App\Models\Plan;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Models\UserDevice;
 use App\Services\Device\DeviceService;
@@ -143,6 +146,17 @@ class LoginTest extends TestCase
     public function test_login_rejects_past_the_device_limit_without_issuing_a_working_token(): void
     {
         $user = $this->makeUser();
+
+        // Pinned via an explicit subscription rather than relying on
+        // config('panel.features.device_limit.default') — that default is a
+        // product/pricing decision that can change independently of this
+        // security behavior.
+        $plan = Plan::factory()->create(['features' => ['device_limit' => 1]]);
+        Subscription::factory()->for($user)->for($plan)->create([
+            'status' => 'active',
+            'ends_at' => now()->addMonth(),
+        ]);
+
         $this->registerDevice($user, 'already-active-device');
 
         $tokensBefore = $user->tokens()->count();
@@ -168,6 +182,62 @@ class LoginTest extends TestCase
         $this->postJson('/api/v1/login', $this->payload())
             ->assertStatus(429)
             ->assertJson(['status' => false]);
+    }
+
+    public function test_browser_login_succeeds_without_a_device_payload_and_issues_a_device_cookie(): void
+    {
+        $user = $this->makeUser();
+
+        $response = $this->withHeader('X-Client-Type', 'web')
+            ->withHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36')
+            ->postJson('/api/v1/login', ['email' => 'jane@example.com', 'password' => 'a-real-password'])
+            ->assertOk();
+
+        $device = UserDevice::where('user_id', $user->id)->firstOrFail();
+        $this->assertSame(DeviceType::Web, $device->device_type);
+        $this->assertStringContainsString('Chrome', (string) $device->name);
+
+        $cookie = $response->getCookie('device_fp', decrypt: false);
+        $this->assertNotNull($cookie);
+        $this->assertSame(hash('sha256', $cookie->getValue()), $device->device_fingerprint);
+    }
+
+    public function test_browser_login_reuses_the_same_device_on_a_repeat_visit_via_the_cookie(): void
+    {
+        $user = $this->makeUser();
+        $headers = ['X-Client-Type' => 'web', 'User-Agent' => 'Mozilla/5.0 Chrome/120.0'];
+        $credentials = ['email' => 'jane@example.com', 'password' => 'a-real-password'];
+
+        $first = $this->withHeaders($headers)->postJson('/api/v1/login', $credentials)->assertOk();
+        $fingerprint = $first->getCookie('device_fp', decrypt: false)->getValue();
+
+        // withCredentials() — postJson()'s cookie jar is empty by default
+        // (mirrors a real fetch() without credentials: 'include'), so the
+        // cookie set above would otherwise be silently dropped on send.
+        // withUnencryptedCookie, not withCookie — the api middleware group
+        // carries no EncryptCookies, so device_fp round-trips as a plain
+        // value in production; withCookie() would simulate Laravel's normal
+        // encrypted-cookie convention instead, which nothing here decrypts.
+        $this->withCredentials()
+            ->withHeaders($headers)
+            ->withUnencryptedCookie('device_fp', $fingerprint)
+            ->postJson('/api/v1/login', $credentials)
+            ->assertOk();
+
+        $this->assertSame(1, UserDevice::where('user_id', $user->id)->count());
+    }
+
+    public function test_browser_device_limit_is_separate_from_the_app_device_limit(): void
+    {
+        $user = $this->makeUser();
+        $this->registerDevice($user, 'phone-fingerprint'); // fills the default app limit of 1
+
+        // A browser login must still succeed — it doesn't compete with the app bucket.
+        $this->withHeader('X-Client-Type', 'web')
+            ->postJson('/api/v1/login', ['email' => 'jane@example.com', 'password' => 'a-real-password'])
+            ->assertOk();
+
+        $this->assertSame(2, UserDevice::where('user_id', $user->id)->active()->count());
     }
 
     /**

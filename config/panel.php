@@ -408,7 +408,17 @@ return [
         'device_limit' => [
             'name' => 'Device Limit',
             'type' => 'integer',
-            'default' => 1,
+            'default' => 3,
+        ],
+        // Separate from device_limit: browser sessions (DeviceType::Web) are
+        // disposable/numerous by nature (work computer, home, a kiosk...) and
+        // don't compete with the user's app-device allowance. Crossing this
+        // one evicts the oldest browser session instead of rejecting the
+        // login — see DeviceService::enforceLimit().
+        'browser_device_limit' => [
+            'name' => 'Browser Session Limit',
+            'type' => 'integer',
+            'default' => 15,
         ],
         'ad_free' => [
             'name' => 'Ad Free',

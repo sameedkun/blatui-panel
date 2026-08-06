@@ -4,14 +4,19 @@ namespace App\Support;
 
 use App\Enum\DeviceType;
 use App\Jobs\Device\ResolveDeviceLocation;
+use App\Services\Device\BrowserDeviceResolver;
 use App\Services\Device\DeviceService;
 
 /**
- * Client-supplied device payload passed into {@see DeviceService::register()}.
- * `fingerprint` is the raw client value — the service hashes it before it ever
- * touches the database (see design decision: fingerprints are stored hashed,
- * never in plaintext). Deliberately carries no location fields — city/country/
- * country_code are always resolved server-side from the request IP (see
+ * Device payload passed into {@see DeviceService::register()} — either the
+ * client-supplied `device.*` request payload (native apps) or built
+ * server-side by {@see BrowserDeviceResolver} from the
+ * User-Agent + a server-issued cookie (browsers, which can't produce a
+ * stable fingerprint themselves). `fingerprint` is always the raw value
+ * either way — the service hashes it before it ever touches the database
+ * (see design decision: fingerprints are stored hashed, never in plaintext).
+ * Deliberately carries no location fields — city/country/country_code are
+ * always resolved server-side from the request IP (see
  * {@see ResolveDeviceLocation}), never trusted from the client.
  */
 final readonly class DeviceData

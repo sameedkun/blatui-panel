@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enum\DeviceType;
 use App\Exceptions\DeviceBlockedException;
 use App\Exceptions\DeviceLimitExceededException;
 use App\Jobs\Device\ResolveDeviceLocation;
@@ -42,9 +43,29 @@ class DeviceServiceTest extends TestCase
         );
     }
 
+    private function registerBrowser(User $user, string $fingerprint, ?PersonalAccessToken $token = null): UserDevice
+    {
+        return $this->service()->register(
+            $user,
+            new DeviceData(fingerprint: $fingerprint, deviceType: DeviceType::Web),
+            $token ?? $this->tokenFor($user),
+            '127.0.0.1',
+        );
+    }
+
     private function subscribeWithDeviceLimit(User $user, int $limit): void
     {
-        $plan = Plan::factory()->create(['features' => ['device_limit' => $limit]]);
+        $this->subscribeWithLimits($user, deviceLimit: $limit);
+    }
+
+    private function subscribeWithLimits(User $user, ?int $deviceLimit = null, ?int $browserDeviceLimit = null): void
+    {
+        $features = array_filter([
+            'device_limit' => $deviceLimit,
+            'browser_device_limit' => $browserDeviceLimit,
+        ], fn (?int $v): bool => $v !== null);
+
+        $plan = Plan::factory()->create(['features' => $features]);
 
         Subscription::factory()->for($user)->for($plan)->create([
             'status' => 'active',
@@ -83,6 +104,39 @@ class DeviceServiceTest extends TestCase
         $this->expectException(DeviceLimitExceededException::class);
 
         $this->register($user, 'device-c');
+    }
+
+    public function test_browser_device_limit_is_enforced_separately_from_the_app_device_limit(): void
+    {
+        $user = User::factory()->app()->create();
+        $this->subscribeWithLimits($user, deviceLimit: 1, browserDeviceLimit: 1);
+
+        $this->register($user, 'phone'); // fills the app bucket
+
+        // The browser bucket is untouched by the app device above, so this
+        // must succeed even though the account is already "at its limit".
+        $browser = $this->registerBrowser($user, 'chrome-on-windows');
+
+        $this->assertSame(DeviceType::Web, $browser->device_type);
+        $this->assertSame(2, UserDevice::where('user_id', $user->id)->active()->count());
+    }
+
+    public function test_browser_device_limit_overflow_evicts_the_oldest_browser_session_instead_of_rejecting(): void
+    {
+        $user = User::factory()->app()->create();
+        $this->subscribeWithLimits($user, browserDeviceLimit: 2);
+
+        $oldest = $this->registerBrowser($user, 'browser-a');
+        $oldest->forceFill(['last_seen_at' => now()->subDay()])->saveQuietly();
+        $newer = $this->registerBrowser($user, 'browser-b');
+
+        // Crossing the limit must not throw — it evicts $oldest instead.
+        $third = $this->registerBrowser($user, 'browser-c');
+
+        $this->assertNotNull($oldest->fresh()->revoked_at);
+        $this->assertNull($newer->fresh()->revoked_at);
+        $this->assertNull($third->fresh()->revoked_at);
+        $this->assertSame(2, UserDevice::where('user_id', $user->id)->active()->browserType()->count());
     }
 
     public function test_relogin_on_existing_fingerprint_reuses_the_row_and_swaps_the_token(): void
