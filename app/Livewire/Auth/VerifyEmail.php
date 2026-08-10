@@ -17,12 +17,12 @@ class VerifyEmail extends Component
 
     public User $user;
 
-    public function mount(int $id, string $hash): void
+    public function mount(string $id, string $hash): void
     {
         /** @var User $user */
-        $this->user = Auth::user() ?: User::findOrFail($id);
+        $this->user = Auth::user() ?: User::where('external_id', $id)->firstOrFail();
 
-        abort_if(! $this->user || (int) $this->user->getKey() !== $id, 403);
+        abort_if(! $this->user || $this->user->external_id !== $id, 403);
         abort_unless(hash_equals(sha1($this->user->getEmailForVerification()), $hash), 403);
 
         if ($this->user->hasVerifiedEmail()) {

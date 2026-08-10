@@ -7,8 +7,6 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
 
-use function Illuminate\Log\log;
-
 /**
  * Resolves authentication URLs (email verification, password reset) for a user,
  * auto-detecting panel vs frontend from `panel.auth_url_mode`:
@@ -19,48 +17,61 @@ use function Illuminate\Log\log;
 class UrlResolver
 {
     /**
-     * Signed email verification URL. Panel and frontend share the same
-     * {id}/{hash} signature shape, just under different route names — always
-     * a real signed route via URL::temporarySignedRoute(), never a hand-rolled
-     * HMAC. Falls back to the panel route (and the panel's own base URL) if
-     * the frontend/API one isn't registered yet.
+     * Registered by routes/api/v1.php's guest group as `->name('verification.verify')` —
+     * grazulex/laravel-apiroute auto-prefixes every route name in that file with
+     * `api.v1.` (config/apiroute.php), so the name actually registered (and checked/
+     * generated against here) is this, not the bare `verification.verify` the file
+     * itself passes to ->name().
+     */
+    private const API_VERIFICATION_ROUTE = 'api.v1.verification.verify';
+
+    /**
+     * Signed email verification URL. Both the panel and frontend/API branches
+     * key on `User::external_id` (a ULID) rather than the raw numeric PK — a
+     * link that leaves the server (even staff-only) shouldn't expose a
+     * sequential, enumerable id.
      */
     public function verificationUrl(User $user): string
     {
-        $parameters = [
-            'id' => $user->getKey(),
-            'hash' => sha1($user->getEmailForVerification()),
-        ];
+        $hash = sha1($user->getEmailForVerification());
 
-        if ($this->shouldUsePanel($user) || ! Route::has('api.verification.verify')) {
-            return URL::temporarySignedRoute('verification.verify', now()->addMinutes(60), $parameters);
+        if ($this->shouldUsePanel($user) || ! Route::has(self::API_VERIFICATION_ROUTE)) {
+            return URL::temporarySignedRoute('verification.verify', now()->addMinutes(60), [
+                'id' => $user->external_id,
+                'hash' => $hash,
+            ]);
         }
 
-        // The frontend/API route lives on a different host (e.g. domain.com rather than
-        // panel.domain.com) — force the signed URL to be generated against that base.
-        return $this->signedRouteOn(config('panel.frontend_url'), 'api.verification.verify', $parameters);
+        return $this->frontendVerificationUrl($user->external_id, $hash);
     }
 
     /**
-     * Generate a temporary signed route URL rooted at a specific base URL
-     * rather than the app's own APP_URL.
+     * Laravel's signed-URL check (UrlGenerator::hasCorrectSignature()) always
+     * validates against the *receiving* request's own absolute URL — a
+     * signature generated against one host can never validate once relayed to
+     * a different one. So the signature here is always generated against
+     * THIS app's own real API host (never the frontend's, unlike the old
+     * behavior) via a plain, un-rerooted temporarySignedRoute() call.
      *
-     * @param  array<string, mixed>  $parameters
+     * The link shown to the user still points at the frontend — a real page
+     * for the click to land on rather than a bare JSON response — but it's
+     * just a carrier for the API's own already-valid id/hash/expires/
+     * signature as query params. The frontend's job is to read those four
+     * values off its own URL and relay them, unmodified, to
+     * GET {api}/api/v1/email/verify/{id}/{hash}?expires=...&signature=....
      */
-    protected function signedRouteOn(string $baseUrl, string $routeName, array $parameters): string
+    protected function frontendVerificationUrl(string $externalId, string $hash): string
     {
-        $baseUrl = rtrim($baseUrl, '/');
-        $scheme = str_starts_with($baseUrl, 'https://') ? 'https' : 'http';
+        $apiUrl = URL::temporarySignedRoute(self::API_VERIFICATION_ROUTE, now()->addMinutes(60), [
+            'id' => $externalId,
+            'hash' => $hash,
+        ]);
 
-        URL::useOrigin($baseUrl);
-        URL::forceScheme($scheme);
+        parse_str((string) parse_url($apiUrl, PHP_URL_QUERY), $query);
 
-        try {
-            return URL::temporarySignedRoute($routeName, now()->addMinutes(60), $parameters);
-        } finally {
-            URL::useOrigin(null);
-            URL::forceScheme(null);
-        }
+        $baseUrl = rtrim(config('panel.frontend_url'), '/');
+
+        return "{$baseUrl}/email/verify?".http_build_query(['id' => $externalId, 'hash' => $hash] + $query);
     }
 
     /**

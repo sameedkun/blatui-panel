@@ -717,6 +717,83 @@ identical (same disk, same audit shape) even though one is Blade+Livewire and th
   password confirmation, and this API has no equivalent endpoint yet (`DeviceService::revokeAll()`
   would back one if it's ever added).
 
+**`App\Http\Controllers\Api\V1\VerificationController`** and **`PasswordController`** are the
+guest-only counterparts to `AuthController` — kept as their own classes rather than folded into
+it so that one controller doesn't grow to cover every auth-adjacent concern. All four actions sit
+inside `routes/api/v1.php`'s existing `Route::middleware('guest')->group()`, alongside
+signup/login:
+- **`VerificationController::verify(string $id, string $hash)`** (`GET
+  /api/v1/email/verify/{id}/{hash}`, `signed` + `throttle:6,1`, named `verification.verify` — see
+  the route-naming note below) — copies `Livewire\Auth\VerifyEmail::mount()`'s logic exactly
+  (including that component's own matching switch to `User::external_id`, a ULID, instead of the
+  raw numeric PK — a link that leaves the server, even a staff-only one, shouldn't expose a
+  sequential, enumerable id). `User::where('external_id', $id)->firstOrFail()`,
+  `hash_equals(sha1(...), $hash)` or 403, no-op if already verified, else `markEmailAsVerified()` +
+  manually fired `Illuminate\Auth\Events\Verified` (the plain `MustVerifyEmail` trait doesn't fire
+  it itself — only Laravel's stock `VerifyEmailController` does that, which this app doesn't use).
+  `AuthActivityListener::handleVerified()` already logs this for free. Never sits behind
+  `auth:sanctum` — this runs before any Sanctum token exists (signup issues none), so the signed
+  `{id}/{hash}` pair is the only proof of identity.
+  - **Route-naming gotcha**: `App\Services\Auth\UrlResolver::verificationUrl()` needs to generate
+    (and check `Route::has()` against) this route's exact registered name. Every route inside
+    `routes/api/v1.php` gets auto-prefixed `api.v1.` by `grazulex/laravel-apiroute`
+    (`config/apiroute.php`'s `'name' => 'api.v1.'`) — that prefix can't be escaped from inside the
+    file — so `->name('verification.verify')` here actually registers as
+    `api.v1.verification.verify`. `UrlResolver::API_VERIFICATION_ROUTE` is the one place that
+    string is pinned; if this route's `->name(...)` call or its file ever changes, that constant
+    has to move with it. Since this route is now permanently registered, `UrlResolver`'s old
+    "route doesn't exist yet, fall back to the panel" branch is effectively dead for this app (it
+    remains as a defensive fallback, not a reachable path) — an app user's verification/reset
+    emails now genuinely point at this JSON endpoint whenever a distinct `FRONTEND_URL` is
+    configured (see `UrlResolverTest`, updated accordingly).
+  - **Cross-origin signature gotcha**: Laravel's signed-URL check
+    (`UrlGenerator::hasCorrectSignature()`) always validates against the *receiving* request's own
+    absolute URL — a signature generated against one host can never validate once relayed to a
+    different one. `UrlResolver::frontendVerificationUrl()` therefore always signs against THIS
+    app's own real API host via a plain, un-rerooted `temporarySignedRoute()` call — never against
+    `panel.frontend_url` (an earlier version of this method forced the signature onto the
+    frontend's origin via `URL::useOrigin()`, which meant the signature could never validate once
+    an API consumer actually hit the real backend — every verification attempt 403'd with an
+    invalid-signature error). The link shown to the user still points at the frontend (a real page
+    for the click to land on, not a bare JSON response) — it's just a carrier for the API's own
+    already-valid `id`/`hash`/`expires`/`signature` as query params
+    (`{frontend_url}/email/verify?id=...&hash=...&expires=...&signature=...`). **The frontend's own
+    responsibility** (not yet built, per "What this is" above) is to read those four values off its
+    own URL and relay them, unmodified, to `GET {api}/api/v1/email/verify/{id}/{hash}?expires=
+    ...&signature=...` — `id`/`hash` move from query params back into path segments to match this
+    route's own shape; only `expires`/`signature` stay as query params on both.
+- **`VerificationController::resend()`** (`POST /api/v1/email/resend`, `throttle:6,1`) — looks up
+  `User::where('email', ...)->where('type', UserType::App)`; if found and not yet verified,
+  `sendEmailVerificationNotification()` (already routes through `UrlResolver` via the model's
+  existing override) and logs `ActivityModule::User`/`ActivityAction::Sent`/`type:
+  email_verification` with `causer: $user`, mirroring `Users/Show::resendVerificationEmail()`'s
+  admin-triggered shape. Always the same generic response regardless of whether the account
+  exists, is already verified, or is staff/guest — never leaks account existence to a guest caller.
+- **`PasswordController::forgot()`** (`POST /api/v1/password/forgot`, `throttle:6,1`) —
+  `Password::sendResetLink(['email' => ..., 'type' => UserType::App->value])`. The extra `type`
+  credential scopes the broker's lookup at the query level (`EloquentUserProvider::
+  retrieveByCredentials()` `where()`s every non-`password*` credential key), so staff/guest
+  accounts can never get a reset link through this guest endpoint. Same generic response
+  regardless of the broker's actual status constant (don't leak "no such user" vs "throttled" —
+  the broker's own built-in per-email 60s throttle, `config('auth.passwords.users.throttle')`,
+  already covers repeat-send abuse for free). Logs `ActivityModule::User`/`ActivityAction::Sent`/
+  `type: password_reset` only when a link was actually sent, mirroring
+  `Users/Show::sendPasswordResetLink()`'s admin-triggered shape.
+- **`PasswordController::reset()`** (`POST /api/v1/password/reset`, `throttle:6,1`) — `email`
+  arrives `Crypt::encryptString()`'d exactly as `UrlResolver::passwordResetUrl()` put it in the
+  link's query string (its docblock: "any future API endpoint must do the same" as the panel's
+  `PasswordReset` Livewire component, which decrypts it in `mount()`) — decrypted here via
+  `Crypt::decryptString()` before being handed to the broker; an undecryptable payload is just
+  another generic error, not a distinct exception path. Otherwise copies
+  `Livewire\Auth\PasswordReset::resetPassword()`'s broker call and closure exactly
+  (`forceFill(['password' => ..., 'remember_token' => Str::random(60)])->save()` + manually fired
+  `Illuminate\Auth\Events\PasswordReset`), so a reset via the API is indistinguishable in the audit
+  trail from one via the panel page — `AuthActivityListener::handlePasswordReset()` logs it, and
+  `App\Listeners\TouchPasswordChangedAt` (a separate listener on the same event) bumps
+  `password_changed_at` for free, no explicit assignment needed here. Any non-success broker status
+  (invalid user, invalid/expired token) collapses to one generic 422 — never the broker's raw,
+  enumerating message.
+
 **Admin panel** (`app/Livewire/Admin/Management/{Devices,BlockedIps}/`): `Devices/Index` is the
 global, filterable device list (`admin.devices.index`, shows a User column) — a normal
 route-bound component like every other Index page in this app, not a nested/embedded one.
@@ -837,7 +914,8 @@ Only `v1` exists today (`status => 'active'`).
 - `routes/web.php` requires `auth.php` then `admin.php`.
 - `routes/auth.php` — `GET /login` (guest-only), `GET /logout`; plus two self-service pages:
   `GET /verify-email/{id}/{hash}` (`verification.verify`, `auth+signed+throttle:6,1` — staff clicking
-  the emailed link verifies in place) and `GET /reset-password/{token}` (`password.reset`,
+  the emailed link verifies in place; `{id}` is `User::external_id`, not the raw PK, matching the
+  API route's own convention — see below) and `GET /reset-password/{token}` (`password.reset`,
   guest-only — sets a new password given a valid broker token; there's no "request a link" page,
   a reset link is only ever sent by the system, e.g. via `Password::sendResetLink()`). These are
   the exact route names `App\Services\Auth\UrlResolver` looks for when building notification URLs,
@@ -886,7 +964,10 @@ Only `v1` exists today (`status => 'active'`).
   (`AuthController`) sit outside that group, wrapped in their own `Route::middleware('guest')`
   group as this file's guest routes — `login` additionally carries its own `throttle:10,1`
   middleware (see "Device Management & IP Blocking" above for the full login security write-up).
-  `CheckBlockedIp` isn't route-level — it's
+  That same guest group also holds `GET /api/v1/email/verify/{id}/{hash}`, `POST
+  /api/v1/email/resend`, `POST /api/v1/password/forgot`, `POST /api/v1/password/reset`
+  (`VerificationController`/`PasswordController`, see above; all four carry `throttle:6,1`, and
+  the verify route additionally `signed`). `CheckBlockedIp` isn't route-level — it's
   prepended to the whole `api` middleware group in `bootstrap/app.php` instead, since it has to run
   before `auth:sanctum` resolves the user (and laravel-apiroute's own version-registered routes
   explicitly include the `api` group, so this still applies to them).
@@ -924,9 +1005,11 @@ app/
                    Api/V1/DeviceController.php  self-service list/revoke own devices
                    Api/V1/AuthController.php    signup + login + logout (rate limiting, ban/trashed/device checks — see "Device Management & IP Blocking")
                    Api/V1/ProfileController.php self-service profile — show/update/updatePassword (see "REST API" above)
+                   Api/V1/VerificationController.php  guest verify/resend (see "REST API" above)
+                   Api/V1/PasswordController.php      guest forgot/reset (see "REST API" above)
   Http/Middleware/ EnsurePanelAccess (alias: panel), EnsureDeviceIsValid (alias: device.valid),
                    CheckBlockedIp (prepended to the global `api` middleware group)
-  Http/Requests/V1/Auth/{SignupRequest,LoginRequest}.php
+  Http/Requests/V1/Auth/{SignupRequest,LoginRequest,ResendVerificationRequest,ForgotPasswordRequest,ResetPasswordRequest}.php
   Http/Requests/V1/User/{UpdateProfileRequest,UpdatePasswordRequest}.php
   Http/Resources/V1/{UserDeviceResource,UserResource}.php
   Jobs/            Account/PurgeExpiredAccounts, Activity/ExportActivityLog,
@@ -999,7 +1082,7 @@ resources/
   css/blatui.css             design tokens (CSS vars on :root/.dark/[data-*])
 tests/
   Feature/           organized by delivery boundary:
-    Api/              Authentication, Devices, Exceptions, Security
+    Api/              Authentication, Devices, Exceptions, Profile, Security
     Admin/            Activity, Accounts/{Guests,Users}, Devices, Feedback, Languages,
                      Notifications, Plans, Settings, Staff, Support, Webhooks
     Auth/             panel authentication flows

@@ -14,7 +14,7 @@ class VerifyEmailTest extends TestCase
     private function signedVerifyUrl(User $user, ?string $hash = null): string
     {
         return URL::temporarySignedRoute('verification.verify', now()->addMinutes(60), [
-            'id' => $user->getKey(),
+            'id' => $user->external_id,
             'hash' => $hash ?? sha1($user->getEmailForVerification()),
         ]);
     }

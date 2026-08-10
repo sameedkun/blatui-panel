@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\DeviceController;
+use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\VerificationController;
 use Illuminate\Support\Facades\Route;
 
 // Registered under the api/v1 prefix by config/apiroute.php's "v1" version
@@ -14,6 +16,22 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])
         ->middleware('throttle:10,1')
         ->name('login');
+
+    Route::get('/email/verify/{id}/{hash}', [VerificationController::class, 'verify'])
+        ->middleware(['signed', 'throttle:6,1'])
+        ->name('verification.verify');
+
+    Route::post('/email/resend', [VerificationController::class, 'resend'])
+        ->middleware('throttle:6,1')
+        ->name('verification.resend');
+
+    Route::post('/password/forgot', [PasswordController::class, 'forgot'])
+        ->middleware('throttle:6,1')
+        ->name('password.forgot');
+
+    Route::post('/password/reset', [PasswordController::class, 'reset'])
+        ->middleware('throttle:6,1')
+        ->name('password.reset');
 });
 
 Route::middleware(['auth:sanctum', 'device.valid'])->group(function (): void {

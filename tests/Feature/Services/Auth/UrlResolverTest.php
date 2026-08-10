@@ -38,7 +38,7 @@ class UrlResolverTest extends TestCase
         $verificationUrl = $resolver->verificationUrl($staff);
         $resetUrl = $resolver->passwordResetUrl($staff, 'panel-token');
 
-        $this->assertStringContainsString('verify-email/'.$staff->id, $verificationUrl);
+        $this->assertStringContainsString('verify-email/'.$staff->external_id, $verificationUrl);
         $this->assertStringContainsString('signature=', $verificationUrl);
 
         $this->assertStringContainsString('reset-password/panel-token', $resetUrl);
@@ -57,23 +57,29 @@ class UrlResolverTest extends TestCase
         $verificationUrl = $resolver->verificationUrl($appUser);
         $resetUrl = $resolver->passwordResetUrl($appUser, 'app-token');
 
-        $this->assertStringContainsString('verify-email/'.$appUser->id, $verificationUrl);
+        $this->assertStringContainsString('verify-email/'.$appUser->external_id, $verificationUrl);
         $this->assertStringContainsString('signature=', $verificationUrl);
 
         $this->assertStringContainsString('reset-password/app-token', $resetUrl);
         $this->assertSame($appUser->email, Crypt::decryptString($this->queryParam($resetUrl, 'email')));
     }
 
-    public function test_app_users_get_frontend_urls_in_auto_mode_and_fall_back_when_the_api_route_is_missing(): void
+    public function test_app_users_get_frontend_urls_in_auto_mode_when_a_distinct_frontend_is_configured(): void
     {
+        // routes/api/v1.php registers the real `api.v1.verification.verify` route
+        // for every request (including tests), so there's no "route missing"
+        // fallback to exercise here anymore — an app user with a distinct
+        // frontend configured gets routed straight to it.
         config(['panel.auth_url_mode' => 'auto', 'panel.frontend_url' => 'https://quixure.com']);
 
         $appUser = User::factory()->create(['type' => 'app']);
         $resolver = new UrlResolver;
 
-        // No `api.verification.verify` route registered yet — gracefully falls back to the panel route.
         $verificationUrl = $resolver->verificationUrl($appUser);
-        $this->assertStringContainsString('verify-email/'.$appUser->id, $verificationUrl);
+        // A frontend-hosted landing page (query-param shape), never the raw
+        // API route — and keyed by external_id, never the numeric PK.
+        $this->assertStringStartsWith('https://quixure.com/email/verify?', $verificationUrl);
+        $this->assertSame($appUser->external_id, $this->queryParam($verificationUrl, 'id'));
         $this->assertStringContainsString('signature=', $verificationUrl);
 
         $resetUrl = $resolver->passwordResetUrl($appUser, 'app-token');
@@ -82,14 +88,8 @@ class UrlResolverTest extends TestCase
         $this->assertSame($appUser->email, Crypt::decryptString($this->queryParam($resetUrl, 'email')));
     }
 
-    public function test_verification_uses_the_dedicated_api_route_once_it_exists(): void
+    public function test_verification_uses_the_dedicated_api_route_in_explicit_frontend_mode(): void
     {
-        Route::get('/email/verify/{id}/{hash}', fn () => null)->name('api.verification.verify');
-
-        // Route names are only indexed once at boot; refresh the lookup table so this
-        // freshly-named test route is actually resolvable by Route::has()/route().
-        app('router')->getRoutes()->refreshNameLookups();
-
         config(['panel.auth_url_mode' => 'frontend', 'panel.frontend_url' => 'https://quixure.com']);
 
         $appUser = User::factory()->create(['type' => 'app']);
@@ -97,7 +97,8 @@ class UrlResolverTest extends TestCase
 
         $verificationUrl = $resolver->verificationUrl($appUser);
 
-        $this->assertStringStartsWith('https://quixure.com/email/verify/'.$appUser->id, $verificationUrl);
+        $this->assertStringStartsWith('https://quixure.com/email/verify?', $verificationUrl);
+        $this->assertSame($appUser->external_id, $this->queryParam($verificationUrl, 'id'));
         $this->assertStringContainsString('signature=', $verificationUrl);
     }
 
@@ -110,6 +111,6 @@ class UrlResolverTest extends TestCase
 
         $verificationUrl = $resolver->verificationUrl($appUser);
 
-        $this->assertStringContainsString('verify-email/'.$appUser->id, $verificationUrl);
+        $this->assertStringContainsString('verify-email/'.$appUser->external_id, $verificationUrl);
     }
 }

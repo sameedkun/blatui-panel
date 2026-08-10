@@ -165,7 +165,11 @@ class MailConfiguratorTest extends TestCase
         $this->assertSame('login@auth.test', $resetMail->from[0]['address']);
         $this->assertSame('Login System', $resetMail->from[0]['name']);
 
-        $this->assertStringContainsString('verify-email', $verifyMail->render());
+        // The app user created above (type "app", distinct FRONTEND_URL configured
+        // in this test env) resolves through UrlResolver's frontend/API branch —
+        // the dedicated api.v1.verification.verify route (see routes/api/v1.php)
+        // now that it's registered, not the old panel /verify-email/{id}/{hash} page.
+        $this->assertStringContainsString('email/verify', $verifyMail->render());
         $this->assertStringContainsString('reset-password', $resetMail->render());
     }
 
