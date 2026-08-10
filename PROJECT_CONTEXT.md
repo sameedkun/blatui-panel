@@ -412,7 +412,7 @@ mutation endpoints exist here yet (assign/cancel/reactivate is still admin-panel
 `SubscriptionService`). `current()` (`GET /api/v1/subscription`) returns `$user
 ->activeSubscription()` (same definition `HasSubscriptions` already uses) wrapped in
 `SubscriptionResource`, or `{"subscription": null}` when there isn't one. `history()` (`GET
-/api/v1/subscriptions`) returns every subscription the user has ever had, newest `starts_at`
+/api/v1/subscription/history`) returns every subscription the user has ever had, newest `starts_at`
 first, unpaginated (mirroring `DeviceController::index()` — this app has no paginated JSON list
 endpoint yet). `App\Http\Resources\V1\{SubscriptionResource,PlanResource,PlanPriceResource}`
 back both actions; `SubscriptionResource` nests `plan`/`price` via `whenLoaded()`, so both
@@ -528,9 +528,9 @@ Both log with `causer: null` + `ActivityContext::Scheduler` (module `Ticket`, re
 `app/Livewire/Admin/Support/{Tickets,Categories}/`, routed at `admin.tickets.*` /
 `admin.ticket-categories.*` (modules `tickets` — `view`/`create`/`manage` — and
 `ticket_categories` — `view`/`create`/`edit`/`delete` — both in the `support` permission group).
-- **Tickets** — `Index`, `Show`, `Form` (create-only — there is no public-facing submission
-  channel yet per "What this is" above, so the Form lets staff log a ticket on behalf of an
-  existing app user; this is also what exercises auto-assignment end-to-end today).
+- **Tickets** — `Index`, `Show`, `Form` (create-only — there is no public-facing submission *UI*
+  yet per "What this is" above, so the Form lets staff log a ticket on behalf of an existing app
+  user; the self-service API below is the actual public submission channel).
   `Concerns/HandlesTicketRowActions` (assign-to-me, close, reopen) is shared by Index and Show,
   same pattern as `HandlesPlanRowActions`. `Show` uses `HasShowTabs` with **Conversation**
   (message thread + reply box + a management sidebar with Status/Priority/Category/Assigned-Agent
@@ -547,6 +547,44 @@ this feature (`ActivityModule::Ticket` already existed as a placeholder before t
 built out). `ActivityPresenter::kind()` has explicit `ticket`/`ticket_category` module branches —
 without them, a ticket's `created`/`updated`/`assigned` events would collide with the generic
 User-event titles ("Account Created" etc.), since those are the same raw event strings.
+
+### Self-service API (`App\Http\Controllers\Api\V1\TicketController`)
+
+A user raising and following up on their own tickets — every lookup is scoped to
+`$request->user()->tickets()`, same convention as `DeviceController`/`SubscriptionController`: a
+ticket id belonging to another account 404s via `findOrFail()`, never a manual 403. Status,
+priority, category, and agent changes stay admin-only (still only reachable through
+`TicketService` from the panel) — this surface only creates tickets and appends messages to them.
+- `categories()` (`GET /api/v1/ticket-categories`) — active categories only, for a "select a
+  category" picker before creating a ticket.
+- `index()` (`GET /api/v1/tickets`) — the caller's own tickets, unpaginated (same convention as
+  Devices/Subscriptions).
+- `store()` (`POST /api/v1/tickets`) — `StoreTicketRequest` validates `subject`/`message`/
+  optional `category_id` (`exists:categories,id,is_active,1` — an inactive category 422s even if
+  its id is otherwise valid) plus optional `attachments`. **Priority is deliberately not a
+  client-settable field** — every self-service ticket is created at `TicketService::create()`'s
+  hardcoded `TicketPriority::Medium` regardless of anything the client sends, matching
+  `TicketPriority`'s own doc comment ("adjustable by staff"); staff triage it from there.
+- `show()` (`GET /api/v1/tickets/{id}`) — one ticket with its full message thread eager-loaded.
+- `reply()` (`POST /api/v1/tickets/{id}/reply`) — calls the new `TicketService::replyAsUser()`
+  (see below), returns `409 TICKET_CLOSED` (same `{code}`-in-`errors` shape as `DEVICE_BLOCKED`/
+  `DEVICE_LIMIT_EXCEEDED`) if the ticket is in a terminal state.
+
+`TicketService::replyAsUser()` is the mirror image of the existing staff-only `reply()`: it
+attributes the message to the requester (`author_type: User`), touches
+`last_user_response_at` instead of `last_staff_response_at`, and flips a `Pending` ticket back to
+`Open` (the ball is back in staff's court) rather than `Open` → `Pending`. It throws the new
+`App\Exceptions\TicketClosedException` when `TicketStatus::isTerminal()` — a customer can't revive
+a resolved/closed ticket by replying to it; staff must reopen it first via `changeStatus()`.
+`TicketService::create()` also gained an optional `array $attachments = []` param (stored on the
+opening message via the existing `storeAttachments()`) so `store()` can accept files on the
+initial ticket, not just on replies. Attachment validation (`max:5` files, `10240` KB each, the
+same `jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,csv,txt,zip` mime allowlist) is copied verbatim
+from the admin reply form (`Livewire\Admin\Support\Tickets\Show`) so client-side and server-side
+limits never drift apart. New resources: `App\Http\Resources\V1\{TicketResource,
+TicketMessageResource,TicketCategoryResource}` — `TicketMessageResource` reuses
+`TicketMessage::attachmentsWithUrls()`, the same disk-agnostic-path-to-URL resolution the admin
+conversation tab already relies on.
 
 ## Device Management & IP Blocking
 
@@ -980,7 +1018,9 @@ Only `v1` exists today (`status => 'active'`).
   above; the password route carries its own `throttle:5,1`), `GET /api/v1/devices` /
   `DELETE /api/v1/devices/{ulid}` / `DELETE /api/v1/devices/others` (the self-service device
   endpoints, see "Device Management & IP Blocking" above), `GET /api/v1/subscription` /
-  `GET /api/v1/subscriptions` (`SubscriptionController`, see "Plans & Subscriptions" above), all
+  `GET /api/v1/subscription/history` (`SubscriptionController`, see "Plans & Subscriptions"
+  above), `GET /api/v1/ticket-categories`, `GET`/`POST /api/v1/tickets`, `GET /api/v1/tickets/{id}`
+  + `POST /api/v1/tickets/{id}/reply` (`TicketController`, see "Support Tickets" above), all
   inside an explicit `Route::middleware(['auth:sanctum', 'device.valid'])->group(...)` in that
   file (not version-level config — see "REST API" above for why). `POST /api/v1/signup` / `POST /api/v1/login`
   (`AuthController`) sit outside that group, wrapped in their own `Route::middleware('guest')`
@@ -1021,7 +1061,7 @@ app/
                    BillingInterval, PaymentProvider, SubscriptionStatus, CancelledBy, ReceiptType,
                    TicketStatus, TicketPriority, TicketMessageAuthorType, DeviceType,
                    AppleNotificationType, AppleNotificationSubtype
-  Exceptions/      DeviceLimitExceededException, DeviceBlockedException,
+  Exceptions/      DeviceLimitExceededException, DeviceBlockedException, TicketClosedException,
                    Api/ApiExceptionRenderer (unifies framework exceptions into ApiController's envelope)
   Http/Controllers/Api/ApiController.php        unversioned base (success/error/etc. helpers)
                    Api/V1/DeviceController.php  self-service list/revoke own devices, revoke-all-except-current
@@ -1030,11 +1070,14 @@ app/
                    Api/V1/VerificationController.php  guest verify/resend (see "REST API" above)
                    Api/V1/PasswordController.php      guest forgot/reset (see "REST API" above)
                    Api/V1/SubscriptionController.php  self-service current subscription + history (see "Plans & Subscriptions" above)
+                   Api/V1/TicketController.php  self-service ticket create/list/show/reply (see "Support Tickets" above)
   Http/Middleware/ EnsurePanelAccess (alias: panel), EnsureDeviceIsValid (alias: device.valid),
                    CheckBlockedIp (prepended to the global `api` middleware group)
   Http/Requests/V1/Auth/{SignupRequest,LoginRequest,ResendVerificationRequest,ForgotPasswordRequest,ResetPasswordRequest}.php
   Http/Requests/V1/User/{UpdateProfileRequest,UpdatePasswordRequest}.php
-  Http/Resources/V1/{UserDeviceResource,UserResource,SubscriptionResource,PlanResource,PlanPriceResource}.php
+  Http/Requests/V1/Ticket/{StoreTicketRequest,ReplyTicketRequest}.php
+  Http/Resources/V1/{UserDeviceResource,UserResource,SubscriptionResource,PlanResource,PlanPriceResource,
+                      TicketResource,TicketMessageResource,TicketCategoryResource}.php
   Jobs/            Account/PurgeExpiredAccounts, Activity/ExportActivityLog,
                    Auth/{PruneExpiredBlockedIps, RecordBlockedIpHit},
                    Device/{PruneRevokedDevices, ResolveDeviceLocation},
@@ -1105,7 +1148,7 @@ resources/
   css/blatui.css             design tokens (CSS vars on :root/.dark/[data-*])
 tests/
   Feature/           organized by delivery boundary:
-    Api/              Authentication, Devices, Exceptions, Profile, Security, Subscriptions
+    Api/              Authentication, Devices, Exceptions, Profile, Security, Subscriptions, Tickets
     Admin/            Activity, Accounts/{Guests,Users}, Devices, Feedback, Languages,
                      Notifications, Plans, Settings, Staff, Support, Webhooks
     Auth/             panel authentication flows

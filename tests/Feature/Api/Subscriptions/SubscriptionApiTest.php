@@ -77,7 +77,7 @@ class SubscriptionApiTest extends TestCase
         $newer = Subscription::factory()->for($user)->create(['starts_at' => now()->subDays(1)]);
 
         $this->withHeader('Authorization', 'Bearer '.$token)
-            ->getJson('/api/v1/subscriptions')
+            ->getJson('/api/v1/subscription/history')
             ->assertOk()
             ->assertJsonPath('data.subscriptions.0.id', $newer->id)
             ->assertJsonPath('data.subscriptions.1.id', $older->id)
@@ -91,7 +91,7 @@ class SubscriptionApiTest extends TestCase
         Subscription::factory()->for($other)->create();
 
         $this->withHeader('Authorization', 'Bearer '.$token)
-            ->getJson('/api/v1/subscriptions')
+            ->getJson('/api/v1/subscription/history')
             ->assertOk()
             ->assertJsonCount(0, 'data.subscriptions');
     }

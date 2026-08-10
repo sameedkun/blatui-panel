@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\DeviceController;
 use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
+use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\VerificationController;
 use Illuminate\Support\Facades\Route;
 
@@ -50,4 +51,10 @@ Route::middleware(['auth:sanctum', 'device.valid'])->group(function (): void {
 
     Route::get('/subscription', [SubscriptionController::class, 'current'])->name('subscription.current');
     Route::get('/subscription/history', [SubscriptionController::class, 'history'])->name('subscriptions.index');
+
+    Route::get('/ticket-categories', [TicketController::class, 'categories'])->name('ticket-categories.index');
+    Route::get('/tickets', [TicketController::class, 'index'])->name('tickets.index');
+    Route::post('/tickets', [TicketController::class, 'store'])->name('tickets.store');
+    Route::get('/tickets/{id}', [TicketController::class, 'show'])->name('tickets.show');
+    Route::post('/tickets/{id}/reply', [TicketController::class, 'reply'])->name('tickets.reply');
 });

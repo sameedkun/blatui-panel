@@ -7,6 +7,7 @@ use App\Enum\ActivityModule;
 use App\Enum\TicketMessageAuthorType;
 use App\Enum\TicketPriority;
 use App\Enum\TicketStatus;
+use App\Exceptions\TicketClosedException;
 use App\Models\Ticket;
 use App\Models\TicketCategory;
 use App\Models\TicketMessage;
@@ -29,6 +30,8 @@ class TicketService
     /**
      * Raise a new ticket on behalf of a requester, auto-assigning it to the
      * category's least-loaded agent (if the category has any).
+     *
+     * @param  array<int, UploadedFile>  $attachments
      */
     public function create(
         User $requester,
@@ -37,8 +40,9 @@ class TicketService
         string $message,
         TicketPriority $priority,
         User $causer,
+        array $attachments = [],
     ): Ticket {
-        return DB::transaction(function () use ($requester, $category, $subject, $message, $priority, $causer): Ticket {
+        return DB::transaction(function () use ($requester, $category, $subject, $message, $priority, $causer, $attachments): Ticket {
             $ticket = Ticket::create([
                 'user_id' => $requester->id,
                 'category_id' => $category?->id,
@@ -52,6 +56,7 @@ class TicketService
                 'user_id' => $requester->id,
                 'author_type' => TicketMessageAuthorType::User,
                 'message' => $message,
+                'attachments' => $this->storeAttachments($ticket, $attachments),
             ]);
 
             $agent = $category ? $this->autoAssign($ticket, $category) : null;
@@ -94,6 +99,46 @@ class TicketService
             ActivityLogger::log(ActivityModule::Ticket, ActivityAction::Replied, $ticket, [
                 'attachments' => count($attachments),
             ], causer: $staff);
+
+            return $ticketMessage;
+        });
+    }
+
+    /**
+     * Record a customer reply — the mirror image of {@see reply()}: attributes
+     * the message to the requester, touches `last_user_response_at` instead of
+     * `last_staff_response_at`, and moves a Pending ticket back to Open (the
+     * ball is back in staff's court) rather than Open to Pending. A ticket in
+     * a terminal state ({@see TicketStatus::isTerminal()}) can't be replied to
+     * this way — staff must reopen it first via {@see changeStatus()}.
+     *
+     * @param  array<int, UploadedFile>  $attachments
+     *
+     * @throws TicketClosedException
+     */
+    public function replyAsUser(Ticket $ticket, User $user, string $message, array $attachments = []): TicketMessage
+    {
+        if ($ticket->status->isTerminal()) {
+            throw new TicketClosedException('This ticket is closed and can no longer be replied to.');
+        }
+
+        return DB::transaction(function () use ($ticket, $user, $message, $attachments): TicketMessage {
+            $ticketMessage = $ticket->messages()->create([
+                'user_id' => $user->id,
+                'author_type' => TicketMessageAuthorType::User,
+                'message' => $message,
+                'attachments' => $this->storeAttachments($ticket, $attachments),
+            ]);
+
+            $ticket->update(['last_user_response_at' => now()]);
+
+            if ($ticket->status === TicketStatus::Pending) {
+                $ticket->update(['status' => TicketStatus::Open]);
+            }
+
+            ActivityLogger::log(ActivityModule::Ticket, ActivityAction::Replied, $ticket, [
+                'attachments' => count($attachments),
+            ], causer: $user);
 
             return $ticketMessage;
         });
