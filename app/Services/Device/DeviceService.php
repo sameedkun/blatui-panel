@@ -13,6 +13,8 @@ use App\Models\User;
 use App\Models\UserDevice;
 use App\Support\ActivityLogger;
 use App\Support\DeviceData;
+use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -107,9 +109,17 @@ class DeviceService
      * by {@see enforceLimit()} to attribute an auto-eviction to the logging-in
      * user rather than a null/system causer, since there's no ambient session
      * yet at that point in the login flow.
+     *
+     * Safe to call on an already-revoked device (e.g. a double-click, or a
+     * race between two requests) — a no-op, so `revoked_at` isn't disturbed
+     * and no duplicate audit-log entry is written.
      */
     public function revoke(UserDevice $device, ?User $causer = null): void
     {
+        if ($device->is_revoked) {
+            return;
+        }
+
         $device->update(['revoked_at' => now()]);
 
         ActivityLogger::log(ActivityModule::Device, ActivityAction::Revoked, $device, [
@@ -123,8 +133,32 @@ class DeviceService
      */
     public function revokeAll(User $user): int
     {
-        return DB::transaction(function () use ($user): int {
-            $devices = UserDevice::where('user_id', $user->id)->active()->lockForUpdate()->get();
+        return $this->revokeActiveDevices($user, fn (Builder $query) => $query);
+    }
+
+    /**
+     * Revoke every other active device for $user, leaving $currentDeviceId
+     * (the one that authenticated the current request) untouched — "sign out
+     * all other devices" from the self-service API, mirroring revokeAll()'s
+     * admin-facing "sign out everywhere" without also killing the caller's
+     * own session.
+     */
+    public function revokeAllExceptCurrent(User $user, int $currentDeviceId): int
+    {
+        return $this->revokeActiveDevices(
+            $user,
+            fn (Builder $query) => $query->where('id', '!=', $currentDeviceId),
+            ['except_device_id' => $currentDeviceId],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $extraProperties
+     */
+    private function revokeActiveDevices(User $user, Closure $scope, array $extraProperties = []): int
+    {
+        return DB::transaction(function () use ($user, $scope, $extraProperties): int {
+            $devices = $scope(UserDevice::where('user_id', $user->id)->active())->lockForUpdate()->get();
 
             if ($devices->isEmpty()) {
                 return 0;
@@ -139,6 +173,7 @@ class DeviceService
                 'user_id' => $user->id,
                 'device_ids' => $devices->pluck('id')->all(),
                 'count' => $devices->count(),
+                ...$extraProperties,
             ]);
 
             return $devices->count();

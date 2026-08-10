@@ -406,6 +406,18 @@ byte-for-byte the same Blade and the same `SubscriptionService` calls as a user'
 "Active Subscription" glance card. `statCards()`'s `Plan` stat (name or "Free") replaced the old
 `Subscriptions` "coming soon" placeholder there too.
 
+**`App\Http\Controllers\Api\V1\SubscriptionController`** is the read-only self-service
+counterpart — a user checking their own plan/billing status from the mobile/API surface. No
+mutation endpoints exist here yet (assign/cancel/reactivate is still admin-panel-only, via
+`SubscriptionService`). `current()` (`GET /api/v1/subscription`) returns `$user
+->activeSubscription()` (same definition `HasSubscriptions` already uses) wrapped in
+`SubscriptionResource`, or `{"subscription": null}` when there isn't one. `history()` (`GET
+/api/v1/subscriptions`) returns every subscription the user has ever had, newest `starts_at`
+first, unpaginated (mirroring `DeviceController::index()` — this app has no paginated JSON list
+endpoint yet). `App\Http\Resources\V1\{SubscriptionResource,PlanResource,PlanPriceResource}`
+back both actions; `SubscriptionResource` nests `plan`/`price` via `whenLoaded()`, so both
+controller methods eager-load `plan`/`planPrice` to avoid N+1s.
+
 ## Support Tickets
 
 `app/Models/{Ticket,TicketCategory,TicketMessage}.php`, backed by four tables from a single
@@ -608,9 +620,18 @@ cached 60s (keyed `blocked-ip:{ip}:{userId|guest}`, via the default `Cache` faca
 rather than writing synchronously, since this runs on every single API request.
 
 A minimal self-service API exists at `App\Http\Controllers\Api\V1\DeviceController` (`GET
-/api/v1/devices`, `DELETE /api/v1/devices/{ulid}`) — list/revoke *your own* devices, scoped to
-`$request->user()->devices()`; a ulid for another account's device 404s via `firstOrFail()`, never
-a manual 403.
+/api/v1/devices`, `DELETE /api/v1/devices/{ulid}`, `DELETE /api/v1/devices/others`) — list/revoke
+*your own* devices, scoped to `$request->user()->devices()`; a ulid for another account's device
+404s via `firstOrFail()`, never a manual 403. `index()`'s `UserDeviceResource` carries a `current`
+boolean per row — `$this->token_id === $request->user()?->currentAccessToken()?->id` — so a
+client can highlight which row is the device it's calling from right now, without needing its own
+ulid client-side. `revokeAllExceptCurrent()` (the `/others` route, registered *before* the
+`{ulid}` route so it isn't swallowed by the wildcard) is "sign out everywhere else" — resolves the
+current device the same way (`token_id` ↔ `currentAccessToken()->id`), then calls
+`DeviceService::revokeAllExceptCurrent()`, which shares its bulk-revoke/audit-log implementation
+with the existing admin-triggered `revokeAll()` via a private `revokeActiveDevices()` helper
+(the only difference is an extra `WHERE id != $currentDeviceId` scope and an
+`except_device_id` audit property).
 
 `App\Http\Controllers\Api\V1\AuthController` (`App\Http\Requests\V1\Auth\{SignupRequest,
 LoginRequest}`) is where both halves of self-service auth live:
@@ -957,10 +978,11 @@ Only `v1` exists today (`status => 'active'`).
 - `routes/api/v1.php` (registered via `config/apiroute.php`, see "REST API" above) — `POST
   /api/v1/logout`, `GET`/`PUT /api/v1/me` + `PUT /api/v1/me/password` (`ProfileController`, see
   above; the password route carries its own `throttle:5,1`), `GET /api/v1/devices` /
-  `DELETE /api/v1/devices/{ulid}` (the self-service device
-  endpoints, see "Device Management & IP Blocking" above), all inside an explicit
-  `Route::middleware(['auth:sanctum', 'device.valid'])->group(...)` in that file (not version-level
-  config — see "REST API" above for why). `POST /api/v1/signup` / `POST /api/v1/login`
+  `DELETE /api/v1/devices/{ulid}` / `DELETE /api/v1/devices/others` (the self-service device
+  endpoints, see "Device Management & IP Blocking" above), `GET /api/v1/subscription` /
+  `GET /api/v1/subscriptions` (`SubscriptionController`, see "Plans & Subscriptions" above), all
+  inside an explicit `Route::middleware(['auth:sanctum', 'device.valid'])->group(...)` in that
+  file (not version-level config — see "REST API" above for why). `POST /api/v1/signup` / `POST /api/v1/login`
   (`AuthController`) sit outside that group, wrapped in their own `Route::middleware('guest')`
   group as this file's guest routes — `login` additionally carries its own `throttle:10,1`
   middleware (see "Device Management & IP Blocking" above for the full login security write-up).
@@ -1002,16 +1024,17 @@ app/
   Exceptions/      DeviceLimitExceededException, DeviceBlockedException,
                    Api/ApiExceptionRenderer (unifies framework exceptions into ApiController's envelope)
   Http/Controllers/Api/ApiController.php        unversioned base (success/error/etc. helpers)
-                   Api/V1/DeviceController.php  self-service list/revoke own devices
+                   Api/V1/DeviceController.php  self-service list/revoke own devices, revoke-all-except-current
                    Api/V1/AuthController.php    signup + login + logout (rate limiting, ban/trashed/device checks — see "Device Management & IP Blocking")
                    Api/V1/ProfileController.php self-service profile — show/update/updatePassword (see "REST API" above)
                    Api/V1/VerificationController.php  guest verify/resend (see "REST API" above)
                    Api/V1/PasswordController.php      guest forgot/reset (see "REST API" above)
+                   Api/V1/SubscriptionController.php  self-service current subscription + history (see "Plans & Subscriptions" above)
   Http/Middleware/ EnsurePanelAccess (alias: panel), EnsureDeviceIsValid (alias: device.valid),
                    CheckBlockedIp (prepended to the global `api` middleware group)
   Http/Requests/V1/Auth/{SignupRequest,LoginRequest,ResendVerificationRequest,ForgotPasswordRequest,ResetPasswordRequest}.php
   Http/Requests/V1/User/{UpdateProfileRequest,UpdatePasswordRequest}.php
-  Http/Resources/V1/{UserDeviceResource,UserResource}.php
+  Http/Resources/V1/{UserDeviceResource,UserResource,SubscriptionResource,PlanResource,PlanPriceResource}.php
   Jobs/            Account/PurgeExpiredAccounts, Activity/ExportActivityLog,
                    Auth/{PruneExpiredBlockedIps, RecordBlockedIpHit},
                    Device/{PruneRevokedDevices, ResolveDeviceLocation},
@@ -1082,7 +1105,7 @@ resources/
   css/blatui.css             design tokens (CSS vars on :root/.dark/[data-*])
 tests/
   Feature/           organized by delivery boundary:
-    Api/              Authentication, Devices, Exceptions, Profile, Security
+    Api/              Authentication, Devices, Exceptions, Profile, Security, Subscriptions
     Admin/            Activity, Accounts/{Guests,Users}, Devices, Feedback, Languages,
                      Notifications, Plans, Settings, Staff, Support, Webhooks
     Auth/             panel authentication flows

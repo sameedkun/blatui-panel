@@ -6,9 +6,11 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Api\ApiController;
 use App\Http\Resources\V1\UserDeviceResource;
+use App\Models\UserDevice;
 use App\Services\Device\DeviceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Self-service device management — a user managing their own devices, e.g.
@@ -33,8 +35,32 @@ class DeviceController extends ApiController
     {
         $device = $request->user()->devices()->where('ulid', $ulid)->firstOrFail();
 
+        if ($device->is_revoked) {
+            return $this->error(
+                'This device is already signed out.',
+                Response::HTTP_CONFLICT,
+                ['code' => 'DEVICE_ALREADY_REVOKED'],
+            );
+        }
+
         $devices->revoke($device);
 
         return $this->success(message: 'Device signed out.');
+    }
+
+    /**
+     * Signs out every other device, leaving the one that authenticated this
+     * very request untouched — EnsureDeviceIsValid (which ran before this
+     * controller) guarantees that device row exists for the current token.
+     */
+    public function revokeAllExceptCurrent(Request $request, DeviceService $devices): JsonResponse
+    {
+        $currentDeviceId = UserDevice::where('user_id', $request->user()->id)
+            ->where('token_id', $request->user()->currentAccessToken()->id)
+            ->value('id');
+
+        $count = $devices->revokeAllExceptCurrent($request->user(), $currentDeviceId);
+
+        return $this->success(['revoked' => $count], 'Other devices signed out.');
     }
 }

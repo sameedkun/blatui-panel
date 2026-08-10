@@ -32,6 +32,10 @@ class UserDeviceResource extends JsonResource
                 $this->is_revoked => 'revoked',
                 default => 'active',
             },
+            // Whether this row is the device that authenticated the current
+            // request — lets the client highlight "this device" in the list.
+            'current' => $this->token_id !== null
+                && $this->token_id === $request->user()?->currentAccessToken()?->id,
         ];
     }
 }

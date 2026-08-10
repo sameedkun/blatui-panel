@@ -97,4 +97,60 @@ class DeviceApiTest extends TestCase
 
         $this->assertNotNull($device->fresh()->revoked_at);
     }
+
+    public function test_revoking_an_already_revoked_device_returns_a_conflict(): void
+    {
+        $user = User::factory()->app()->create();
+        [$device] = $this->registerDevice($user, 'device-a');
+        [, $otherToken] = $this->registerDevice($user, 'device-b');
+
+        app(DeviceService::class)->revoke($device);
+
+        $this->withHeader('Authorization', 'Bearer '.$otherToken)
+            ->deleteJson('/api/v1/devices/'.$device->ulid)
+            ->assertStatus(409)
+            ->assertJson(['errors' => ['code' => 'DEVICE_ALREADY_REVOKED']]);
+    }
+
+    public function test_device_list_flags_which_device_is_the_current_one(): void
+    {
+        $user = User::factory()->app()->create();
+        [$deviceA, $tokenA] = $this->registerDevice($user, 'device-a');
+        [$deviceB] = $this->registerDevice($user, 'device-b');
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$tokenA)
+            ->getJson('/api/v1/devices')
+            ->assertOk();
+
+        $byUlid = collect($response->json('data'))->keyBy('ulid');
+
+        $this->assertTrue($byUlid[$deviceA->ulid]['current']);
+        $this->assertFalse($byUlid[$deviceB->ulid]['current']);
+    }
+
+    public function test_user_can_revoke_every_device_except_the_current_one(): void
+    {
+        $user = User::factory()->app()->create();
+        [$current, $currentToken] = $this->registerDevice($user, 'device-current');
+        [$other] = $this->registerDevice($user, 'device-other');
+
+        $this->withHeader('Authorization', 'Bearer '.$currentToken)
+            ->deleteJson('/api/v1/devices/others')
+            ->assertOk()
+            ->assertJsonPath('data.revoked', 1);
+
+        $this->assertNull($current->fresh()->revoked_at);
+        $this->assertNotNull($other->fresh()->revoked_at);
+    }
+
+    public function test_revoke_others_is_a_no_op_when_there_are_no_other_devices(): void
+    {
+        $user = User::factory()->app()->create();
+        [, $token] = $this->registerDevice($user);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->deleteJson('/api/v1/devices/others')
+            ->assertOk()
+            ->assertJsonPath('data.revoked', 0);
+    }
 }

@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\DeviceController;
 use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\VerificationController;
 use Illuminate\Support\Facades\Route;
 
@@ -39,11 +40,14 @@ Route::middleware(['auth:sanctum', 'device.valid'])->group(function (): void {
 
     Route::get('/me', [ProfileController::class, 'show'])->name('me');
     Route::put('/me', [ProfileController::class, 'update'])->name('me.update');
-    // throttle:5,1 guards against brute-forcing current_password with a stolen/leaked token.
     Route::put('/me/password', [ProfileController::class, 'updatePassword'])
         ->middleware('throttle:5,1')
         ->name('me.password');
 
     Route::get('/devices', [DeviceController::class, 'index'])->name('devices.index');
+    Route::delete('/devices/others', [DeviceController::class, 'revokeAllExceptCurrent'])->name('devices.revoke-others');
     Route::delete('/devices/{ulid}', [DeviceController::class, 'destroy'])->name('devices.destroy');
+
+    Route::get('/subscription', [SubscriptionController::class, 'current'])->name('subscription.current');
+    Route::get('/subscription/history', [SubscriptionController::class, 'history'])->name('subscriptions.index');
 });

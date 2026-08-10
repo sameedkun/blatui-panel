@@ -16,6 +16,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\PersonalAccessToken;
+use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
 class DeviceServiceTest extends TestCase
@@ -248,6 +249,30 @@ class DeviceServiceTest extends TestCase
         $this->assertNotNull($device->fresh()->revoked_at);
         $this->assertNull($device->fresh()->token_id);
         $this->assertDatabaseMissing('personal_access_tokens', ['id' => $token->id]);
+    }
+
+    public function test_revoking_an_already_revoked_device_is_a_no_op(): void
+    {
+        $user = User::factory()->app()->create();
+        $this->subscribeWithDeviceLimit($user, 1);
+
+        $device = $this->register($user, 'device-a');
+
+        $this->service()->revoke($device);
+        $firstRevokedAt = $device->fresh()->revoked_at;
+
+        $this->travel(1)->minute();
+        $this->service()->revoke($device->fresh());
+
+        $this->assertTrue($device->fresh()->revoked_at->eq($firstRevokedAt));
+
+        $this->assertSame(
+            1,
+            Activity::where('subject_type', UserDevice::class)
+                ->where('subject_id', $device->id)
+                ->where('event', 'revoked')
+                ->count(),
+        );
     }
 
     public function test_block_deletes_the_token_row(): void
