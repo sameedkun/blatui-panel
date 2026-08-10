@@ -680,6 +680,43 @@ LoginRequest}`) is where both halves of self-service auth live:
   "logout everywhere" endpoint yet — `DeviceService::revokeAll()` already exists and would make one
   trivial to add later.
 
+`App\Http\Controllers\Api\V1\ProfileController` (`App\Http\Requests\V1\User\{UpdateProfileRequest,
+UpdatePasswordRequest}`) is the self-service "my profile" surface, deliberately mirroring
+`Livewire\Admin\Account\Index`'s own profile/password handling so the two stay behaviorally
+identical (same disk, same audit shape) even though one is Blade+Livewire and the other JSON:
+- **`show()`** (`GET /api/v1/me`) — just `new UserResource($request->user())`. This is what
+  replaced the old placeholder closure route (`GET /api/v1/user`).
+- **`update()`** (`PUT /api/v1/me`) — both `name` and `avatar` are `sometimes` in
+  `UpdateProfileRequest` even though the route is PUT, so a caller sending only one field isn't
+  forced to resend the other. `name` follows the Account page's own `max:60` (a deliberate "display
+  name" length, tighter than Signup's `max:255`). Avatar handling is copied byte-for-byte from
+  `saveProfile()`: stored via `$file->store('avatars')` on the **default disk** (never hardcoded to
+  `r2` — resolves through `FILESYSTEM_DISK`, same as `User::avatarUrl()` already does), old file
+  deleted first via `Storage::delete($user->avatar)`, and the `avatar` column holds a path, never a
+  URL. Note for API consumers: PHP only populates file uploads for a true `POST`, so a multipart
+  avatar upload against this `PUT` route needs Laravel's standard `_method=PUT` form-spoofing (a
+  `POST` with that field) rather than a literal HTTP `PUT` verb — this is a general PHP/Laravel
+  constraint, not anything specific to this endpoint. Audit logging reuses `ActivityLogger::diff()`
+  for the generic field diff (module `User`, action `Updated`, causer the user) with `avatar`
+  excluded from that diff and folded in as a boolean `avatar_changed => true` flag instead — same
+  "never log the raw value" convention `password_changed => true` already established.
+- **`updatePassword()`** (`PUT /api/v1/me/password`, additionally behind its own `throttle:5,1` —
+  an authenticated route, so this guards against brute-forcing `current_password` with a
+  stolen/leaked token rather than credential guessing) — `current_password` + `password` (confirmed,
+  `Password::default()`); the new password is only ever set once `current_password` has verified
+  correctly against the account's existing hash — `UpdatePasswordRequest`'s validation rejects the
+  request with a 422 before the controller method runs at all otherwise, so there's no separate
+  "check then write" step to get wrong. Requires `current_password:sanctum` explicitly in
+  `UpdatePasswordRequest` — the bare `current_password` rule falls back to
+  `config('auth.defaults.guard')` (`web`), which is always a guest for this stateless,
+  Sanctum-token API, so every attempt would 422 without naming the guard. Sets
+  `password_changed_at` alongside the hash (`forceFill()->save()`, matching the Account page), logs
+  `password_changed => true`. Deliberately does **not** revoke other devices/tokens — that's a
+  conscious scope match with `Livewire\Admin\Account\Index::updatePassword()`, which also leaves
+  other sessions alone; `logoutOtherDevices()` there is a separate, explicit action with its own
+  password confirmation, and this API has no equivalent endpoint yet (`DeviceService::revokeAll()`
+  would back one if it's ever added).
+
 **Admin panel** (`app/Livewire/Admin/Management/{Devices,BlockedIps}/`): `Devices/Index` is the
 global, filterable device list (`admin.devices.index`, shows a User column) — a normal
 route-bound component like every other Index page in this app, not a nested/embedded one.
@@ -839,14 +876,17 @@ Only `v1` exists today (`status => 'active'`).
   (self-service "My Account" page — no extra permission, every staff member can reach it).
 - Each route group carries its own `permission:{module}.{action}` middleware layered on top of the
   group-level `permission:{module}.view`.
-- `routes/api/v1.php` (registered via `config/apiroute.php`, see "REST API" above) — `GET
-  /api/v1/user`, `GET /api/v1/devices` / `DELETE /api/v1/devices/{ulid}` (the self-service device
-  endpoints, see "Device Management & IP Blocking" above), `POST /api/v1/logout`, all inside an
-  explicit `Route::middleware(['auth:sanctum', 'device.valid'])->group(...)` in that file (not
-  version-level config — see "REST API" above for why). `POST /api/v1/signup` / `POST /api/v1/login`
-  (`AuthController`) sit outside that group as this file's guest routes — `login` additionally
-  carries its own `throttle:10,1` middleware (see "Device Management & IP Blocking" above for the
-  full login security write-up). `CheckBlockedIp` isn't route-level — it's
+- `routes/api/v1.php` (registered via `config/apiroute.php`, see "REST API" above) — `POST
+  /api/v1/logout`, `GET`/`PUT /api/v1/me` + `PUT /api/v1/me/password` (`ProfileController`, see
+  above; the password route carries its own `throttle:5,1`), `GET /api/v1/devices` /
+  `DELETE /api/v1/devices/{ulid}` (the self-service device
+  endpoints, see "Device Management & IP Blocking" above), all inside an explicit
+  `Route::middleware(['auth:sanctum', 'device.valid'])->group(...)` in that file (not version-level
+  config — see "REST API" above for why). `POST /api/v1/signup` / `POST /api/v1/login`
+  (`AuthController`) sit outside that group, wrapped in their own `Route::middleware('guest')`
+  group as this file's guest routes — `login` additionally carries its own `throttle:10,1`
+  middleware (see "Device Management & IP Blocking" above for the full login security write-up).
+  `CheckBlockedIp` isn't route-level — it's
   prepended to the whole `api` middleware group in `bootstrap/app.php` instead, since it has to run
   before `auth:sanctum` resolves the user (and laravel-apiroute's own version-registered routes
   explicitly include the `api` group, so this still applies to them).
@@ -882,10 +922,12 @@ app/
                    Api/ApiExceptionRenderer (unifies framework exceptions into ApiController's envelope)
   Http/Controllers/Api/ApiController.php        unversioned base (success/error/etc. helpers)
                    Api/V1/DeviceController.php  self-service list/revoke own devices
-                   Api/V1/AuthController.php    signup + login (rate limiting, ban/trashed/device checks — see "Device Management & IP Blocking")
+                   Api/V1/AuthController.php    signup + login + logout (rate limiting, ban/trashed/device checks — see "Device Management & IP Blocking")
+                   Api/V1/ProfileController.php self-service profile — show/update/updatePassword (see "REST API" above)
   Http/Middleware/ EnsurePanelAccess (alias: panel), EnsureDeviceIsValid (alias: device.valid),
                    CheckBlockedIp (prepended to the global `api` middleware group)
   Http/Requests/V1/Auth/{SignupRequest,LoginRequest}.php
+  Http/Requests/V1/User/{UpdateProfileRequest,UpdatePasswordRequest}.php
   Http/Resources/V1/{UserDeviceResource,UserResource}.php
   Jobs/            Account/PurgeExpiredAccounts, Activity/ExportActivityLog,
                    Auth/{PruneExpiredBlockedIps, RecordBlockedIpHit},
@@ -962,7 +1004,7 @@ tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogT
                      PlansAdminTest, PlansShowTest, SubscriptionsAdminTest,
                      UserSubscriptionManagementTest, GuestSubscriptionManagementTest,
                      DeviceServiceTest, DeviceApiTest, ApiExceptionRenderingTest, SignupTest,
-                     LoginTest, LogoutTest, BlockedIpTest, DevicesAdminTest, BlockedIpsAdminTest,
+                     LoginTest, LogoutTest, UserProfileTest, BlockedIpTest, DevicesAdminTest, BlockedIpsAdminTest,
                      WebhookNotificationTest, WebhookNotificationsAdminTest
 ```
 

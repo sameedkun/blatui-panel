@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\DeviceController;
-use Illuminate\Http\Request;
+use App\Http\Controllers\Api\V1\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 // Registered under the api/v1 prefix by config/apiroute.php's "v1" version
@@ -19,7 +19,12 @@ Route::middleware('guest')->group(function () {
 Route::middleware(['auth:sanctum', 'device.valid'])->group(function (): void {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-    Route::get('/user', fn (Request $request) => $request->user())->name('user');
+    Route::get('/me', [ProfileController::class, 'show'])->name('me');
+    Route::put('/me', [ProfileController::class, 'update'])->name('me.update');
+    // throttle:5,1 guards against brute-forcing current_password with a stolen/leaked token.
+    Route::put('/me/password', [ProfileController::class, 'updatePassword'])
+        ->middleware('throttle:5,1')
+        ->name('me.password');
 
     Route::get('/devices', [DeviceController::class, 'index'])->name('devices.index');
     Route::delete('/devices/{ulid}', [DeviceController::class, 'destroy'])->name('devices.destroy');
