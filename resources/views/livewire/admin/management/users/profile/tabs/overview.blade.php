@@ -178,7 +178,7 @@
             {{-- Info Grid --}}
             <div class="mt-4 grid grid-cols-2 gap-4 border-t border-border/50 pt-4 sm:grid-cols-4">
                 <div>
-                    <dt class="text-xs font-medium text-muted-foreground">{{ __('subscriptions.started_on') }}</dt>/dt>
+                    <dt class="text-xs font-medium text-muted-foreground">{{ __('subscriptions.started_on') }}</dt>
                     <dd class="mt-0.5 text-xs font-semibold text-foreground">
                         <x-ui.local-time :value="$subscription->starts_at" format="MMM D, YYYY" />
                     </dd>
