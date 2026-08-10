@@ -997,15 +997,18 @@ resources/
   views/layouts/admin/       app.blade.php (sidebar shell), guest.blade.php (login)
   views/livewire/admin/      one folder per Livewire component, mirroring app/Livewire/Admin
   css/blatui.css             design tokens (CSS vars on :root/.dark/[data-*])
-tests/Feature/       AccountDeletionTest, PurgeExpiredAccountsTest, ActivityLogTest,
-                     ActivityLogsViewerTest, UserShowTest, GuestsIndexTest, GuestShowTest,
-                     GuestConversionServiceTest, EmailSenderResolutionTest, SettingsMailTest,
-                     MailConfiguratorTest, UrlResolverTest, VerifyEmailTest, PasswordResetTest,
-                     PlansAdminTest, PlansShowTest, SubscriptionsAdminTest,
-                     UserSubscriptionManagementTest, GuestSubscriptionManagementTest,
-                     DeviceServiceTest, DeviceApiTest, ApiExceptionRenderingTest, SignupTest,
-                     LoginTest, LogoutTest, UserProfileTest, BlockedIpTest, DevicesAdminTest, BlockedIpsAdminTest,
-                     WebhookNotificationTest, WebhookNotificationsAdminTest
+tests/
+  Feature/           organized by delivery boundary:
+    Api/              Authentication, Devices, Exceptions, Security
+    Admin/            Activity, Accounts/{Guests,Users}, Devices, Feedback, Languages,
+                     Notifications, Plans, Settings, Staff, Support, Webhooks
+    Auth/             panel authentication flows
+    Jobs/             scheduled and queued job behavior
+    Localization/     locale and translation coverage
+    Models/           model behavior and relationships
+    Services/         Account, Auth, Devices, Mail
+  Unit/Support/       isolated support-class tests
+  TestCase.php        shared Laravel test base
 ```
 
 ## Known rough edges / deferred work (don't be surprised by these)
