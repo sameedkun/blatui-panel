@@ -36,7 +36,7 @@ class TicketApiTest extends TestCase
         TicketCategory::factory()->inactive()->create(['name' => 'Retired']);
 
         $response = $this->withHeader('Authorization', 'Bearer '.$token)
-            ->getJson('/api/v1/ticket-categories')
+            ->getJson('/api/v1/tickets/categories')
             ->assertOk();
 
         $names = collect($response->json('data'))->pluck('name');

@@ -1,8 +1,13 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\DeviceController;
+use App\Http\Controllers\Api\V1\FeedbackController;
+use App\Http\Controllers\Api\V1\LanguageController;
 use App\Http\Controllers\Api\V1\PasswordController;
+use App\Http\Controllers\Api\V1\PlanController;
+use App\Http\Controllers\Api\V1\PolicyController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\TicketController;
@@ -45,6 +50,9 @@ Route::middleware(['auth:sanctum', 'device.valid'])->group(function (): void {
         Route::put('/password', [ProfileController::class, 'updatePassword'])
             ->middleware('throttle:5,1')
             ->name('password');
+
+        Route::post('/delete', [AccountController::class, 'store'])->name('delete');
+        Route::post('/delete/cancel', [AccountController::class, 'cancel'])->name('delete.cancel');
     });
 
     Route::prefix('devices')->name('devices.')->group(function () {
@@ -66,3 +74,19 @@ Route::middleware(['auth:sanctum', 'device.valid'])->group(function (): void {
         Route::post('/{ticket}/reply', [TicketController::class, 'reply'])->name('reply');
     });
 });
+
+Route::get('/plans', [PlanController::class, 'index'])->name('plans.index');
+
+Route::prefix('policies')->name('policies.')->group(function () {
+    Route::get('/', [PolicyController::class, 'index'])->name('index');
+    Route::get('/{policy:key}', [PolicyController::class, 'show'])->name('show');
+});
+
+Route::prefix('languages')->name('languages.')->group(function () {
+    Route::get('/', [LanguageController::class, 'index'])->name('index');
+    Route::get('/{language:code}', [LanguageController::class, 'show'])->name('show');
+});
+
+Route::post('/feedback', [FeedbackController::class, 'store'])
+    ->middleware('throttle:6,1')
+    ->name('feedback.store');

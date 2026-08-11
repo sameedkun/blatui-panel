@@ -23,6 +23,7 @@ class PlanPriceResource extends JsonResource
             'currency' => $this->currency,
             'billing_period' => $this->billing_period,
             'billing_interval' => $this->billing_interval->value,
+            'providers' => PlanPriceProviderResource::collection($this->whenLoaded('providers')),
         ];
     }
 }

@@ -22,6 +22,7 @@ class PlanResource extends JsonResource
             'description' => $this->description,
             'features' => $this->features,
             'is_best_deal' => $this->is_best_deal,
+            'prices' => PlanPriceResource::collection($this->whenLoaded('prices')),
         ];
     }
 }

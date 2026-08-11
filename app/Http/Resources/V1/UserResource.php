@@ -23,6 +23,10 @@ class UserResource extends JsonResource
             'avatar' => $this->avatarUrl(),
             'email_verified_at' => $this->email_verified_at?->toIso8601String(),
             'registered_at' => $this->registration_date?->toIso8601String(),
+            'pending_deletion' => $this->isPendingDeletion() ? [
+                'purges_at' => $this->deletionPurgesAt()?->toIso8601String(),
+                'can_cancel' => $this->canCancelDeletion(),
+            ] : null,
         ];
     }
 }

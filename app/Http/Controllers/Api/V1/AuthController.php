@@ -153,10 +153,6 @@ class AuthController extends ApiController
             'user' => new UserResource($user),
             'device' => new UserDeviceResource($device),
             'token' => $token->plainTextToken,
-            'pending_deletion' => $user->isPendingDeletion() ? [
-                'purges_at' => $user->deletionPurgesAt()?->toIso8601String(),
-                'can_cancel' => $user->canCancelDeletion(),
-            ] : null,
         ], 'Login successful.');
 
         if ($isBrowser) {

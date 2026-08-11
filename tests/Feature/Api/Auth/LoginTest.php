@@ -123,7 +123,7 @@ class LoginTest extends TestCase
 
         $this->postJson('/api/v1/login', $this->payload())
             ->assertOk()
-            ->assertJsonPath('data.pending_deletion.can_cancel', true);
+            ->assertJsonPath('data.user.pending_deletion.can_cancel', true);
 
         $this->assertTrue($user->fresh()->isPendingDeletion());
     }

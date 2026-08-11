@@ -135,8 +135,24 @@ conversion, or merge logic inline in a Livewire component.**
     `panel.account_deletion_grace_hours`, default 24h via `ACCOUNT_DELETION_GRACE_HOURS` env);
     `cancelByUser()` (only if user-initiated) / `cancelByAdmin()` (any) clears it;
     `purgeExpired()` (called hourly by `PurgeExpiredAccounts` job) permanently removes any account
-    past its grace period; `instantPurgeByAdmin()` skips the grace period entirely.
+    past its grace period; `instantPurgeByAdmin()` skips the grace period entirely — deliberately
+    admin-only, with no self-service equivalent anywhere (not even on the panel's own staff "My
+    Account" page): the grace period exists specifically so a user can change their mind, and an
+    instant self-delete would undermine that.
   - Guests: `purgeGuestByAdmin()` skips straight to `purge()` — no request/cancel phase at all.
+  - **Self-service API** (`App\Http\Controllers\Api\V1\AccountController`, kept out of
+    `ProfileController` for the same reason `VerificationController`/`PasswordController` were split
+    out of `AuthController` — a distinct, higher-stakes concern) — `store()` (`POST
+    /api/v1/me/delete`, `RequestDeletionRequest`: optional `reason`, `max:1000`) calls
+    `requestByUser()`, guarded by an explicit `lifecycleState() !== 'active'` check (the service
+    method itself doesn't guard against a repeat call) → `409 DELETION_NOT_AVAILABLE` if already
+    pending or trashed. `cancel()` (`POST /api/v1/me/delete/cancel`) calls `cancelByUser()` directly
+    with no extra guard — its own `AuthorizationException` (nothing pending, or the pending request
+    was admin-initiated) already renders as a `403` through `ApiExceptionRenderer::http()`. This is
+    the *only* recovery path that exists — cancelling during the grace window — since a purge past
+    that window is `forceDelete()`, permanent, no undo. Both actions return `{"user":
+    <UserResource>}`, letting the client read the same `pending_deletion` shape it'd get from
+    `GET /api/v1/me`.
   - `purge()` is transactional and idempotent (`if (! $user->exists) return;`), snapshots the
     account into the audit-log properties before `forceDelete()`, and cleans up related rows
     (`deleteRelatedData()` — explicitly deletes `blocked_ips`/`personal_access_tokens`/`sessions`
@@ -555,7 +571,7 @@ A user raising and following up on their own tickets — every lookup is scoped 
 ticket id belonging to another account 404s via `findOrFail()`, never a manual 403. Status,
 priority, category, and agent changes stay admin-only (still only reachable through
 `TicketService` from the panel) — this surface only creates tickets and appends messages to them.
-- `categories()` (`GET /api/v1/ticket-categories`) — active categories only, for a "select a
+- `categories()` (`GET /api/v1/tickets/categories`) — active categories only, for a "select a
   category" picker before creating a ticket.
 - `index()` (`GET /api/v1/tickets`) — the caller's own tickets, unpaginated (same convention as
   Devices/Subscriptions).
@@ -697,10 +713,13 @@ LoginRequest}`) is where both halves of self-service auth live:
   returning `403` with `errors.code = DEVICE_BLOCKED`/`DEVICE_LIMIT_EXCEEDED`, so no orphaned token
   survives a rejected login). A successful login fires `Illuminate\Auth\Events\Login` manually
   (guard label `'sanctum'`) — same event a panel session login fires — so `AuthActivityListener`
-  logs it identically and writes `User::last_login` (see below). The response's
-  `pending_deletion` key (`purges_at`/`can_cancel`, from `User::deletionPurgesAt()`/
-  `canCancelDeletion()`) is populated rather than blocking login outright — the grace period exists
-  specifically so a user can cancel their own deletion, which requires being able to log back in.
+  logs it identically and writes `User::last_login` (see below). A pending-deletion account still
+  logs in successfully rather than being blocked outright — `UserResource`'s `pending_deletion` key
+  (`purges_at`/`can_cancel`, from `User::deletionPurgesAt()`/`canCancelDeletion()`, `null` when
+  nothing's pending) surfaces the state instead — the grace period exists specifically so a user can
+  cancel their own deletion, which requires being able to log back in. This key lives on
+  `UserResource` itself (not duplicated as a sibling response key) so `GET /api/v1/me` reflects the
+  same state on every subsequent call, not just at login.
 - **Browser clients** send `X-Client-Type: web` (`LoginRequest::isBrowserClient()`, checked in
   `rules()` too — the `device.*` fields aren't required from this client at all) instead of a
   `device.*` payload, since a browser can't produce a stable hardware fingerprint the way a native
@@ -968,6 +987,45 @@ Only `v1` exists today (`status => 'active'`).
   concern (version negotiation, not endpoint-level success/error) and the package's shape is
   already sensible.
 
+### Public catalog + feedback endpoints
+
+Four small controllers under `App\Http\Controllers\Api\V1\` that sit in a third route bucket in
+`routes/api/v1.php` — neither the `guest`-only group (which actively rejects an already-authenticated
+request) nor the `auth:sanctum` group (which requires one) fits data that must be identically
+reachable pre-login and post-login, so these carry no auth-restricting middleware at all.
+`CheckBlockedIp` still applies regardless, since it's prepended globally to the `api` middleware
+group in `bootstrap/app.php` rather than being route-scoped.
+- **`PlanController::index()`** (`GET /api/v1/plans`) — active plans only, each with its active
+  `prices` eager-loaded, each price with its active `providers` (`PlanPriceProvider` — payment-rail
+  product/price id mappings) eager-loaded in turn, via `PlanPriceResource`'s own `whenLoaded('providers')`
+  → `PlanPriceProviderResource` (`provider`/`external_id`). Same additive pattern both levels: `prices`
+  and `providers` both stay absent (not merely empty) wherever they aren't eager-loaded — e.g. the
+  `SubscriptionController` context, where a subscription's nested plan/price never loads either —
+  so neither addition changed that existing shape.
+- **`PolicyController`** (`GET /api/v1/policies`, `GET /api/v1/policies/{policy:key}` — binds on
+  `Policy::key`, i.e. `privacy`/`terms`/`refund` from `App\Enum\PolicyType`, not the numeric id) —
+  the list is deliberately light (`key`/`title` only, via `PolicyResource`); the detail adds the
+  `activeVersion`'s `version`/`content`/`published_at` via `PolicyDetailResource extends
+  PolicyResource`. A policy with no active version yet returns those three fields as `null` rather
+  than 404ing.
+- **`LanguageController`** (`GET /api/v1/languages`, `GET /api/v1/languages/{language:code}` —
+  binds on `Language::code`) — same light-list/full-detail split as Policies:
+  `LanguageResource` (list) omits the `translations` JSON blob, `LanguageDetailResource extends
+  LanguageResource` (show) adds it. Both scope to `Language::scopeActive()`; `show()` additionally
+  `abort_unless($language->is_active, 404)` since implicit route-model binding by column doesn't
+  apply that scope on its own — a retired language must 404 the same way whether reached by listing
+  or by a guessed/bookmarked code.
+- **`FeedbackController::store()`** (`POST /api/v1/feedback`, `throttle:6,1`) — the one write in
+  this group, and the one genuinely public-or-authenticated endpoint in the app: the caller is
+  resolved manually via `$request->user('sanctum')` (Sanctum's guard reads the bearer token on
+  demand regardless of middleware, so this works with no `auth:sanctum` in front of the route) rather
+  than through route middleware. `StoreFeedbackRequest`'s `email` rule is conditional —
+  `nullable` when a token resolved a user, `required` otherwise, since an anonymous submission with
+  no way to trace it back to an account needs *some* contact channel for staff to follow up on. When
+  authenticated, the account's own email always wins over anything the client sends in `email` (never
+  trusted, same spirit as `TicketPriority` never being client-settable on ticket creation). `type`
+  is optional and validated against `App\Enum\FeedbackType`, defaulting to `general`.
+
 ## Routes
 
 - `routes/web.php` requires `auth.php` then `admin.php`.
@@ -1015,12 +1073,14 @@ Only `v1` exists today (`status => 'active'`).
   group-level `permission:{module}.view`.
 - `routes/api/v1.php` (registered via `config/apiroute.php`, see "REST API" above) — `POST
   /api/v1/logout`, `GET`/`PUT /api/v1/me` + `PUT /api/v1/me/password` (`ProfileController`, see
-  above; the password route carries its own `throttle:5,1`), `GET /api/v1/devices` /
+  above; the password route carries its own `throttle:5,1`), `POST /api/v1/me/delete` +
+  `POST /api/v1/me/delete/cancel` (`AccountController`, see "Account lifecycle services"
+  above), `GET /api/v1/devices` /
   `DELETE /api/v1/devices/{ulid}` / `DELETE /api/v1/devices/others` (the self-service device
   endpoints, see "Device Management & IP Blocking" above), `GET /api/v1/subscription` /
   `GET /api/v1/subscription/history` (`SubscriptionController`, see "Plans & Subscriptions"
-  above), `GET /api/v1/ticket-categories`, `GET`/`POST /api/v1/tickets`, `GET /api/v1/tickets/{id}`
-  + `POST /api/v1/tickets/{id}/reply` (`TicketController`, see "Support Tickets" above), all
+  above), `GET /api/v1/tickets/categories`, `GET`/`POST /api/v1/tickets`, `GET /api/v1/tickets/{ticket}`
+  + `POST /api/v1/tickets/{ticket}/reply` (`TicketController`, see "Support Tickets" above), all
   inside an explicit `Route::middleware(['auth:sanctum', 'device.valid'])->group(...)` in that
   file (not version-level config — see "REST API" above for why). `POST /api/v1/signup` / `POST /api/v1/login`
   (`AuthController`) sit outside that group, wrapped in their own `Route::middleware('guest')`
@@ -1032,7 +1092,11 @@ Only `v1` exists today (`status => 'active'`).
   the verify route additionally `signed`). `CheckBlockedIp` isn't route-level — it's
   prepended to the whole `api` middleware group in `bootstrap/app.php` instead, since it has to run
   before `auth:sanctum` resolves the user (and laravel-apiroute's own version-registered routes
-  explicitly include the `api` group, so this still applies to them).
+  explicitly include the `api` group, so this still applies to them). A third, unguarded bucket —
+  no `guest`/`auth:sanctum` wrapper at all — holds `GET /api/v1/plans`, `GET /api/v1/policies` /
+  `GET /api/v1/policies/{policy:key}`, `GET /api/v1/languages` / `GET /api/v1/languages/{language:code}`,
+  and `POST /api/v1/feedback` (`throttle:6,1`) — see "Public catalog + feedback endpoints" above for
+  why these can't live in either of the other two groups.
 
 ## Scheduled/queued work (`routes/console.php`)
 
@@ -1067,17 +1131,23 @@ app/
                    Api/V1/DeviceController.php  self-service list/revoke own devices, revoke-all-except-current
                    Api/V1/AuthController.php    signup + login + logout (rate limiting, ban/trashed/device checks — see "Device Management & IP Blocking")
                    Api/V1/ProfileController.php self-service profile — show/update/updatePassword (see "REST API" above)
+                   Api/V1/AccountController.php  self-service grace-period deletion request/cancel (see "Account lifecycle services" above)
                    Api/V1/VerificationController.php  guest verify/resend (see "REST API" above)
                    Api/V1/PasswordController.php      guest forgot/reset (see "REST API" above)
                    Api/V1/SubscriptionController.php  self-service current subscription + history (see "Plans & Subscriptions" above)
                    Api/V1/TicketController.php  self-service ticket create/list/show/reply (see "Support Tickets" above)
+                   Api/V1/{PlanController,PolicyController,LanguageController,FeedbackController}.php
+                   (public catalog + feedback — see "Public catalog + feedback endpoints" above)
   Http/Middleware/ EnsurePanelAccess (alias: panel), EnsureDeviceIsValid (alias: device.valid),
                    CheckBlockedIp (prepended to the global `api` middleware group)
   Http/Requests/V1/Auth/{SignupRequest,LoginRequest,ResendVerificationRequest,ForgotPasswordRequest,ResetPasswordRequest}.php
   Http/Requests/V1/User/{UpdateProfileRequest,UpdatePasswordRequest}.php
   Http/Requests/V1/Ticket/{StoreTicketRequest,ReplyTicketRequest}.php
+  Http/Requests/V1/Feedback/StoreFeedbackRequest.php
+  Http/Requests/V1/Account/RequestDeletionRequest.php
   Http/Resources/V1/{UserDeviceResource,UserResource,SubscriptionResource,PlanResource,PlanPriceResource,
-                      TicketResource,TicketMessageResource,TicketCategoryResource}.php
+                      PlanPriceProviderResource,TicketResource,TicketMessageResource,TicketCategoryResource,
+                      PolicyResource,PolicyDetailResource,LanguageResource,LanguageDetailResource}.php
   Jobs/            Account/PurgeExpiredAccounts, Activity/ExportActivityLog,
                    Auth/{PruneExpiredBlockedIps, RecordBlockedIpHit},
                    Device/{PruneRevokedDevices, ResolveDeviceLocation},
@@ -1148,7 +1218,8 @@ resources/
   css/blatui.css             design tokens (CSS vars on :root/.dark/[data-*])
 tests/
   Feature/           organized by delivery boundary:
-    Api/              Authentication, Devices, Exceptions, Profile, Security, Subscriptions, Tickets
+    Api/              Authentication, Devices, Exceptions, Profile, Security, Subscriptions, Tickets,
+                      Feedback, Plans, Policies, Languages, Account
     Admin/            Activity, Accounts/{Guests,Users}, Devices, Feedback, Languages,
                      Notifications, Plans, Settings, Staff, Support, Webhooks
     Auth/             panel authentication flows
