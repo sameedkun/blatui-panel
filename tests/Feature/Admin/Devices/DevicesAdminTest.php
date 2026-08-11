@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Admin\Devices;
 
 use App\Enum\DeviceType;
 use App\Livewire\Admin\Management\Devices\Index;

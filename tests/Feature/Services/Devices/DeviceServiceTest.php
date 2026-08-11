@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Services\Devices;
 
 use App\Enum\DeviceType;
 use App\Exceptions\DeviceBlockedException;

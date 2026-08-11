@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Admin\Notifications;
 
 use App\Enum\NotificationPushStatus;
 use App\Enum\NotificationType;

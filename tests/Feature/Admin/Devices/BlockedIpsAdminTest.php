@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Admin\Devices;
 
 use App\Livewire\Admin\Management\BlockedIps\Form;
 use App\Livewire\Admin\Management\BlockedIps\Index;

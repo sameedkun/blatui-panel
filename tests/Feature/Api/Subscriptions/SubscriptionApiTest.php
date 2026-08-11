@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Api\Subscriptions;
 
 use App\Models\Plan;
 use App\Models\PlanPrice;

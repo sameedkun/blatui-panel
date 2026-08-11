@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Localization;
 
 use App\Livewire\Admin\Administration\Staff\Form;
 use App\Livewire\Admin\Administration\Staff\Index;

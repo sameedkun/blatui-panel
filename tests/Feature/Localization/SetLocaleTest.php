@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Localization;
 
 use App\Livewire\Admin\Components\LanguageSwitcher;
 use Illuminate\Support\Facades\App;

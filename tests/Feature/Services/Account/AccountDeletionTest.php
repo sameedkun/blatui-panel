@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Services\Account;
 
 use App\Models\User;
 use App\Notifications\Account\AccountDeletionScheduledNotification;

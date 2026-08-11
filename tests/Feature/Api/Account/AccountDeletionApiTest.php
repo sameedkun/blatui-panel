@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Api\Account;
 
 use App\Models\User;
 use App\Services\Account\DeletionService;

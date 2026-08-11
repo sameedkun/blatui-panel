@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Jobs;
 
 use App\Jobs\Account\PurgeExpiredAccounts;
 use App\Models\User;

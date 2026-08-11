@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Admin\Languages;
 
 use App\Livewire\Admin\Application\Language\Form;
 use App\Livewire\Admin\Application\Language\Index;

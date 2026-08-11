@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Admin\Settings;
 
 use App\Enum\MailPurpose;
 use App\Livewire\Admin\Settings\Mail as MailSettings;

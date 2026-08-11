@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Admin\Feedback;
 
 use App\Enum\FeedbackStatus;
 use App\Enum\FeedbackType;

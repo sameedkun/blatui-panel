@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Admin\Webhooks;
 
 use App\Enum\PaymentProvider;
 use App\Events\Webhooks\AppStoreWebhookReceived;

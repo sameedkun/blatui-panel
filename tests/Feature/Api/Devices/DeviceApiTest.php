@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Api\Devices;
 
 use App\Models\User;
 use App\Models\UserDevice;

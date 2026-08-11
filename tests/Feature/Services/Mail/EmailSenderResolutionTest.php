@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Services\Mail;
 
 use App\Enum\MailPurpose;
 use App\Models\EmailDomain;

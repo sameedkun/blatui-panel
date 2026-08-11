@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Admin\Support;
 
 use App\Livewire\Admin\Support\Tickets\Form;
 use App\Livewire\Admin\Support\Tickets\Show;

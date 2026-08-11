@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Api\Security;
 
 use App\Jobs\Auth\PruneExpiredBlockedIps;
 use App\Models\BlockedIp;

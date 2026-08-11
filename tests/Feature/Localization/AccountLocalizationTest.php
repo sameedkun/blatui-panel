@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Localization;
 
 use App\Livewire\Admin\Account\Index;
 use App\Models\User;

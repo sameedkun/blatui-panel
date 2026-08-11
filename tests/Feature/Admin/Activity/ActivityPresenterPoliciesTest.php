@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Admin\Activity;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;

@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Api\Auth;
 
 use App\Enum\UserType;
 use App\Models\User;

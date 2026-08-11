@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Localization;
 
 use App\Enum\TicketPriority;
 use App\Enum\TicketStatus;

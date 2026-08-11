@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Api\Feedback;
 
 use App\Models\User;
 use App\Services\Device\DeviceService;

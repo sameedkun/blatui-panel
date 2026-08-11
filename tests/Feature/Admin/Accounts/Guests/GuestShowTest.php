@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Admin\Accounts\Guests;
 
 use App\Livewire\Admin\Management\Guests\Index as GuestsIndex;
 use App\Livewire\Admin\Management\Guests\Show;

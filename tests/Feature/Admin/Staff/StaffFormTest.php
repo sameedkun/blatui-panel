@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Admin\Staff;
 
 use App\Livewire\Admin\Administration\Staff\Form;
 use App\Models\User;

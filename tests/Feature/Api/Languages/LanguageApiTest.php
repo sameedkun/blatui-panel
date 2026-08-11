@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Api\Languages;
 
 use App\Models\Language;
 use Illuminate\Foundation\Testing\RefreshDatabase;

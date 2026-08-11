@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Admin\Activity;
 
 use App\Enum\MailPurpose;
 use App\Livewire\Admin\Management\Users\Show;

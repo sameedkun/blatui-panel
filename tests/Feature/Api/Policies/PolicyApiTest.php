@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Api\Policies;
 
 use App\Models\Policy;
 use Illuminate\Foundation\Testing\RefreshDatabase;

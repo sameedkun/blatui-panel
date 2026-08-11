@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Admin\Plans;
 
 use App\Enum\ReceiptType;
 use App\Livewire\Admin\Management\Subscriptions\Index;

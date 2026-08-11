@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Api\Tickets;
 
 use App\Models\Ticket;
 use App\Models\TicketCategory;
