@@ -266,7 +266,7 @@ class TicketService
             ->map(fn (UploadedFile $file): array => [
                 'name' => $file->getClientOriginalName(),
                 'size' => $file->getSize(),
-                'mime' => $file->getClientMimeType(),
+                'mime' => $file->getMimeType(),
                 'path' => $file->store($ticket->attachmentsPath()),
             ])
             ->all();

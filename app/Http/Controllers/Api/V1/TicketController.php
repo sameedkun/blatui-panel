@@ -63,7 +63,7 @@ class TicketController extends ApiController
             attachments: $request->file('attachments', []),
         );
 
-        return $this->created(new TicketResource($ticket->load(['category', 'messages'])));
+        return $this->created(new TicketResource($ticket->load(['category', 'messages'])), 'Ticket Created Successfully');
     }
 
     public function show(Request $request, int $id): JsonResponse

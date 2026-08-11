@@ -39,22 +39,30 @@ Route::middleware('guest')->group(function () {
 Route::middleware(['auth:sanctum', 'device.valid'])->group(function (): void {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-    Route::get('/me', [ProfileController::class, 'show'])->name('me');
-    Route::put('/me', [ProfileController::class, 'update'])->name('me.update');
-    Route::put('/me/password', [ProfileController::class, 'updatePassword'])
-        ->middleware('throttle:5,1')
-        ->name('me.password');
+    Route::prefix('me')->name('me.')->group(function () {
+        Route::get('/', [ProfileController::class, 'show'])->name('show');
+        Route::put('/', [ProfileController::class, 'update'])->name('update');
+        Route::put('/password', [ProfileController::class, 'updatePassword'])
+            ->middleware('throttle:5,1')
+            ->name('password');
+    });
 
-    Route::get('/devices', [DeviceController::class, 'index'])->name('devices.index');
-    Route::delete('/devices/others', [DeviceController::class, 'revokeAllExceptCurrent'])->name('devices.revoke-others');
-    Route::delete('/devices/{ulid}', [DeviceController::class, 'destroy'])->name('devices.destroy');
+    Route::prefix('devices')->name('devices.')->group(function () {
+        Route::get('/', [DeviceController::class, 'index'])->name('index');
+        Route::delete('/others', [DeviceController::class, 'revokeAllExceptCurrent'])->name('revoke-others');
+        Route::delete('/{ulid}', [DeviceController::class, 'destroy'])->name('destroy');
+    });
 
-    Route::get('/subscription', [SubscriptionController::class, 'current'])->name('subscription.current');
-    Route::get('/subscription/history', [SubscriptionController::class, 'history'])->name('subscriptions.index');
+    Route::prefix('subscription')->name('subscription.')->group(function () {
+        Route::get('/', [SubscriptionController::class, 'current'])->name('current');
+        Route::get('/history', [SubscriptionController::class, 'history'])->name('history');
+    });
 
-    Route::get('/ticket-categories', [TicketController::class, 'categories'])->name('ticket-categories.index');
-    Route::get('/tickets', [TicketController::class, 'index'])->name('tickets.index');
-    Route::post('/tickets', [TicketController::class, 'store'])->name('tickets.store');
-    Route::get('/tickets/{id}', [TicketController::class, 'show'])->name('tickets.show');
-    Route::post('/tickets/{id}/reply', [TicketController::class, 'reply'])->name('tickets.reply');
+    Route::prefix('tickets')->name('tickets.')->group(function () {
+        Route::get('/categories', [TicketController::class, 'categories'])->name('categories.index');
+        Route::get('/', [TicketController::class, 'index'])->name('index');
+        Route::post('/', [TicketController::class, 'store'])->name('store');
+        Route::get('/{ticket}', [TicketController::class, 'show'])->name('show');
+        Route::post('/{ticket}/reply', [TicketController::class, 'reply'])->name('reply');
+    });
 });
