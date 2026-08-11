@@ -253,6 +253,16 @@ return [
             'icon' => 'gear',
         ],
 
+        'logs' => [
+            'label' => 'Log Viewer',
+            'group' => 'settings',
+            'actions' => ['access'],
+            'icon' => 'file-text',
+            // Served by opcodesio/log-viewer's own routes (/logs), not an
+            // admin.* Livewire page — see AppServiceProvider::configureLogViewer().
+            'show_in_nav' => false,
+        ],
+
     ],
 
     /*

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Opcodes\LogViewer\Facades\LogViewer;
 use SocialiteProviders\Apple\Provider;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 
@@ -30,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureSuperAdmin();
+        $this->configureLogViewer();
     }
 
     /**
@@ -56,6 +58,23 @@ class AppServiceProvider extends ServiceProvider
             }
 
             return null;
+        });
+    }
+
+    /**
+     * Gate the opcodesio/log-viewer package's own routes (/logs) behind the
+     * same staff/not-banned checks as the admin panel, plus the 'logs.access'
+     * permission — super-admin passes via configureSuperAdmin()'s Gate::before.
+     */
+    protected function configureLogViewer(): void
+    {
+        LogViewer::auth(function ($request) {
+            $user = $request->user();
+
+            return $user
+                && $user->isStaff()
+                && ! $user->isBanned()
+                && $user->can('logs.access');
         });
     }
 

@@ -17,6 +17,7 @@
         "league/flysystem-aws-s3-v3": "^3.0",
         "livewire/livewire": "^4.3",
         "mallardduck/blade-lucide-icons": "^1.26",
+        "opcodesio/log-viewer": "^3.24",
         "resend/resend-laravel": "^1.4",
         "socialiteproviders/apple": "^5.10",
         "spatie/laravel-activitylog": "^5.0",
