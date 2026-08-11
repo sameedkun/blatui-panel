@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Notifications\Account\AccountDeletionScheduledNotification;
 use App\Services\Account\DeletionService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -104,6 +106,38 @@ class AccountDeletionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         $this->service()->requestByAdmin($guest);
+    }
+
+    public function test_user_initiated_request_sends_a_cancellable_deletion_notification(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->app()->create();
+
+        $this->service()->requestByUser($user, 'Leaving the app');
+
+        Notification::assertSentTo(
+            $user,
+            AccountDeletionScheduledNotification::class,
+            fn (AccountDeletionScheduledNotification $notification) => $notification->initiatedByAdmin === false
+                && $notification->purgesAt->equalTo($user->fresh()->deletionPurgesAt())
+        );
+    }
+
+    public function test_admin_initiated_request_sends_a_non_cancellable_deletion_notification(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->app()->create();
+
+        $this->service()->requestByAdmin($user, 'Policy violation');
+
+        Notification::assertSentTo(
+            $user,
+            AccountDeletionScheduledNotification::class,
+            fn (AccountDeletionScheduledNotification $notification) => $notification->initiatedByAdmin === true
+                && $notification->purgesAt->equalTo($user->fresh()->deletionPurgesAt())
+        );
     }
 
     public function test_scheduled_purge_ignores_guest_accounts(): void

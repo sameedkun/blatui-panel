@@ -7,6 +7,7 @@ use App\Enum\ActivityContext;
 use App\Enum\ActivityModule;
 use App\Enum\UserType;
 use App\Models\User;
+use App\Notifications\Account\AccountDeletionScheduledNotification;
 use App\Support\ActivityLogger;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
@@ -37,6 +38,8 @@ class DeletionService
             'initiated_by' => 'user',
             'reason' => $reason,
         ]);
+
+        $user->notify(new AccountDeletionScheduledNotification($user->deletionPurgesAt(), initiatedByAdmin: false));
     }
 
     /**
@@ -53,6 +56,8 @@ class DeletionService
             'initiated_by' => 'admin',
             'reason' => $reason,
         ]);
+
+        $user->notify(new AccountDeletionScheduledNotification($user->deletionPurgesAt(), initiatedByAdmin: true));
     }
 
     /**
