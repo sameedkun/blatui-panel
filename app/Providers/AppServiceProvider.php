@@ -32,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureSuperAdmin();
         $this->configureLogViewer();
+        $this->configureApiDocs();
     }
 
     /**
@@ -75,6 +76,22 @@ class AppServiceProvider extends ServiceProvider
                 && $user->isStaff()
                 && ! $user->isBanned()
                 && $user->can('logs.access');
+        });
+    }
+
+    /**
+     * Gate dedoc/scramble's own routes (/docs/api, /docs/api.json) behind the
+     * same staff/not-banned checks as the admin panel, plus the 'api_docs.access'
+     * permission — super-admin passes via configureSuperAdmin()'s Gate::before.
+     * Scramble's RestrictedDocsAccess middleware only consults this gate outside
+     * the 'local' environment; in 'local' the docs stay open, per package default.
+     */
+    protected function configureApiDocs(): void
+    {
+        Gate::define('viewApiDocs', function ($user) {
+            return $user->isStaff()
+                && ! $user->isBanned()
+                && $user->can('api_docs.access');
         });
     }
 

@@ -262,6 +262,15 @@ return [
             // admin.* Livewire page — see AppServiceProvider::configureLogViewer().
             'show_in_nav' => false,
         ],
+        'api_docs' => [
+            'label' => 'API Docs',
+            'group' => 'settings',
+            'actions' => ['access'],
+            'icon' => 'book-open',
+            // Served by dedoc/scramble's own routes (/docs/api), not an
+            // admin.* Livewire page — see AppServiceProvider::configureApiDocs().
+            'show_in_nav' => false,
+        ],
 
     ],
 
@@ -299,6 +308,7 @@ return [
         'users.force-delete',
         'roles.delete',
         'logs.access',
+        'api_docs.access',
         'activity_logs.export',
         // A global IP block can lock out thousands of legitimate users at once
         // (carrier-NAT), so creating one is reserved for senior staff only.
