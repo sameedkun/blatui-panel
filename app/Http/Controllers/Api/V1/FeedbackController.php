@@ -17,6 +17,7 @@ use Illuminate\Http\JsonResponse;
  */
 class FeedbackController extends ApiController
 {
+    /** Submit feedback. */
     public function store(StoreFeedbackRequest $request): JsonResponse
     {
         $user = $request->user('sanctum');

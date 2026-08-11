@@ -38,6 +38,7 @@ class AuthController extends ApiController
     /** Per email+IP, mirrors the panel's own Livewire\Auth\Login::ensureIsNotRateLimited(). */
     private const MAX_LOGIN_ATTEMPTS = 5;
 
+    /** Create a new app-user account. */
     public function signup(SignupRequest $request): JsonResponse
     {
         $validated = $request->validated();
@@ -67,6 +68,8 @@ class AuthController extends ApiController
     }
 
     /**
+     * Log in and issue an access token.
+     *
      * Deliberately looks up `->withTrashed()` and checks `type` in the same
      * query as the password check: a trashed/staff/guest email must be
      * indistinguishable from a wrong password in the response — anything
@@ -179,6 +182,8 @@ class AuthController extends ApiController
     }
 
     /**
+     * Log out (revoke the current device).
+     *
      * Revokes the calling device only — the token used to authenticate this
      * very request. Reuses DeviceService::revoke() rather than deleting the
      * token directly, so logout gets the same token-deletion + revoked_at

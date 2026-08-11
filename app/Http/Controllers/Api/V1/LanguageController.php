@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 /** Public language catalog — no auth required, reachable from a pre-login language picker. */
 class LanguageController extends ApiController
 {
+    /** List supported languages. */
     public function index(): JsonResponse
     {
         $languages = Language::active()->orderBy('sort_order')->orderBy('name')->get();
@@ -21,6 +22,8 @@ class LanguageController extends ApiController
     }
 
     /**
+     * Get a language's details.
+     *
      * {language:code} binds on Language::code rather than the numeric id.
      * A retired (inactive) language 404s here too, same as it's excluded
      * from index() — never fetchable via a guessed code.

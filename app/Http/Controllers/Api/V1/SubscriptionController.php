@@ -18,6 +18,8 @@ use Illuminate\Http\Request;
 class SubscriptionController extends ApiController
 {
     /**
+     * Get the current active subscription.
+     *
      * The subscription currently granting access, if any — same definition
      * User::activeSubscription() already uses (trialing/active/grace with a
      * still-future end, or cancelled-but-not-yet-lapsed).
@@ -31,7 +33,11 @@ class SubscriptionController extends ApiController
         ]);
     }
 
-    /** Every subscription the user has ever had, most recent first. */
+    /**
+     * Get subscription history.
+     *
+     * Every subscription the user has ever had, most recent first.
+     */
     public function history(Request $request): JsonResponse
     {
         $subscriptions = $request->user()->subscriptions()

@@ -13,12 +13,17 @@ use Illuminate\Http\JsonResponse;
 /** Public legal documents (privacy/terms/refund) — no auth required. */
 class PolicyController extends ApiController
 {
+    /** List legal policies. */
     public function index(): JsonResponse
     {
         return $this->success(PolicyResource::collection(Policy::all()));
     }
 
-    /** {policy:key} binds on Policy::key (privacy/terms/refund) rather than the numeric id. */
+    /**
+     * Get a policy's active version.
+     *
+     * {policy:key} binds on Policy::key (privacy/terms/refund) rather than the numeric id.
+     */
     public function show(Policy $policy): JsonResponse
     {
         return $this->success(new PolicyDetailResource($policy->load('activeVersion')));

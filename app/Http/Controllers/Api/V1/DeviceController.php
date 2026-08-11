@@ -22,6 +22,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class DeviceController extends ApiController
 {
+    /** List the authenticated user's devices. */
     public function index(Request $request): JsonResponse
     {
         return $this->success(
@@ -31,6 +32,7 @@ class DeviceController extends ApiController
         );
     }
 
+    /** Sign out (revoke) a device. */
     public function destroy(Request $request, string $ulid, DeviceService $devices): JsonResponse
     {
         $device = $request->user()->devices()->where('ulid', $ulid)->firstOrFail();
@@ -49,6 +51,8 @@ class DeviceController extends ApiController
     }
 
     /**
+     * Sign out all other devices.
+     *
      * Signs out every other device, leaving the one that authenticated this
      * very request untouched — EnsureDeviceIsValid (which ran before this
      * controller) guarantees that device row exists for the current token.

@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 /** Public pricing catalog — no auth required, reachable before signup/login. */
 class PlanController extends ApiController
 {
+    /** List active pricing plans. */
     public function index(): JsonResponse
     {
         $plans = Plan::where('is_active', true)

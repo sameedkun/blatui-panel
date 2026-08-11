@@ -33,6 +33,7 @@ use Throwable;
  */
 class GuestController extends ApiController
 {
+    /** Create a guest account. */
     public function store(): JsonResponse
     {
         $guest = User::create([
@@ -56,6 +57,8 @@ class GuestController extends ApiController
     }
 
     /**
+     * Convert a guest into an app account.
+     *
      * Email + password self-service conversion — never merges (see
      * ConvertGuestRequest's docblock). The guest row is mutated in place
      * (same id), so the caller's existing bearer token keeps working; no new
@@ -77,6 +80,8 @@ class GuestController extends ApiController
     }
 
     /**
+     * Convert (or merge) a guest via an OAuth provider.
+     *
      * Provider-verified conversion — google gets an OAuth access token,
      * apple gets an identity (id_token) JWT; both are handed to Socialite's
      * userFromToken(), which calls the provider directly to resolve the

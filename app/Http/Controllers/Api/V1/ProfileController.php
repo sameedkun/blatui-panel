@@ -19,12 +19,15 @@ use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends ApiController
 {
+    /** Get the authenticated user's profile. */
     public function show(Request $request): JsonResponse
     {
         return $this->success(['user' => new UserResource($request->user())]);
     }
 
     /**
+     * Update the authenticated user's profile.
+     *
      * Mirrors Livewire\Admin\Account\Index::saveProfile()'s avatar handling
      * (default disk, auto-generated filename, old file deleted, path — never
      * a URL — stored on the `avatar` column) and its audit shape (avatar is
@@ -70,6 +73,7 @@ class ProfileController extends ApiController
         return $this->success(['user' => new UserResource($user)], 'Profile updated successfully.');
     }
 
+    /** Update the authenticated user's password. */
     public function updatePassword(UpdatePasswordRequest $request): JsonResponse
     {
         /** @var User $user */

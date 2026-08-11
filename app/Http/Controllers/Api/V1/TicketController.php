@@ -27,7 +27,11 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class TicketController extends ApiController
 {
-    /** Categories a ticket can be raised under — inactive ones stay admin-only. */
+    /**
+     * List ticket categories.
+     *
+     * Categories a ticket can be raised under — inactive ones stay admin-only.
+     */
     public function categories(): JsonResponse
     {
         return $this->success(
@@ -37,6 +41,7 @@ class TicketController extends ApiController
         );
     }
 
+    /** List the authenticated user's tickets. */
     public function index(Request $request): JsonResponse
     {
         return $this->success(
@@ -46,6 +51,7 @@ class TicketController extends ApiController
         );
     }
 
+    /** Create a new support ticket. */
     public function store(StoreTicketRequest $request, TicketService $tickets): JsonResponse
     {
         $user = $request->user();
@@ -66,6 +72,7 @@ class TicketController extends ApiController
         return $this->created(new TicketResource($ticket->load(['category', 'messages'])), 'Ticket Created Successfully');
     }
 
+    /** Get a ticket's details. */
     public function show(Request $request, int $id): JsonResponse
     {
         $ticket = $request->user()->tickets()->with(['category', 'messages'])->findOrFail($id);
@@ -73,6 +80,7 @@ class TicketController extends ApiController
         return $this->success(new TicketResource($ticket));
     }
 
+    /** Reply to a ticket. */
     public function reply(ReplyTicketRequest $request, int $id, TicketService $tickets): JsonResponse
     {
         $user = $request->user();

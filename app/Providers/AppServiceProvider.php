@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Carbon\CarbonImmutable;
+use Dedoc\Scramble\Scramble;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Replaced by the versioned '/docs/v1/api' routes registered in
+        // configureApiDocs() — must be called from register(), before
+        // ScrambleServiceProvider::boot() checks the flag.
+        Scramble::ignoreDefaultRoutes();
     }
 
     /**
@@ -80,11 +84,18 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Gate dedoc/scramble's own routes (/docs/api, /docs/api.json) behind the
-     * same staff/not-banned checks as the admin panel, plus the 'api_docs.access'
-     * permission — super-admin passes via configureSuperAdmin()'s Gate::before.
-     * Scramble's RestrictedDocsAccess middleware only consults this gate outside
-     * the 'local' environment; in 'local' the docs stay open, per package default.
+     * Gate dedoc/scramble's own routes (/docs/v1/api, /docs/v1/openapi.json)
+     * behind the same staff/not-banned checks as the admin panel, plus the
+     * 'api_docs.access' permission — super-admin passes via
+     * configureSuperAdmin()'s Gate::before. Scramble's RestrictedDocsAccess
+     * middleware only consults this gate outside the 'local' environment; in
+     * 'local' the docs stay open, per package default.
+     *
+     * Registered as a named 'v1' API (rather than relying on Scramble's
+     * default routes, disabled in register()) so the docs URL matches this
+     * app's own versioned API surface (config/apiroute.php) — a future v2
+     * gets its own Scramble::registerApi('v2', ...)->expose(...) block here,
+     * mirroring how routes/api/v1.php vs a future v2.php already split.
      */
     protected function configureApiDocs(): void
     {
@@ -93,6 +104,11 @@ class AppServiceProvider extends ServiceProvider
                 && ! $user->isBanned()
                 && $user->can('api_docs.access');
         });
+
+        Scramble::registerApi('v1')->expose(
+            ui: '/docs/v1/api',
+            document: '/docs/v1/openapi.json',
+        );
     }
 
     protected function configureDefaults(): void

@@ -17,6 +17,8 @@ use Illuminate\Http\JsonResponse;
 class VerificationController extends ApiController
 {
     /**
+     * Verify an email address via signed link.
+     *
      * Mirrors Livewire\Auth\VerifyEmail::mount(), except keyed by `external_id`
      * rather than the raw numeric PK — a public-facing link should never
      * expose a sequential, enumerable id. The {id}/{hash} signature (checked
@@ -43,6 +45,8 @@ class VerificationController extends ApiController
     }
 
     /**
+     * Resend the email verification link.
+     *
      * Always responds the same way regardless of whether the account exists
      * or is already verified — never leaks account existence to a guest caller.
      */

@@ -24,6 +24,8 @@ class PasswordController extends ApiController
     private const GENERIC_ERROR = 'Unable to reset password. The link may be invalid or expired.';
 
     /**
+     * Send a password reset link.
+     *
      * Always responds the same way regardless of the broker's actual status
      * (no such user, already-throttled, ...) — never leaks account existence.
      * The `type` credential scopes the lookup to app users at the query
@@ -56,6 +58,8 @@ class PasswordController extends ApiController
     }
 
     /**
+     * Reset the password using a broker token.
+     *
      * `email` arrives Crypt::encryptString()'d — see UrlResolver::passwordResetUrl()'s
      * docblock: "any future API endpoint must do the same" as the panel's own
      * PasswordReset Livewire component, which decrypts it in mount().

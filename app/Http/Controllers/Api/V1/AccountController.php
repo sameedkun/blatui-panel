@@ -22,7 +22,11 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class AccountController extends ApiController
 {
-    /** requestByUser() itself doesn't guard against a repeat call, so the active-state check lives here. */
+    /**
+     * Request account deletion.
+     *
+     * requestByUser() itself doesn't guard against a repeat call, so the active-state check lives here.
+     */
     public function store(RequestDeletionRequest $request, DeletionService $deletions): JsonResponse
     {
         $user = $request->user();
@@ -41,6 +45,8 @@ class AccountController extends ApiController
     }
 
     /**
+     * Cancel a pending account deletion.
+     *
      * cancelByUser() itself throws (→ 403) when there's nothing pending, or
      * when the pending request was admin-initiated — a user can never
      * override that, so no extra guard is needed here.
