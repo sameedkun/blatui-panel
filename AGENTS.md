@@ -35,6 +35,7 @@ This application is a Laravel application and its main Laravel ecosystems packag
 - laravel/framework (LARAVEL) - v13
 - laravel/prompts (PROMPTS) - v0
 - laravel/sanctum (SANCTUM) - v4
+- laravel/socialite (SOCIALITE) - v5
 - livewire/livewire (LIVEWIRE) - v4
 - laravel/boost (BOOST) - v2
 - laravel/mcp (MCP) - v0
@@ -169,7 +170,6 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - When creating models for tests, use the factories for the models. Check if the factory has custom states that can be used before manually setting up the model.
 - Faker: Use methods such as `$this->faker->word()` or `fake()->randomDigit()`. Follow existing conventions whether to use `$this->faker` or `fake()`.
 - When creating tests, make use of `php artisan make:test [options] {name}` to create a feature test, and pass `--unit` to create a unit test. Most tests should be feature tests.
-- Place every test in its matching domain folder: `Feature/Api`, `Feature/Admin`, `Feature/Services`, `Feature/Jobs`, `Feature/Auth`, `Feature/Localization`, or `Feature/Models`; place isolated tests in `Unit/<domain>`. Use the nearest existing subfolder and do not add new tests directly to `tests/Feature`.
 
 ## Vite Error
 

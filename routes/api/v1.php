@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\DeviceController;
 use App\Http\Controllers\Api\V1\FeedbackController;
+use App\Http\Controllers\Api\V1\GuestController;
 use App\Http\Controllers\Api\V1\LanguageController;
 use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Api\V1\PlanController;
@@ -39,39 +40,63 @@ Route::middleware('guest')->group(function () {
     Route::post('/password/reset', [PasswordController::class, 'reset'])
         ->middleware('throttle:6,1')
         ->name('password.reset');
+
+    // Zero-friction identity creation — no credentials to check, so it's a
+    // bigger spam vector than signup and gets its own throttle.
+    Route::post('/guests', [GuestController::class, 'store'])
+        ->middleware('throttle:10,1')
+        ->name('guests.store');
 });
 
-Route::middleware(['auth:sanctum', 'device.valid'])->group(function (): void {
-    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::middleware('auth:sanctum')->group(function (): void {
+    // App-only surface — device-tracked, full self-service. user.type:app
+    // runs before device.valid so a guest (who never registers a device) is
+    // rejected here first, rather than device.valid having to know about guests.
+    Route::middleware(['user.type:app', 'device.valid'])->group(function (): void {
+        Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-    Route::prefix('me')->name('me.')->group(function () {
-        Route::get('/', [ProfileController::class, 'show'])->name('show');
-        Route::put('/', [ProfileController::class, 'update'])->name('update');
-        Route::put('/password', [ProfileController::class, 'updatePassword'])
-            ->middleware('throttle:5,1')
-            ->name('password');
+        Route::prefix('me')->name('me.')->group(function () {
+            Route::get('/', [ProfileController::class, 'show'])->name('show');
+            Route::put('/', [ProfileController::class, 'update'])->name('update');
+            Route::put('/password', [ProfileController::class, 'updatePassword'])
+                ->middleware('throttle:5,1')
+                ->name('password');
 
-        Route::post('/delete', [AccountController::class, 'store'])->name('delete');
-        Route::post('/delete/cancel', [AccountController::class, 'cancel'])->name('delete.cancel');
+            Route::post('/delete', [AccountController::class, 'store'])->name('delete');
+            Route::post('/delete/cancel', [AccountController::class, 'cancel'])->name('delete.cancel');
+        });
+
+        Route::prefix('devices')->name('devices.')->group(function () {
+            Route::get('/', [DeviceController::class, 'index'])->name('index');
+            Route::delete('/others', [DeviceController::class, 'revokeAllExceptCurrent'])->name('revoke-others');
+            Route::delete('/{ulid}', [DeviceController::class, 'destroy'])->name('destroy');
+        });
+
+        Route::prefix('tickets')->name('tickets.')->group(function () {
+            Route::get('/categories', [TicketController::class, 'categories'])->name('categories.index');
+            Route::get('/', [TicketController::class, 'index'])->name('index');
+            Route::post('/', [TicketController::class, 'store'])->name('store');
+            Route::get('/{ticket}', [TicketController::class, 'show'])->name('show');
+            Route::post('/{ticket}/reply', [TicketController::class, 'reply'])->name('reply');
+        });
     });
 
-    Route::prefix('devices')->name('devices.')->group(function () {
-        Route::get('/', [DeviceController::class, 'index'])->name('index');
-        Route::delete('/others', [DeviceController::class, 'revokeAllExceptCurrent'])->name('revoke-others');
-        Route::delete('/{ulid}', [DeviceController::class, 'destroy'])->name('destroy');
+    // Guest-accessible surface. The one route group guests are currently
+    // allowed into — extending this to another prefix later is a one-line
+    // middleware change, not a restructure.
+    Route::middleware('user.type:app,guest')->group(function (): void {
+        Route::prefix('subscription')->name('subscription.')->group(function () {
+            Route::get('/', [SubscriptionController::class, 'current'])->name('current');
+            Route::get('/history', [SubscriptionController::class, 'history'])->name('history');
+        });
     });
 
-    Route::prefix('subscription')->name('subscription.')->group(function () {
-        Route::get('/', [SubscriptionController::class, 'current'])->name('current');
-        Route::get('/history', [SubscriptionController::class, 'history'])->name('history');
-    });
-
-    Route::prefix('tickets')->name('tickets.')->group(function () {
-        Route::get('/categories', [TicketController::class, 'categories'])->name('categories.index');
-        Route::get('/', [TicketController::class, 'index'])->name('index');
-        Route::post('/', [TicketController::class, 'store'])->name('store');
-        Route::get('/{ticket}', [TicketController::class, 'show'])->name('show');
-        Route::post('/{ticket}/reply', [TicketController::class, 'reply'])->name('reply');
+    // Guest-only actions — turning an anonymous guest into a real app account.
+    Route::middleware(['user.type:guest', 'throttle:10,1'])->prefix('guests')->name('guests.')->group(function () {
+        Route::post('/convert', [GuestController::class, 'convert'])->name('convert');
+        Route::post('/convert/{provider}', [GuestController::class, 'convertWithProvider'])
+            ->whereIn('provider', ['google', 'apple'])
+            ->name('convert.provider');
     });
 });
 

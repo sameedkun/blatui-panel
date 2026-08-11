@@ -179,6 +179,68 @@ These three services are why **the current uncommitted work** (per git status) e
 conversion/merge functionality was just added — `MergeService` is new, and
 `GuestConversionServiceTest` / `GuestShowTest` / the guest dialogs were updated alongside it.
 
+### Guest self-service API (`App\Http\Controllers\Api\V1\GuestController`)
+
+Anonymous accounts a client can spin up with zero friction, then later turn into a real app
+account. Sits in `routes/api/v1.php`'s `guest`-middleware group for creation (unauthenticated, like
+`signup`) and behind `auth:sanctum` for everything else.
+- `store()` (`POST /api/v1/guests`, `throttle:10,1` — zero-friction creation is a bigger spam
+  vector than signup) — creates a `type=Guest` row with an auto-generated `guest_{random}@{host}`
+  email (`{host}` parsed from `config('app.url')`, retry-looped on collision) and a random unusable
+  password (`Hash::make(Str::random(64))` — the column is `NOT NULL`, but nothing accepts a guest
+  password for login, since `AuthController::login()` is hard-scoped to `UserType::App`; the
+  response therefore never includes a password, only the generated email and a bearer token).
+  `external_id` needs no special handling — `User::booted()`'s `creating` hook already generates it
+  for every type. The token carries no expiry (`config('sanctum.expiration')` is already `null`
+  app-wide).
+- `convert()` (`POST /api/v1/guests/convert`) — email + password + optional name, via
+  `GuestConversionService::convertBySelf()`. **Deliberately never merges on a taken email** (unlike
+  the provider path below) — `ConvertGuestRequest` has no `unique:users,email` rule of its own,
+  since the service's own `validateEmail()` already enforces that and throws its own
+  `ValidationException`; duplicating it would just risk drift. This is a security boundary, not an
+  oversight: an OAuth-verified email proves ownership, but a self-typed email + a brand-new
+  password proves nothing — auto-merging here would let anyone "convert" claiming a victim's email,
+  set their own password, and walk away controlling that account. The guest row is mutated in
+  place (same id), so the caller's existing bearer token keeps working — no new token is issued.
+- `convertWithProvider()` (`POST /api/v1/guests/convert/{provider}`, `provider` route-constrained to
+  `google`/`apple`) — takes a single `token` field (Google: an OAuth access token; Apple: an
+  identity `id_token` JWT) and hands it to `Laravel\Socialite\Facades\Socialite::driver($provider)
+  ->userFromToken($token)` (Apple additionally via `->stateless()`, since there's no OAuth
+  redirect/session in play here) — nothing about identity is ever trusted from the client; the
+  id/email/name all come back from Socialite's call to the provider. `email_verified` is read off
+  `$socialiteUser->getRaw()['email_verified']` (normalized through `filter_var(...,
+  FILTER_VALIDATE_BOOLEAN)`, since Apple sometimes sends it as the string `"true"`/`"false"` rather
+  than a real boolean; missing entirely defaults to verified, since both providers only return an
+  email once it's confirmed). `name` falls back to the request's own `name` field only when
+  Socialite doesn't return one — Apple's `id_token` never carries a name claim at all (Apple only
+  sends it once, in the *initial* authorization's POST body, which this token-only endpoint never
+  sees), so that's the one case a client-supplied name actually matters. An unverifiable/expired
+  token → `422 PROVIDER_TOKEN_INVALID`; a token that resolves but shares no email → `422
+  PROVIDER_EMAIL_MISSING`. Dispatches to `convertWithGoogle()`/`convertWithApple()`, which *already*
+  transparently merges internally when the provider id or email matches an existing app account —
+  there is no separate merge endpoint, since merge is never something a guest calls directly. When
+  it merges, the guest row is `forceDelete()`d, orphaning the token that authenticated the request
+  (`personal_access_tokens` has no real FK to clean it up), so the controller detects that
+  (`$result->id !== $guest->id`), deletes the dead token, and mints + returns a **new** token for
+  the destination account; a plain convert (no merge) keeps the same row and token, so the response
+  omits a token entirely.
+  - Testing note: `Socialite::fake()` only overrides `redirect()`/`user()` — `userFromToken()` falls
+    through to the real provider (a live HTTP call) via `FakeProvider::__call()`, so
+    `GuestApiTest::mockSocialiteProvider()` mocks the `Socialite` facade's `driver()` call directly
+    with a Mockery double instead, returning a real `Laravel\Socialite\Two\User::fake([...])`
+    instance from `userFromToken()`.
+
+**The device-gating mechanism**: guests never register a `UserDevice` (no login-flow device
+registration happens for them), so `EnsureDeviceIsValid` would reject them outright. Rather than
+special-casing guests inside that middleware, `App\Http\Middleware\EnsureUserType` (alias
+`user.type`, e.g. `user.type:app` or `user.type:app,guest`) is a new, reusable, declarative gate for
+which `UserType`s may reach a route/group — see "Routes" below for how it splits
+`routes/api/v1.php`'s authenticated routes. It runs *before* `device.valid` in the app-only group,
+so a guest is rejected there first and `EnsureDeviceIsValid` itself needed no changes. Today only
+`subscription.*` is guest-accessible (`HasSubscriptions`/`SubscriptionService` already apply
+unmodified to guests — see the Guests/Show admin-panel note above); opening another route/prefix to
+guests later is a one-line middleware-array edit, not a restructure.
+
 ## Activity logging
 
 Fully documented in `CLAUDE.md` under "Audit Logging" — read that section for the mechanics.
@@ -662,8 +724,9 @@ login becoming an auditable event. `revoke()` optionally takes a `$causer` (mirr
 resolution package is installed — `city`/`country`/`country_code` are only ever populated from
 client-supplied `App\Support\DeviceData` at registration time, never resolved from the request IP.
 
-**Middleware**: `EnsureDeviceIsValid` (alias `device.valid`, applied to the whole authenticated API
-group in `routes/api/v1.php`) resolves the device from the current Sanctum token and 401s with a
+**Middleware**: `EnsureDeviceIsValid` (alias `device.valid`, applied to the app-only subset of the
+authenticated API group in `routes/api/v1.php` — see "Routes" below) resolves the device from the
+current Sanctum token and 401s with a
 `DEVICE_REVOKED`/`DEVICE_BLOCKED` machine-readable code if it's missing, revoked, or blocked, then
 calls `DeviceService::touch()`. `CheckBlockedIp` is prepended to the whole `api` middleware group
 in `bootstrap/app.php` (`$middleware->api(prepend: [...])`) so it runs *before* `auth:sanctum` —
@@ -1071,22 +1134,32 @@ group in `bootstrap/app.php` rather than being route-scoped.
   (self-service "My Account" page — no extra permission, every staff member can reach it).
 - Each route group carries its own `permission:{module}.{action}` middleware layered on top of the
   group-level `permission:{module}.view`.
-- `routes/api/v1.php` (registered via `config/apiroute.php`, see "REST API" above) — `POST
-  /api/v1/logout`, `GET`/`PUT /api/v1/me` + `PUT /api/v1/me/password` (`ProfileController`, see
-  above; the password route carries its own `throttle:5,1`), `POST /api/v1/me/delete` +
-  `POST /api/v1/me/delete/cancel` (`AccountController`, see "Account lifecycle services"
-  above), `GET /api/v1/devices` /
-  `DELETE /api/v1/devices/{ulid}` / `DELETE /api/v1/devices/others` (the self-service device
-  endpoints, see "Device Management & IP Blocking" above), `GET /api/v1/subscription` /
-  `GET /api/v1/subscription/history` (`SubscriptionController`, see "Plans & Subscriptions"
-  above), `GET /api/v1/tickets/categories`, `GET`/`POST /api/v1/tickets`, `GET /api/v1/tickets/{ticket}`
-  + `POST /api/v1/tickets/{ticket}/reply` (`TicketController`, see "Support Tickets" above), all
-  inside an explicit `Route::middleware(['auth:sanctum', 'device.valid'])->group(...)` in that
-  file (not version-level config — see "REST API" above for why). `POST /api/v1/signup` / `POST /api/v1/login`
-  (`AuthController`) sit outside that group, wrapped in their own `Route::middleware('guest')`
-  group as this file's guest routes — `login` additionally carries its own `throttle:10,1`
-  middleware (see "Device Management & IP Blocking" above for the full login security write-up).
-  That same guest group also holds `GET /api/v1/email/verify/{id}/{hash}`, `POST
+- `routes/api/v1.php` (registered via `config/apiroute.php`, see "REST API" above) — everything
+  needing *some* authenticated user sits inside one outer `Route::middleware('auth:sanctum')`
+  group, itself split into three nested sub-groups by `App\Http\Middleware\EnsureUserType`
+  (alias `user.type`, see "Guest self-service API" above):
+  - `['user.type:app', 'device.valid']` — the app-only surface: `POST /api/v1/logout`,
+    `GET`/`PUT /api/v1/me` + `PUT /api/v1/me/password` (`ProfileController`, see above; the
+    password route carries its own `throttle:5,1`), `POST /api/v1/me/delete` +
+    `POST /api/v1/me/delete/cancel` (`AccountController`, see "Account lifecycle services" above),
+    `GET /api/v1/devices` / `DELETE /api/v1/devices/{ulid}` / `DELETE /api/v1/devices/others` (see
+    "Device Management & IP Blocking" above), `GET /api/v1/tickets/categories`, `GET`/`POST
+    /api/v1/tickets`, `GET /api/v1/tickets/{ticket}` + `POST /api/v1/tickets/{ticket}/reply`
+    (`TicketController`, see "Support Tickets" above). `user.type:app` runs before `device.valid`
+    so a guest is rejected before device validation ever runs.
+  - `['user.type:app,guest']` — the one surface guests are currently allowed into:
+    `GET /api/v1/subscription` / `GET /api/v1/subscription/history` (`SubscriptionController`, see
+    "Plans & Subscriptions" above).
+  - `['user.type:guest', 'throttle:10,1']` — guest-only account-lifecycle actions:
+    `POST /api/v1/guests/convert` + `POST /api/v1/guests/convert/{provider}` (`GuestController`,
+    see "Guest self-service API" above).
+
+  `POST /api/v1/signup` / `POST /api/v1/login` / `POST /api/v1/guests` (`AuthController`/
+  `GuestController`) sit outside the `auth:sanctum` group entirely, wrapped in their own
+  `Route::middleware('guest')` group as this file's guest routes — `login` additionally carries its
+  own `throttle:10,1` middleware (see "Device Management & IP Blocking" above for the full login
+  security write-up), and `guests.store` its own `throttle:10,1` (see "Guest self-service API"
+  above). That same guest group also holds `GET /api/v1/email/verify/{id}/{hash}`, `POST
   /api/v1/email/resend`, `POST /api/v1/password/forgot`, `POST /api/v1/password/reset`
   (`VerificationController`/`PasswordController`, see above; all four carry `throttle:6,1`, and
   the verify route additionally `signed`). `CheckBlockedIp` isn't route-level — it's
@@ -1138,13 +1211,16 @@ app/
                    Api/V1/TicketController.php  self-service ticket create/list/show/reply (see "Support Tickets" above)
                    Api/V1/{PlanController,PolicyController,LanguageController,FeedbackController}.php
                    (public catalog + feedback — see "Public catalog + feedback endpoints" above)
+                   Api/V1/GuestController.php  guest create/convert/convert-with-provider (see "Guest self-service API" above)
   Http/Middleware/ EnsurePanelAccess (alias: panel), EnsureDeviceIsValid (alias: device.valid),
+                   EnsureUserType (alias: user.type — which UserTypes may reach a route, see "Guest self-service API" above)
                    CheckBlockedIp (prepended to the global `api` middleware group)
   Http/Requests/V1/Auth/{SignupRequest,LoginRequest,ResendVerificationRequest,ForgotPasswordRequest,ResetPasswordRequest}.php
   Http/Requests/V1/User/{UpdateProfileRequest,UpdatePasswordRequest}.php
   Http/Requests/V1/Ticket/{StoreTicketRequest,ReplyTicketRequest}.php
   Http/Requests/V1/Feedback/StoreFeedbackRequest.php
   Http/Requests/V1/Account/RequestDeletionRequest.php
+  Http/Requests/V1/Guest/{ConvertGuestRequest,ConvertGuestProviderRequest}.php
   Http/Resources/V1/{UserDeviceResource,UserResource,SubscriptionResource,PlanResource,PlanPriceResource,
                       PlanPriceProviderResource,TicketResource,TicketMessageResource,TicketCategoryResource,
                       PolicyResource,PolicyDetailResource,LanguageResource,LanguageDetailResource}.php
@@ -1182,7 +1258,10 @@ app/
   Notifications/   Auth/VerifyEmailNotification.php, Auth/ResetPasswordNotification.php,
                    Support/TicketAutoClosedNotification.php
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
-                                             module view permission inheritance policy
+                                             module view permission inheritance policy,
+                                             registers socialiteproviders/apple's Provider via
+                                             SocialiteWasCalled (google is a laravel/socialite
+                                             built-in, no extra registration needed)
   Services/        Account/{DeletionService, MergeService, GuestConversionService}, Auth/UrlResolver,
                    Device/{DeviceService, BrowserDeviceResolver, LocationService}, Mail/Configurator, Notification/OneSignalService,
                    Subscription/{LifecycleService, SubscriptionService},
@@ -1219,7 +1298,7 @@ resources/
 tests/
   Feature/           organized by delivery boundary:
     Api/              Authentication, Devices, Exceptions, Profile, Security, Subscriptions, Tickets,
-                      Feedback, Plans, Policies, Languages, Account
+                      Feedback, Plans, Policies, Languages, Account, Guests
     Admin/            Activity, Accounts/{Guests,Users}, Devices, Feedback, Languages,
                      Notifications, Plans, Settings, Staff, Support, Webhooks
     Auth/             panel authentication flows

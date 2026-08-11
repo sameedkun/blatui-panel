@@ -4,6 +4,7 @@ use App\Exceptions\Api\ApiExceptionRenderer;
 use App\Http\Middleware\CheckBlockedIp;
 use App\Http\Middleware\EnsureDeviceIsValid;
 use App\Http\Middleware\EnsurePanelAccess;
+use App\Http\Middleware\EnsureUserType;
 use App\Http\Middleware\SetLocale;
 use App\Support\ApiRequest;
 use Illuminate\Auth\AuthenticationException;
@@ -32,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             'panel' => EnsurePanelAccess::class,
             'device.valid' => EnsureDeviceIsValid::class,
+            'user.type' => EnsureUserType::class,
         ]);
 
         // Runs before every API route's own middleware (e.g. auth:sanctum),
