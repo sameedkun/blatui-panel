@@ -20,7 +20,7 @@ class DatabaseSeeder extends Seeder
             EmailSendersSeeder::class,
             UserSeeder::class,
             PoliciesSeeder::class,
-            PlansAndSubscriptionsSeeder::class,
+            PlansSeeder::class,
         ]);
 
         if (app()->isLocal()) {

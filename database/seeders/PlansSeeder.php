@@ -6,7 +6,7 @@ use App\Models\Plan;
 use App\Models\PlanPrice;
 use Illuminate\Database\Seeder;
 
-class PlansAndSubscriptionsSeeder extends Seeder
+class PlansSeeder extends Seeder
 {
     public function run(): void
     {
@@ -17,6 +17,7 @@ class PlansAndSubscriptionsSeeder extends Seeder
     {
         $starter = Plan::create([
             'name' => 'Starter',
+            'slug' => 'starter',
             'description' => 'Everything you need to get going.',
             'sort_order' => 1,
             'is_best_deal' => false,
@@ -35,6 +36,7 @@ class PlansAndSubscriptionsSeeder extends Seeder
 
         $pro = Plan::create([
             'name' => 'Pro',
+            'slug' => 'pro',
             'description' => 'For power users who want it all.',
             'sort_order' => 2,
             'is_best_deal' => true,
@@ -63,6 +65,7 @@ class PlansAndSubscriptionsSeeder extends Seeder
 
         $business = Plan::create([
             'name' => 'Business',
+            'slug' => 'business',
             'description' => 'Built for teams.',
             'sort_order' => 3,
             'is_best_deal' => false,
