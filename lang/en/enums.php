@@ -143,11 +143,4 @@ return [
         'Refund' => 'Refund',
         'Cancellation' => 'Cancellation',
     ],
-
-    'device_type' => [
-        'Mobile' => 'Mobile',
-        'Tablet' => 'Tablet',
-        'Desktop' => 'Desktop',
-        'Web' => 'Web',
-    ],
 ];

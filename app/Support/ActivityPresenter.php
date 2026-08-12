@@ -261,6 +261,7 @@ class ActivityPresenter
             'assigned' => 'key',
             'login' => 'log-in',
             'logout' => 'log-out',
+            'verified' => 'badge-check',
             'failed' => 'triangle-alert',
             'deletion_requested' => 'clock',
             'deletion_cancelled' => 'circle-check',
@@ -312,7 +313,7 @@ class ActivityPresenter
     protected static function tone(string $kind): string
     {
         return match ($kind) {
-            'created', 'login', 'unbanned', 'restored', 'deletion_cancelled', 'setting_domain_created', 'plan_created',
+            'created', 'login', 'verified', 'unbanned', 'restored', 'deletion_cancelled', 'setting_domain_created', 'plan_created',
             'subscription_assigned', 'subscription_reactivated', 'subscription_trial_converted',
             'ticket_created', 'ticket_category_created' => 'success',
             'updated', 'password_changed', 'password_reset', 'assigned', 'converted', 'merged',

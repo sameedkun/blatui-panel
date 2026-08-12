@@ -60,8 +60,10 @@ class PlansAdminTest extends TestCase
 
         $showResponse = $this->withCookie('locale', 'tr')->get(route('admin.plans.show', $plan));
         $showResponse->assertOk();
+        // e() to match Blade's own escaping — the raw-HTML comparison has to be escaped
+        // exactly the way the rendered title is, or a name containing an apostrophe fails.
         $showResponse->assertSee(
-            '<title>'.__('plans.title').' — '.$plan->name.' — '.config('app.name').'</title>',
+            '<title>'.__('plans.title').' — '.e($plan->name).' — '.config('app.name').'</title>',
             false,
         );
     }

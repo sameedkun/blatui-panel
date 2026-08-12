@@ -83,8 +83,10 @@ class SupportLocalizationTest extends TestCase
 
         $ticketShow = $this->withCookie('locale', 'tr')->get(route('admin.tickets.show', $ticket));
         $ticketShow->assertOk();
+        // e() to match Blade's own escaping — the raw-HTML comparison has to be escaped
+        // exactly the way the rendered title is, or a subject containing an apostrophe fails.
         $ticketShow->assertSee(
-            '<title>'.__('tickets.show.page_title', ['subject' => $ticket->subject]).' — '.config('app.name').'</title>',
+            '<title>'.e(__('tickets.show.page_title', ['subject' => $ticket->subject])).' — '.config('app.name').'</title>',
             false,
         );
         $ticketShow->assertSee(__('tickets.conversation.title'));

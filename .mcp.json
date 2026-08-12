@@ -6,6 +6,13 @@
                 "artisan",
                 "boost:mcp"
             ]
+        },
+        "blatui": {
+            "command": "php",
+            "args": [
+                "artisan",
+                "blatui:mcp"
+            ]
         }
     }
 }

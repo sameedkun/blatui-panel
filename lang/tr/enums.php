@@ -143,11 +143,4 @@ return [
         'Refund' => 'İade',
         'Cancellation' => 'İptal',
     ],
-
-    'device_type' => [
-        'Mobile' => 'Mobil',
-        'Tablet' => 'Tablet',
-        'Desktop' => 'Masaüstü',
-        'Web' => 'Web',
-    ],
 ];

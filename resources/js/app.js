@@ -1,7 +1,9 @@
 import { registerBlatUI } from './blatui-core.js';
+import { registerCharts } from './blatui-charts.js';
 
 document.addEventListener('alpine:init', () => {
     registerBlatUI(window.Alpine, { darkMode: 'system' });
+    registerCharts(window.Alpine);
 
     window.Alpine.data('localTime', () => ({
         formatted: '',

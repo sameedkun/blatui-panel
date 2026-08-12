@@ -367,6 +367,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Dashboard Metric Cache
+    |--------------------------------------------------------------------------
+    |
+    | How long a dashboard widget's resolved payload is cached, in seconds. The
+    | dashboard runs a lot of aggregates on every load, and none of them need to
+    | be accurate to the second. Set to 0 to disable caching entirely (useful in
+    | local development, where stale numbers are more confusing than slow ones).
+    |
+    */
+    'dashboard_cache_seconds' => env('DASHBOARD_CACHE_SECONDS', 300),
+
+    /*
+    |--------------------------------------------------------------------------
     | Initial Admin User
     |--------------------------------------------------------------------------
     | When seeding the database, this user is created and assigned the super admin role.

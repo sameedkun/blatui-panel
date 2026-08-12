@@ -241,6 +241,65 @@ so a guest is rejected there first and `EnsureDeviceIsValid` itself needed no ch
 unmodified to guests — see the Guests/Show admin-panel note above); opening another route/prefix to
 guests later is a one-line middleware-array edit, not a restructure.
 
+## Dashboard
+
+`admin.dashboard` is a **tabbed** analytics page: a thin shell plus one Livewire component per
+tab, each with a single Blade view holding all of that tab's markup. Tabs exist for load, not
+just for tidiness — only the active tab runs queries, so opening the dashboard costs one tab
+(~15–24 queries) instead of every chart at once (~58).
+
+- **`App\Livewire\Admin\Dashboard`** — the shell. Owns the horizontal tab bar, the `#[Url]`-bound
+  `tab` and `range`, and cache invalidation. `tabs()` is the extension point: adding an area is one
+  entry there plus its component and view.
+- **Tabs** live in `app/Livewire/Admin/Dashboard/`, each with a matching view in
+  `resources/views/livewire/admin/dashboard/`:
+  - `Overview` — KPI cards, signup trend, audience split, platform health (queue depth, failed
+    jobs, scheduler heartbeat) and the recent-activity feed.
+  - `Analytics` — trends over the range: revenue, churn, ticket volume, device registrations,
+    device types, platforms, top countries, activity by origin.
+  - `Reports` — current-state breakdowns and record listings: plan distribution, subscription
+    statuses, trial conversion, agent workload, oldest tickets, blocked IPs, device risk, recent
+    subscriptions.
+  - `Infrastructure` — **deliberately empty and deliberately present.** Reserved for infrastructure
+    this panel does not manage yet (VPN node fleets, inference workers, regional capacity). Nothing
+    about the running Laravel app belongs here — queue and scheduler health are Overview's, because
+    they describe *this app*, not the estate it will eventually manage.
+- Each tab carries `#[Lazy]` and a `placeholder()` returning the shared skeleton, so the shell
+  paints immediately. **In tests, `Livewire::test()` on these renders only the placeholder** —
+  `Livewire::withoutLazyLoading()` must be called immediately before *each* `test()` call (it
+  applies to the next call only), or assertions silently measure an empty skeleton.
+- **Permission gating happens before the query, not after.** Each tab resolves a payload to `null`
+  when the viewer lacks its permission, and the view skips the whole card — a staff member cleared
+  for nothing runs 0 metric queries (asserted in `DashboardQueryCountTest`). Note the `/dashboard`
+  route itself carries **no** `permission:dashboard.view` middleware, unlike every other admin
+  group, so panel access alone reaches the page; it degrades to just the ungated cards.
+- **Metrics** live in five domain classes under `App\Support\Dashboard\` (`Audience`, `Revenue`,
+  `Support`, `Security`, `System`), composed by `DashboardMetrics`, which also owns caching
+  (`panel.dashboard_cache_seconds`, default 300; `0` disables). Cache keys are namespaced per tab
+  (`overview.*`, `analytics.*`, `reports.*`) and include the locale, since payloads embed translated
+  axis labels. Payloads carrying Eloquent models are never cached.
+- **`Concerns\BuildsTimeSeries`** pre-seeds every bucket in a range at zero before overlaying query
+  rows, so a quiet day never silently vanishes from a chart's x-axis. Its
+  `dateBucketExpression()`/`minutesBetweenExpression()` emit **driver-specific SQL** — `DATE_FORMAT`
+  and `TIMESTAMPDIFF` are MySQL-only and the suite runs on SQLite, so any new date aggregation must
+  go through these helpers. Same reason `SystemMetrics::activityByContext()` counts per enum case
+  via the portable `properties->context` operator instead of one `JSON_UNQUOTE` GROUP BY.
+
+### Charting gotchas (all three cost real debugging time)
+
+- **`x-ui.chart` ships `aspect-video` in its base classes.** On a wide card that forces a box
+  hundreds of pixels taller than the chart, leaving a large empty gap. Every chart here passes
+  `class="aspect-auto h-[...]"` to override it.
+- **Never pass `null` for an ApexCharts `formatter`.** ApexCharts invokes it as a function, so an
+  explicit `'formatter' => null` throws `r is not a function` during render. Omit the key instead.
+- **Do not use `x-ui.select` inside a Livewire-rendered region.** It teleports its panel to `<body>`,
+  and Livewire's morph then orphans the Alpine scope — the control dies with
+  `isSelected is not defined` and stays dead until a full page refresh. Use `x-admin.dropdown`,
+  which renders inline for exactly this reason (see also the sidebar/table dropdowns).
+- The chart engine is opt-in: `resources/js/blatui-charts.js` is published via
+  `vendor:publish --tag=blatui-charts` and `registerCharts()` is wired into `resources/js/app.js`.
+  ApexCharts is lazily imported, so it lands in its own build chunk.
+
 ## Activity logging
 
 Fully documented in `CLAUDE.md` under "Audit Logging" — read that section for the mechanics.
@@ -1265,7 +1324,8 @@ app/
   Livewire/
     Auth/          Login, Logout, VerifyEmail, PasswordReset (reset-with-token form only)
     Admin/         BaseIndex, BaseForm, BaseShow + Concerns/ (shared traits)
-      Dashboard.php
+      Dashboard.php                         tabbed dashboard shell (tab bar + range + cache flush)
+      Dashboard/                            Overview, Analytics, Reports, Infrastructure (lazy tabs)
       Account/Index.php                     self-service account page
       Management/Users/                     Index, Show, Form + Concerns/HandlesUserRowActions
       Management/Guests/                    Index, Show + Concerns/HandlesGuestRowActions
@@ -1298,6 +1358,8 @@ app/
                    Device/{DeviceService, BrowserDeviceResolver, LocationService}, Mail/Configurator, Notification/OneSignalService,
                    Subscription/{LifecycleService, SubscriptionService},
                    Ticket/{AssignmentService, LifecycleService, TicketService}
+  Support/Dashboard/ DateRange, DashboardMetrics, {Audience,Revenue,Support,Security,System}Metrics,
+                   Concerns/BuildsTimeSeries (see "Dashboard" above)
   Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter, DeviceData,
                    WebhookNotificationRegistry (provider → notification-model registry),
                    ApiRequest (decides whether a request targets the API surface — see "REST API")
@@ -1331,8 +1393,8 @@ tests/
   Feature/           organized by delivery boundary:
     Api/              Authentication, Devices, Exceptions, Profile, Security, Subscriptions, Tickets,
                       Feedback, Plans, Policies, Languages, Account, Guests
-    Admin/            Activity, Accounts/{Guests,Users}, Devices, Feedback, Languages,
-                     Notifications, Plans, Settings, Staff, Support, Webhooks
+    Admin/            Activity, Accounts/{Guests,Users}, Dashboard{,QueryCount}Test, Devices, Feedback,
+                     Languages, Notifications, Plans, Settings, Staff, Support, Webhooks
     Auth/             panel authentication flows
     Jobs/             scheduled and queued job behavior
     Localization/     locale and translation coverage

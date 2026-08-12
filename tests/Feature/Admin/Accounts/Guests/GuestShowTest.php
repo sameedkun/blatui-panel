@@ -35,8 +35,10 @@ class GuestShowTest extends TestCase
         $response = $this->withCookie('locale', 'tr')->get(route('admin.guests.show', $guest));
 
         $response->assertOk();
+        // e() to match Blade's own escaping — the raw-HTML comparison has to be escaped
+        // exactly the way the rendered title is, or a name containing an apostrophe fails.
         $response->assertSee(
-            '<title>'.__('guests.title').' — '.$guest->name.' — '.config('app.name').'</title>',
+            '<title>'.__('guests.title').' — '.e($guest->name).' — '.config('app.name').'</title>',
             false,
         );
         $response->assertSee(__('guests.overview.general'));

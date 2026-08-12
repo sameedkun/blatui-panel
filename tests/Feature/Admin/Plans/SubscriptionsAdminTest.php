@@ -61,6 +61,12 @@ class SubscriptionsAdminTest extends TestCase
         $this->actingAsSuperAdmin();
         $subscription = $this->liveSubscription();
 
+        // Pin a name with an apostrophe: the title is escaped when rendered, so comparing
+        // against a raw name only failed on the faker runs that happened to produce one.
+        $subscription->user->update(['name' => "Precious O'Connell"]);
+        $subscription->plan->update(['name' => "Ma'moul Plan"]);
+        $subscription->refresh();
+
         $indexResponse = $this->withCookie('locale', 'tr')->get(route('admin.subscriptions.index'));
         $indexResponse->assertOk();
         $indexResponse->assertSee('<title>'.__('subscriptions.title').' — '.config('app.name').'</title>', false);
@@ -68,8 +74,10 @@ class SubscriptionsAdminTest extends TestCase
 
         $showResponse = $this->withCookie('locale', 'tr')->get(route('admin.subscriptions.show', $subscription));
         $showResponse->assertOk();
+        // e() to match Blade's own escaping — comparing raw HTML means the expectation has
+        // to be escaped exactly the way the rendered title is.
         $showResponse->assertSee(
-            '<title>'.__('subscriptions.title').' — '.$subscription->user->name.' — '.$subscription->plan->name.' — '.config('app.name').'</title>',
+            '<title>'.__('subscriptions.title').' — '.e($subscription->user->name).' — '.e($subscription->plan->name).' — '.config('app.name').'</title>',
             false,
         );
         $showResponse->assertSee(__('subscriptions.overview.lifecycle_billing'));
