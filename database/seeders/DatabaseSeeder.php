@@ -23,9 +23,8 @@ class DatabaseSeeder extends Seeder
             PlansAndSubscriptionsSeeder::class,
         ]);
 
-        User::factory(50)->create();
-
         if (app()->isLocal()) {
+            User::factory(20)->create();
             $this->call(DeviceManagementDemoSeeder::class);
         }
     }
