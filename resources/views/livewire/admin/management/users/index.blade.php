@@ -118,11 +118,11 @@
                                         <span class="truncate font-medium">{{ $user->name }}</span>
                                         {{-- Social icons --}}
                                         @if ($user->google_id)
-                                            <x-icons.google class="size-4 text-red-500" title="Google" />
+                                            <x-icons.google class="size-4 text-red-500" :title="__('users.filters.google')" />
                                         @endif
 
                                         @if ($user->apple_id)
-                                            <x-icons.apple class="size-4 text-foreground" title="Apple" />
+                                            <x-icons.apple class="size-4 text-foreground" :title="__('users.filters.apple')" />
                                         @endif
                                     </div>
                                     <div class="flex items-center gap-2">
@@ -147,10 +147,15 @@
                                     x-data="{
                                         purgeAt: {{ $user->deletionPurgesAt()->getTimestamp() * 1000 }},
                                         now: Date.now(),
+                                        hoursLabel: @js(__('users.status_labels.deleting_in_hours', ['count' => '__COUNT__'])),
+                                        minutesLabel: @js(__('users.status_labels.deleting_in_minutes', ['count' => '__COUNT__'])),
+                                        purgingLabel: @js(__('users.status_labels.purging')),
                                         get remaining() {
                                             const mins = Math.max(0, Math.floor((this.purgeAt - this.now) / 60000));
                                             const h = Math.floor(mins / 60);
-                                            return h > 0 ? `Deleting in ${h}h` : (mins > 0 ? `Deleting in ${mins}m` : 'Purging…');
+                                            return h > 0
+                                                ? this.hoursLabel.replace('__COUNT__', h)
+                                                : (mins > 0 ? this.minutesLabel.replace('__COUNT__', mins) : this.purgingLabel);
                                         },
                                     }"
                                     x-init="setInterval(() => now = Date.now(), 60000)">
@@ -312,7 +317,7 @@
         <div class="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background px-3 py-2 shadow-xl"
             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-4"
             x-transition:enter-end="opacity-100 translate-y-0">
-            <x-admin.tooltip :text="__('common.clear_filters')">
+            <x-admin.tooltip :text="__('common.clear_selection')">
                 <x-ui.button variant="ghost" size="icon" class="size-8 rounded-full" wire:click="clearSelection">
                     <x-lucide-x class="size-4" />
                 </x-ui.button>

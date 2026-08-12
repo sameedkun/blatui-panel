@@ -65,7 +65,7 @@ trait HandlesUserRowActions
         $user = User::withTrashed()->findOrFail($this->banningUserId);
         $this->assertLifecycleState($user, ['active', 'pending']);
 
-        $reason = trim($this->banReason) ?: 'Banned by administrator.';
+        $reason = trim($this->banReason) ?: __('users.defaults.ban_reason');
         $user->update([
             'banned_at' => now(),
             'ban_reason' => $reason,
@@ -251,7 +251,7 @@ trait HandlesUserRowActions
         $state = $user->lifecycleState();
 
         if (! in_array($state, $allowed, true)) {
-            throw new AuthorizationException("This action is not available while the account is {$state}.");
+            throw new AuthorizationException(__('users.errors.action_unavailable', ['state' => $state]));
         }
     }
 }

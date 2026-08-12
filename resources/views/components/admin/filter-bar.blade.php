@@ -60,7 +60,7 @@
             @endforeach
             @if(!empty($active))
             <div class="mt-1 border-t border-border pt-1">
-                <button wire:click="setFilter('{{ $key }}', [])" class="w-full rounded-sm py-1 text-center text-xs text-muted-foreground hover:text-foreground">Clear</button>
+                <button wire:click="setFilter('{{ $key }}', [])" class="w-full rounded-sm py-1 text-center text-xs text-muted-foreground hover:text-foreground">{{ __('common.clear') }}</button>
             </div>
             @endif
         </div>
@@ -93,7 +93,7 @@
             @endforeach
             @if($active !== '')
             <div class="mt-1 border-t border-border pt-1">
-                <button wire:click="setFilter('{{ $key }}', '')" class="w-full rounded-sm py-1 text-center text-xs text-muted-foreground hover:text-foreground">Clear</button>
+                <button wire:click="setFilter('{{ $key }}', '')" class="w-full rounded-sm py-1 text-center text-xs text-muted-foreground hover:text-foreground">{{ __('common.clear') }}</button>
             </div>
             @endif
         </div>
@@ -126,16 +126,16 @@
             class="absolute top-full z-20 mt-1 w-60 rounded-md border border-border bg-popover p-3 shadow-md">
             <div class="space-y-2">
                 <div>
-                    <x-ui.label class="mb-1 text-xs">From</x-ui.label>
+                    <x-ui.label class="mb-1 text-xs">{{ __('common.from') }}</x-ui.label>
                     <x-ui.input type="date" wire:model.live="filters.{{ $fromKey }}" class="h-8 text-xs" />
                 </div>
                 <div>
-                    <x-ui.label class="mb-1 text-xs">To</x-ui.label>
+                    <x-ui.label class="mb-1 text-xs">{{ __('common.to') }}</x-ui.label>
                     <x-ui.input type="date" wire:model.live="filters.{{ $toKey }}" class="h-8 text-xs" />
                 </div>
                 @if($isDateActive)
                 <button wire:click="clearFilters('{{ $fromKey }}', '{{ $toKey }}')" class="w-full rounded-sm py-1 text-center text-xs text-muted-foreground hover:text-foreground">
-                    Clear
+                    {{ __('common.clear') }}
                 </button>
                 @endif
             </div>
@@ -162,7 +162,7 @@
             <x-ui.input x-ref="{{ $key }}Input" wire:model.live.debounce.400ms="filters.{{ $key }}"
                 placeholder="{{ $item['placeholder'] ?? $label }}" class="h-8 text-xs" />
             @if($textVal !== '')
-            <button wire:click="setFilter('{{ $key }}', '')" class="mt-2 w-full rounded-sm py-1 text-center text-xs text-muted-foreground hover:text-foreground">Clear</button>
+            <button wire:click="setFilter('{{ $key }}', '')" class="mt-2 w-full rounded-sm py-1 text-center text-xs text-muted-foreground hover:text-foreground">{{ __('common.clear') }}</button>
             @endif
         </div>
     </div>
@@ -194,7 +194,7 @@
     @if($hasActiveFilters)
     <x-ui.button variant="ghost" size="sm" wire:click="resetFilters">
         <x-lucide-x class="size-3.5" />
-        Reset
+        {{ __('common.reset') }}
     </x-ui.button>
     @endif
 

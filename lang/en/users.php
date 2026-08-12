@@ -78,6 +78,8 @@ return [
 
     'filters' => [
         'status' => 'Status',
+        'active' => 'Active',
+        'banned' => 'Banned',
         'email' => 'Email',
         'email_verified' => 'Email Verified',
         'social' => 'Social',
@@ -123,6 +125,17 @@ return [
         'no_users_found' => 'No users found.',
         'clear_filters' => 'Clear filters',
         'selected' => 'selected',
+        'deleting_in_hours' => 'Deleting in :count h',
+        'deleting_in_minutes' => 'Deleting in :count m',
+        'purging' => 'Purging…',
+    ],
+
+    'defaults' => [
+        'ban_reason' => 'Banned by administrator.',
+    ],
+
+    'errors' => [
+        'action_unavailable' => 'This action is not available while the account is :state.',
     ],
 
     'dialogs' => [

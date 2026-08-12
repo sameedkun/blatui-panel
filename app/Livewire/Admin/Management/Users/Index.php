@@ -193,14 +193,14 @@ class Index extends BaseIndex
             'trashed' => [
                 [
                     'key' => 'restore',
-                    'label' => 'Restore',
+                    'label' => __('users.actions.restore'),
                     'icon' => 'rotate-ccw',
                     'confirm' => true,
                     'permission' => 'users.restore',
                 ],
                 [
                     'key' => 'force-delete',
-                    'label' => 'Permanently Delete',
+                    'label' => __('users.actions.force_delete'),
                     'icon' => 'trash-2',
                     'confirm' => true,
                     'variant' => 'destructive',
@@ -210,14 +210,14 @@ class Index extends BaseIndex
             'pending' => [
                 [
                     'key' => 'stop-deletion',
-                    'label' => 'Stop Deletion',
+                    'label' => __('users.actions.stop_deletion'),
                     'icon' => 'shield-check',
                     'confirm' => true,
                     'permission' => 'users.delete',
                 ],
                 [
                     'key' => 'instant-purge',
-                    'label' => 'Purge Now',
+                    'label' => __('users.actions.purge'),
                     'icon' => 'trash-2',
                     'confirm' => true,
                     'variant' => 'destructive',
@@ -228,7 +228,7 @@ class Index extends BaseIndex
             default => [
                 [
                     'key' => 'ban',
-                    'label' => 'Ban',
+                    'label' => __('users.actions.ban'),
                     'icon' => 'ban',
                     'confirm' => true,
                     'dialog_event' => 'open-dialog-bulk-ban',
@@ -236,14 +236,14 @@ class Index extends BaseIndex
                 ],
                 [
                     'key' => 'unban',
-                    'label' => 'Unban',
+                    'label' => __('users.actions.unban'),
                     'icon' => 'shield-check',
                     'confirm' => true,
                     'permission' => 'users.unban',
                 ],
                 [
                     'key' => 'schedule-deletion',
-                    'label' => 'Schedule Deletion',
+                    'label' => __('users.actions.schedule_deletion'),
                     'icon' => 'clock',
                     'confirm' => true,
                     'dialog_event' => 'open-dialog-bulk-schedule-deletion',
@@ -251,7 +251,7 @@ class Index extends BaseIndex
                 ],
                 [
                     'key' => 'delete',
-                    'label' => 'Delete',
+                    'label' => __('users.actions.delete'),
                     'icon' => 'trash',
                     'confirm' => true,
                     'variant' => 'destructive',
@@ -268,7 +268,7 @@ class Index extends BaseIndex
         $this->authorize('users.ban');
 
         $ids = $this->selectedIds;
-        $reason = trim($this->bulkBanReason) ?: 'Banned by administrator.';
+        $reason = trim($this->bulkBanReason) ?: __('users.defaults.ban_reason');
         $count = User::whereIn('id', $ids)->update([
             'banned_at' => now(),
             'ban_reason' => $reason,
@@ -282,7 +282,7 @@ class Index extends BaseIndex
         ]);
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} users banned.");
+        $this->toastSuccess(__('users.toasts.bulk_banned', ['count' => $count]));
     }
 
     public function executeBulkUnban(): void
@@ -300,7 +300,7 @@ class Index extends BaseIndex
         ]);
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} users unbanned.");
+        $this->toastSuccess(__('users.toasts.bulk_unbanned', ['count' => $count]));
     }
 
     public function executeBulkDelete(): void
@@ -318,7 +318,7 @@ class Index extends BaseIndex
         ]);
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} users deleted.");
+        $this->toastSuccess(__('users.toasts.bulk_deleted', ['count' => $count]));
     }
 
     public function executeBulkRestore(): void
@@ -336,7 +336,7 @@ class Index extends BaseIndex
         ]);
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} users restored.");
+        $this->toastSuccess(__('users.toasts.bulk_restored', ['count' => $count]));
     }
 
     public function executeBulkForceDelete(): void
@@ -355,7 +355,7 @@ class Index extends BaseIndex
         User::withTrashed()->whereIn('id', $ids)->forceDelete();
 
         $this->clearSelection();
-        $this->toastSuccess("{$count} users permanently deleted.");
+        $this->toastSuccess(__('users.toasts.bulk_permanently_deleted', ['count' => $count]));
     }
 
     public function executeBulkScheduleDeletion(DeletionService $deletions): void
@@ -374,7 +374,7 @@ class Index extends BaseIndex
 
         $this->clearSelection();
         $this->bulkDeletionReason = '';
-        $this->toastSuccess("{$count} users scheduled for deletion.");
+        $this->toastSuccess(__('users.toasts.bulk_scheduled_deletion', ['count' => $count]));
     }
 
     public function executeBulkStopDeletion(DeletionService $deletions): void
@@ -390,7 +390,7 @@ class Index extends BaseIndex
             });
 
         $this->clearSelection();
-        $this->toastSuccess("Deletion cancelled for {$count} users.");
+        $this->toastSuccess(__('users.toasts.bulk_deletion_cancelled', ['count' => $count]));
     }
 
     public function executeBulkInstantPurge(DeletionService $deletions): void
@@ -408,7 +408,7 @@ class Index extends BaseIndex
 
         $this->clearSelection();
         $this->bulkPurgeReason = '';
-        $this->toastSuccess("{$count} users permanently deleted.");
+        $this->toastSuccess(__('users.toasts.bulk_permanently_deleted', ['count' => $count]));
     }
 
     // ── Render ────────────────────────────────────────────────────────────────

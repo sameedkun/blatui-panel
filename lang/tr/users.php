@@ -78,6 +78,8 @@ return [
 
     'filters' => [
         'status' => 'Durum',
+        'active' => 'Aktif',
+        'banned' => 'Yasaklı',
         'email' => 'E-posta',
         'email_verified' => 'E-posta Doğrulanmış',
         'social' => 'Sosyal',
@@ -123,6 +125,17 @@ return [
         'no_users_found' => 'Kullanıcı bulunamadı.',
         'clear_filters' => 'Filtreleri temizle',
         'selected' => 'seçildi',
+        'deleting_in_hours' => ':count saat içinde silinecek',
+        'deleting_in_minutes' => ':count dakika içinde silinecek',
+        'purging' => 'Temizleniyor…',
+    ],
+
+    'defaults' => [
+        'ban_reason' => 'Yönetici tarafından yasaklandı.',
+    ],
+
+    'errors' => [
+        'action_unavailable' => 'Hesap :state durumundayken bu işlem kullanılamaz.',
     ],
 
     'dialogs' => [
