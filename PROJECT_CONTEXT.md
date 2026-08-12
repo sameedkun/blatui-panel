@@ -821,6 +821,30 @@ LoginRequest}`) is where both halves of self-service auth live:
   "logout everywhere" endpoint yet — `DeviceService::revokeAll()` already exists and would make one
   trivial to add later.
 
+**`App\Http\Controllers\Api\V1\SocialController`** (`POST /api/v1/social/{provider}`, `provider`
+route-constrained to `google`/`apple`, guest route, coarse per-IP `throttle:10,1`) is Google/Apple
+sign-in — the same login/signup entry point as `AuthController::signup()`/`login()` combined into
+one action, just authenticated by a Socialite-verified provider token instead of a password. Uses
+the same `App\Http\Controllers\Api\V1\Concerns\ResolvesSocialiteUser` trait as `GuestController`
+(see "Guest self-service API" above) to call `Socialite::driver($provider)->userFromToken($token)`
+and read `email_verified`. Account lookup mirrors `GuestConversionService::convertWithProvider()`'s
+own linking logic exactly: match by `{provider}_id` first, otherwise by email on an account that's
+never linked this provider — an OAuth-verified email is proof of ownership, so auto-linking here is
+as safe as it is there. No match at all → creates a brand-new `type=App` account inline (skips
+`AuthController::signup()` entirely, so no separate signup call is needed); a match → logs in.
+`is_new_user` in the response tells the client which branch it took. Every check
+`AuthController::login()` performs runs identically here and in the same order — trashed (`410`),
+banned (`403 ACCOUNT_BANNED`), device registration (`403 DEVICE_BLOCKED`/`DEVICE_LIMIT_EXCEEDED`,
+same orphaned-token cleanup on rejection), `Login` event (writes `last_login` for free via
+`AuthActivityListener`), and the same browser-client cookie handling — so a provider-authenticated
+session is indistinguishable from a password one everywhere downstream. Deliberately **no**
+email+IP `RateLimiter`/`Lockout` (unlike `login()`) — there's no password to brute-force here, so
+the route-level `throttle:10,1` is the only backstop needed. Two small pieces of `login()`'s own
+logic were extracted to avoid duplicating them for this second call site: `DeviceData::
+fromRequestArray()` (was a private method on `AuthController`) and `App\Http\Requests\V1\Concerns\
+DetectsBrowserClient` (the `X-Client-Type: web` header check, now shared by `LoginRequest` and the
+new `SocialLoginRequest` rather than each declaring its own copy of the header constants).
+
 `App\Http\Controllers\Api\V1\ProfileController` (`App\Http\Requests\V1\User\{UpdateProfileRequest,
 UpdatePasswordRequest}`) is the self-service "my profile" surface, deliberately mirroring
 `Livewire\Admin\Account\Index`'s own profile/password handling so the two stay behaviorally
@@ -1154,12 +1178,14 @@ group in `bootstrap/app.php` rather than being route-scoped.
     `POST /api/v1/guests/convert` + `POST /api/v1/guests/convert/{provider}` (`GuestController`,
     see "Guest self-service API" above).
 
-  `POST /api/v1/signup` / `POST /api/v1/login` / `POST /api/v1/guests` (`AuthController`/
-  `GuestController`) sit outside the `auth:sanctum` group entirely, wrapped in their own
-  `Route::middleware('guest')` group as this file's guest routes — `login` additionally carries its
-  own `throttle:10,1` middleware (see "Device Management & IP Blocking" above for the full login
-  security write-up), and `guests.store` its own `throttle:10,1` (see "Guest self-service API"
-  above). That same guest group also holds `GET /api/v1/email/verify/{id}/{hash}`, `POST
+  `POST /api/v1/signup` / `POST /api/v1/login` / `POST /api/v1/guests` / `POST
+  /api/v1/social/{provider}` (`AuthController`/`GuestController`/`SocialController`) sit outside
+  the `auth:sanctum` group entirely, wrapped in their own `Route::middleware('guest')` group as
+  this file's guest routes — `login` additionally carries its own `throttle:10,1` middleware (see
+  "Device Management & IP Blocking" above for the full login security write-up), `guests.store` its
+  own `throttle:10,1` (see "Guest self-service API" above), and `social.login` its own
+  `throttle:10,1` too (see the `SocialController` write-up above). That same guest group also holds
+  `GET /api/v1/email/verify/{id}/{hash}`, `POST
   /api/v1/email/resend`, `POST /api/v1/password/forgot`, `POST /api/v1/password/reset`
   (`VerificationController`/`PasswordController`, see above; all four carry `throttle:6,1`, and
   the verify route additionally `signed`). `CheckBlockedIp` isn't route-level — it's
@@ -1199,10 +1225,12 @@ app/
                    TicketStatus, TicketPriority, TicketMessageAuthorType, DeviceType,
                    AppleNotificationType, AppleNotificationSubtype
   Exceptions/      DeviceLimitExceededException, DeviceBlockedException, TicketClosedException,
+                   ProviderTokenInvalidException (thrown by Http/Controllers/Api/V1/Concerns/ResolvesSocialiteUser)
                    Api/ApiExceptionRenderer (unifies framework exceptions into ApiController's envelope)
   Http/Controllers/Api/ApiController.php        unversioned base (success/error/etc. helpers)
                    Api/V1/DeviceController.php  self-service list/revoke own devices, revoke-all-except-current
                    Api/V1/AuthController.php    signup + login + logout (rate limiting, ban/trashed/device checks — see "Device Management & IP Blocking")
+                   Api/V1/SocialController.php  Google/Apple sign-in — combined login+signup (see "REST API" above)
                    Api/V1/ProfileController.php self-service profile — show/update/updatePassword (see "REST API" above)
                    Api/V1/AccountController.php  self-service grace-period deletion request/cancel (see "Account lifecycle services" above)
                    Api/V1/VerificationController.php  guest verify/resend (see "REST API" above)
@@ -1212,10 +1240,14 @@ app/
                    Api/V1/{PlanController,PolicyController,LanguageController,FeedbackController}.php
                    (public catalog + feedback — see "Public catalog + feedback endpoints" above)
                    Api/V1/GuestController.php  guest create/convert/convert-with-provider (see "Guest self-service API" above)
+                   Api/V1/Concerns/ResolvesSocialiteUser.php  shared Socialite::userFromToken() + email_verified
+                   parsing, used by both GuestController and SocialController
   Http/Middleware/ EnsurePanelAccess (alias: panel), EnsureDeviceIsValid (alias: device.valid),
                    EnsureUserType (alias: user.type — which UserTypes may reach a route, see "Guest self-service API" above)
                    CheckBlockedIp (prepended to the global `api` middleware group)
-  Http/Requests/V1/Auth/{SignupRequest,LoginRequest,ResendVerificationRequest,ForgotPasswordRequest,ResetPasswordRequest}.php
+  Http/Requests/V1/Concerns/DetectsBrowserClient.php  X-Client-Type: web header check, shared by
+                   LoginRequest and SocialLoginRequest
+  Http/Requests/V1/Auth/{SignupRequest,LoginRequest,SocialLoginRequest,ResendVerificationRequest,ForgotPasswordRequest,ResetPasswordRequest}.php
   Http/Requests/V1/User/{UpdateProfileRequest,UpdatePasswordRequest}.php
   Http/Requests/V1/Ticket/{StoreTicketRequest,ReplyTicketRequest}.php
   Http/Requests/V1/Feedback/StoreFeedbackRequest.php

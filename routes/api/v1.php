@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Api\V1\PlanController;
 use App\Http\Controllers\Api\V1\PolicyController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\SocialController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\VerificationController;
@@ -46,6 +47,15 @@ Route::middleware('guest')->group(function () {
     Route::post('/guests', [GuestController::class, 'store'])
         ->middleware('throttle:10,1')
         ->name('guests.store');
+
+    // Sign in with Google/Apple — same login/signup entry point as
+    // /signup + /login, just provider-token-authenticated. No email/IP
+    // RateLimiter here (unlike login()) since there's no password to guess —
+    // the coarse per-IP throttle is the only backstop needed.
+    Route::post('/social/{provider}', [SocialController::class, 'login'])
+        ->whereIn('provider', ['google', 'apple'])
+        ->middleware('throttle:10,1')
+        ->name('social.login');
 });
 
 Route::middleware('auth:sanctum')->group(function (): void {

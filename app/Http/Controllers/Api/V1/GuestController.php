@@ -7,7 +7,9 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
 use App\Enum\UserType;
+use App\Exceptions\ProviderTokenInvalidException;
 use App\Http\Controllers\Api\ApiController;
+use App\Http\Controllers\Api\V1\Concerns\ResolvesSocialiteUser;
 use App\Http\Requests\V1\Guest\ConvertGuestProviderRequest;
 use App\Http\Requests\V1\Guest\ConvertGuestRequest;
 use App\Http\Resources\V1\UserResource;
@@ -18,10 +20,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Laravel\Socialite\Contracts\User as SocialiteUser;
-use Laravel\Socialite\Facades\Socialite;
 use Symfony\Component\HttpFoundation\Response;
-use Throwable;
 
 /**
  * Anonymous guest accounts — a zero-friction identity a client can create on
@@ -33,6 +32,8 @@ use Throwable;
  */
 class GuestController extends ApiController
 {
+    use ResolvesSocialiteUser;
+
     /** Create a guest account. */
     public function store(): JsonResponse
     {
@@ -105,15 +106,9 @@ class GuestController extends ApiController
         $guestId = $guest->id;
 
         try {
-            $socialiteUser = $provider === 'apple'
-                ? Socialite::driver('apple')->stateless()->userFromToken($request->validated('token'))
-                : Socialite::driver('google')->userFromToken($request->validated('token'));
-        } catch (Throwable) {
-            return $this->error(
-                'This sign-in token could not be verified. Please try again.',
-                Response::HTTP_UNPROCESSABLE_ENTITY,
-                ['code' => 'PROVIDER_TOKEN_INVALID'],
-            );
+            $socialiteUser = $this->resolveSocialiteUser($provider, $request->validated('token'));
+        } catch (ProviderTokenInvalidException $e) {
+            return $this->error($e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY, ['code' => 'PROVIDER_TOKEN_INVALID']);
         }
 
         $email = $socialiteUser->getEmail();
@@ -130,8 +125,8 @@ class GuestController extends ApiController
         $providerId = (string) $socialiteUser->getId();
 
         $result = $provider === 'google'
-            ? $conversions->convertWithGoogle($guest, $providerId, $email, $this->isEmailVerified($socialiteUser), $name)
-            : $conversions->convertWithApple($guest, $providerId, $email, $this->isEmailVerified($socialiteUser), $name);
+            ? $conversions->convertWithGoogle($guest, $providerId, $email, $this->isSocialiteEmailVerified($socialiteUser), $name)
+            : $conversions->convertWithApple($guest, $providerId, $email, $this->isSocialiteEmailVerified($socialiteUser), $name);
 
         $merged = $result->id !== $guestId;
         $data = ['user' => new UserResource($result)];
@@ -143,18 +138,6 @@ class GuestController extends ApiController
         }
 
         return $this->success($data, $merged ? 'Account merged with an existing account.' : 'Account converted.');
-    }
-
-    /**
-     * Google's userinfo response and Apple's id_token both carry an
-     * `email_verified` claim — Apple sometimes sends it as the string
-     * "true"/"false" rather than a real boolean, so this normalizes either
-     * shape. Missing entirely defaults to verified: both providers only
-     * hand back an email at all once it's confirmed on their side.
-     */
-    private function isEmailVerified(SocialiteUser $user): bool
-    {
-        return filter_var($user->getRaw()['email_verified'] ?? true, FILTER_VALIDATE_BOOLEAN);
     }
 
     private function generateGuestEmail(): string

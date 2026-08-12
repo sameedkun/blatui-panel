@@ -33,4 +33,24 @@ final readonly class DeviceData
         public ?string $pushToken = null,
         public ?string $pushProvider = null,
     ) {}
+
+    /**
+     * Builds an instance from a validated `device.*` request payload —
+     * shared by every login-shaped endpoint (AuthController::login(),
+     * SocialController::login()) so the mapping only lives in one place.
+     *
+     * @param  array<string, mixed>  $device
+     */
+    public static function fromRequestArray(array $device): self
+    {
+        return new self(
+            fingerprint: $device['fingerprint'],
+            name: $device['name'] ?? null,
+            model: $device['model'] ?? null,
+            platform: $device['platform'] ?? null,
+            os: $device['os'] ?? null,
+            deviceType: isset($device['type']) ? DeviceType::from($device['type']) : null,
+            appVersion: $device['app_version'] ?? null,
+        );
+    }
 }

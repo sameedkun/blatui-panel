@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enum\ActivityAction;
 use App\Enum\ActivityLogName;
 use App\Enum\ActivityModule;
-use App\Enum\DeviceType;
 use App\Enum\UserType;
 use App\Exceptions\DeviceBlockedException;
 use App\Exceptions\DeviceLimitExceededException;
@@ -133,7 +132,7 @@ class AuthController extends ApiController
         // BrowserDeviceResolver's docblock.
         $deviceData = $isBrowser
             ? $browserDevices->resolve($request)
-            : $this->deviceDataFrom($validated['device']);
+            : DeviceData::fromRequestArray($validated['device']);
 
         $token = $user->createToken($deviceData->name ?? 'device');
 
@@ -215,22 +214,6 @@ class AuthController extends ApiController
         }
 
         return $this->success(null, 'Logged out successfully.');
-    }
-
-    /**
-     * @param  array<string, mixed>  $device
-     */
-    private function deviceDataFrom(array $device): DeviceData
-    {
-        return new DeviceData(
-            fingerprint: $device['fingerprint'],
-            name: $device['name'] ?? null,
-            model: $device['model'] ?? null,
-            platform: $device['platform'] ?? null,
-            os: $device['os'] ?? null,
-            deviceType: isset($device['type']) ? DeviceType::from($device['type']) : null,
-            appVersion: $device['app_version'] ?? null,
-        );
     }
 
     private function rateLimitResponse(string $key, Request $request): ?JsonResponse
