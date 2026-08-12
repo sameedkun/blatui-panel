@@ -63,8 +63,8 @@ return new class extends Migration
             $table->string('provider_original_id')->nullable();
             $table->json('payload')->nullable();
 
-            $table->string('notification_provider', 30)->nullable()->after('payload');
-            $table->unsignedBigInteger('notification_id')->nullable()->after('notification_provider');
+            $table->string('notification_provider', 30)->nullable();
+            $table->unsignedBigInteger('notification_id')->nullable();
 
             $table->timestamps();
 
