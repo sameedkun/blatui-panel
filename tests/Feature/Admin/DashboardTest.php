@@ -117,7 +117,7 @@ class DashboardTest extends TestCase
 
         $keys = collect($component->viewData('tabs'))->pluck('key')->all();
 
-        $this->assertSame(['overview', 'analytics', 'reports', 'infrastructure'], $keys);
+        $this->assertSame(['overview', 'analytics', 'reports', 'system', 'infrastructure'], $keys);
     }
 
     public function test_selecting_a_tab_switches_the_active_component(): void

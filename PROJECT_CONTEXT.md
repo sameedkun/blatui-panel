@@ -253,17 +253,14 @@ just for tidiness — only the active tab runs queries, so opening the dashboard
   entry there plus its component and view.
 - **Tabs** live in `app/Livewire/Admin/Dashboard/`, each with a matching view in
   `resources/views/livewire/admin/dashboard/`:
-  - `Overview` — KPI cards, signup trend, audience split, platform health (queue depth, failed
-    jobs, scheduler heartbeat) and the recent-activity feed.
+  - `Overview` — KPI cards, signup trend, audience split, platform health glance and the recent-activity feed.
   - `Analytics` — trends over the range: revenue, churn, ticket volume, device registrations,
     device types, platforms, top countries, activity by origin.
   - `Reports` — current-state breakdowns and record listings: plan distribution, subscription
     statuses, trial conversion, agent workload, oldest tickets, blocked IPs, device risk, recent
     subscriptions.
-  - `Infrastructure` — **deliberately empty and deliberately present.** Reserved for infrastructure
-    this panel does not manage yet (VPN node fleets, inference workers, regional capacity). Nothing
-    about the running Laravel app belongs here — queue and scheduler health are Overview's, because
-    they describe *this app*, not the estate it will eventually manage.
+  - `System` — application runtime telemetry, database table row counts, queue worker status, failed jobs monitor, and scheduler heartbeat.
+  - `Infrastructure` — white-label external target node fleet console (regional edge nodes, egress bandwidth, latency stats, and cluster capacity gauges). Reserved for external estate (VPN node fleets, inference workers, regional capacity) when deployed for infrastructure management.
 - Each tab carries `#[Lazy]` and a `placeholder()` returning the shared skeleton, so the shell
   paints immediately. **In tests, `Livewire::test()` on these renders only the placeholder** —
   `Livewire::withoutLazyLoading()` must be called immediately before *each* `test()` call (it

@@ -133,10 +133,12 @@ return [
     */
     'modules' => [
 
-        // --- Dashboard ---
+        // --- Core ---
         'dashboard' => [
             'label' => 'Dashboard',
+            'group' => 'core',
             'actions' => ['view'],
+            'icon' => 'layout-dashboard',
         ],
 
         // --- Management ---
@@ -180,7 +182,7 @@ return [
 
         'webhook_notifications' => [
             'label' => 'Webhook Notifications',
-            'group' => 'infrastructure',
+            'group' => 'management',
             'actions' => ['view', 'manage'],
             'icon' => 'webhook',
         ],
@@ -258,18 +260,12 @@ return [
             'group' => 'settings',
             'actions' => ['access'],
             'icon' => 'file-text',
-            // Served by opcodesio/log-viewer's own routes (/logs), not an
-            // admin.* Livewire page — see AppServiceProvider::configureLogViewer().
-            'show_in_nav' => false,
         ],
         'api_docs' => [
             'label' => 'API Docs',
             'group' => 'settings',
             'actions' => ['access'],
             'icon' => 'book-open',
-            // Served by dedoc/scramble's own routes (/docs/api), not an
-            // admin.* Livewire page — see AppServiceProvider::configureApiDocs().
-            'show_in_nav' => false,
         ],
 
     ],
@@ -284,6 +280,7 @@ return [
     |
     */
     'groups' => [
+        'core' => 'Core',
         'management' => 'Management',
         'infrastructure' => 'Infrastructure',
         'app' => 'Application',

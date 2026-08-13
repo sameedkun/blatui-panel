@@ -19,6 +19,7 @@ return [
         'overview' => 'Overview',
         'analytics' => 'Analytics',
         'reports' => 'Reports',
+        'system' => 'System',
         'infrastructure' => 'Infrastructure',
     ],
 
@@ -43,7 +44,11 @@ return [
         'blocked_ips' => 'Blocked IPs',
         'device_risk' => 'Risk signals',
         'system_health' => 'System health',
+        'system_runtime' => 'Runtime & Environment',
+        'system_database' => 'Database Telemetry',
+        'system_queue' => 'Queue & Workers',
         'infrastructure_slot' => 'Connected services',
+        'infrastructure_fleet' => 'Regional Nodes & Fleet',
         'activity_contexts' => 'Activity by origin',
         'activity_feed' => 'Latest activity',
     ],
@@ -119,13 +124,19 @@ return [
     ],
 
     'infrastructure' => [
-        'empty_title' => 'Nothing connected yet',
-        'empty_description' => 'This tab is reserved for infrastructure this panel will manage later — node fleets, inference workers, regional capacity, egress usage. It is here now so the dashboard keeps the same shape once those arrive.',
+        'title' => 'Target Infrastructure Fleet',
+        'subtitle' => 'Modular white-label node & cluster management console.',
+        'empty_title' => 'Node Fleet Ready for Integration',
+        'empty_description' => 'This console is structured to manage external target infrastructure — VPN node fleets, edge proxies, regional egress servers, or AI inference clusters when deployed.',
+        'nodes_online' => 'Active Nodes',
+        'egress_bandwidth' => 'Egress Bandwidth',
+        'regional_clusters' => 'Regional Clusters',
     ],
 
     'health' => [
         'healthy' => 'Healthy',
         'degraded' => 'Needs attention',
         'idle' => 'Idle',
+        'operational' => 'Operational',
     ],
 ];

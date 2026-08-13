@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin;
 
+use App\Livewire\Admin\Concerns\HasShowTabs;
 use App\Livewire\Admin\Concerns\HasToast;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;

@@ -1,20 +1,25 @@
 @php
-    // x-ui.chart's base classes include `aspect-video`, which on a wide card forces a box
-    // far taller than the chart itself. Overridden here with an explicit height.
+    // x-ui.chart's base classes include `aspect-video` — overridden with an explicit height.
     $chartClass = 'aspect-auto h-[260px]';
     $donutClass = 'aspect-auto h-[240px]';
 @endphp
 
-<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 
+    {{-- Revenue Trend --}}
     @if ($revenue)
         <x-ui.card>
             <x-ui.card-header class="flex flex-row items-center justify-between pb-4">
-                <x-ui.card-title class="flex items-center gap-2 text-sm font-medium">
-                    <x-lucide-banknote class="size-4 text-muted-foreground" />
-                    {{ __('dashboard.widgets.revenue_trend') }}
-                </x-ui.card-title>
-                <span class="text-xs tabular-nums text-muted-foreground">${{ number_format(array_sum($revenue['values']), 2) }}</span>
+                <div class="flex flex-col gap-1">
+                    <x-ui.card-title class="flex items-center gap-2 text-sm font-semibold">
+                        <x-lucide-banknote class="size-4 text-emerald-500" />
+                        {{ __('dashboard.widgets.revenue_trend') }}
+                    </x-ui.card-title>
+                    <x-ui.card-description class="text-xs">Gross revenue over the selected window</x-ui.card-description>
+                </div>
+                <x-ui.badge variant="default" class="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-mono text-xs font-semibold">
+                    ${{ number_format(array_sum($revenue['values']), 2) }}
+                </x-ui.badge>
             </x-ui.card-header>
             <x-ui.card-content class="pt-0">
                 @if (array_sum($revenue['values']) > 0)
@@ -40,13 +45,22 @@
         </x-ui.card>
     @endif
 
+    {{-- Subscriber Churn --}}
     @if ($churn)
         <x-ui.card>
-            <x-ui.card-header class="pb-4">
-                <x-ui.card-title class="flex items-center gap-2 text-sm font-medium">
-                    <x-lucide-activity class="size-4 text-muted-foreground" />
-                    {{ __('dashboard.widgets.churn') }}
-                </x-ui.card-title>
+            <x-ui.card-header class="flex flex-row items-center justify-between pb-4">
+                <div class="flex flex-col gap-1">
+                    <x-ui.card-title class="flex items-center gap-2 text-sm font-semibold">
+                        <x-lucide-activity class="size-4 text-primary" />
+                        {{ __('dashboard.widgets.churn') }}
+                    </x-ui.card-title>
+                    <x-ui.card-description class="text-xs">New subscriptions vs cancellations</x-ui.card-description>
+                </div>
+                <div class="flex items-center gap-2">
+                    <x-ui.badge variant="outline" class="text-xs">
+                        Net: {{ number_format(array_sum($churn['new']) - array_sum($churn['cancelled'])) }}
+                    </x-ui.badge>
+                </div>
             </x-ui.card-header>
             <x-ui.card-content class="pt-0">
                 @if (array_sum($churn['new']) > 0 || array_sum($churn['cancelled']) > 0)
@@ -72,13 +86,15 @@
         </x-ui.card>
     @endif
 
+    {{-- Ticket Volume --}}
     @if ($tickets)
         <x-ui.card>
             <x-ui.card-header class="pb-4">
-                <x-ui.card-title class="flex items-center gap-2 text-sm font-medium">
-                    <x-lucide-message-square class="size-4 text-muted-foreground" />
+                <x-ui.card-title class="flex items-center gap-2 text-sm font-semibold">
+                    <x-lucide-message-square class="size-4 text-blue-500" />
                     {{ __('dashboard.widgets.ticket_volume') }}
                 </x-ui.card-title>
+                <x-ui.card-description class="text-xs">Support requests opened vs resolved</x-ui.card-description>
             </x-ui.card-header>
             <x-ui.card-content class="pt-0">
                 @if (array_sum($tickets['opened']) > 0 || array_sum($tickets['closed']) > 0)
@@ -105,14 +121,20 @@
         </x-ui.card>
     @endif
 
+    {{-- Device Registrations --}}
     @if ($devices)
         <x-ui.card>
             <x-ui.card-header class="flex flex-row items-center justify-between pb-4">
-                <x-ui.card-title class="flex items-center gap-2 text-sm font-medium">
-                    <x-lucide-radio class="size-4 text-muted-foreground" />
-                    {{ __('dashboard.widgets.device_registrations') }}
-                </x-ui.card-title>
-                <span class="text-xs tabular-nums text-muted-foreground">{{ number_format(array_sum($devices['values'])) }}</span>
+                <div class="flex flex-col gap-1">
+                    <x-ui.card-title class="flex items-center gap-2 text-sm font-semibold">
+                        <x-lucide-radio class="size-4 text-purple-500" />
+                        {{ __('dashboard.widgets.device_registrations') }}
+                    </x-ui.card-title>
+                    <x-ui.card-description class="text-xs">New user device bindings</x-ui.card-description>
+                </div>
+                <x-ui.badge variant="outline" class="font-mono text-xs tabular-nums">
+                    Total: {{ number_format(array_sum($devices['values'])) }}
+                </x-ui.badge>
             </x-ui.card-header>
             <x-ui.card-content class="pt-0">
                 @if (array_sum($devices['values']) > 0)
@@ -136,13 +158,15 @@
         </x-ui.card>
     @endif
 
+    {{-- Device Types --}}
     @if ($deviceTypes)
         <x-ui.card>
             <x-ui.card-header class="pb-4">
-                <x-ui.card-title class="flex items-center gap-2 text-sm font-medium">
-                    <x-lucide-smartphone class="size-4 text-muted-foreground" />
+                <x-ui.card-title class="flex items-center gap-2 text-sm font-semibold">
+                    <x-lucide-smartphone class="size-4 text-indigo-500" />
                     {{ __('dashboard.widgets.device_types') }}
                 </x-ui.card-title>
+                <x-ui.card-description class="text-xs">Form factor breakdown (Mobile vs Desktop)</x-ui.card-description>
             </x-ui.card-header>
             <x-ui.card-content class="pt-0">
                 @if (array_sum($deviceTypes['values']) > 0)
@@ -163,13 +187,15 @@
         </x-ui.card>
     @endif
 
+    {{-- Operating Systems / Platforms --}}
     @if ($platforms)
         <x-ui.card>
             <x-ui.card-header class="pb-4">
-                <x-ui.card-title class="flex items-center gap-2 text-sm font-medium">
-                    <x-lucide-monitor class="size-4 text-muted-foreground" />
+                <x-ui.card-title class="flex items-center gap-2 text-sm font-semibold">
+                    <x-lucide-monitor class="size-4 text-teal-500" />
                     {{ __('dashboard.widgets.platforms') }}
                 </x-ui.card-title>
+                <x-ui.card-description class="text-xs">Top client operating systems</x-ui.card-description>
             </x-ui.card-header>
             <x-ui.card-content class="pt-0">
                 @if (count($platforms['labels']))
@@ -192,45 +218,51 @@
         </x-ui.card>
     @endif
 
+    {{-- Top Countries --}}
     @if ($countries !== null)
         <x-ui.card>
             <x-ui.card-header class="pb-4">
-                <x-ui.card-title class="flex items-center gap-2 text-sm font-medium">
-                    <x-lucide-globe class="size-4 text-muted-foreground" />
+                <x-ui.card-title class="flex items-center gap-2 text-sm font-semibold">
+                    <x-lucide-globe class="size-4 text-blue-500" />
                     {{ __('dashboard.widgets.countries') }}
                 </x-ui.card-title>
+                <x-ui.card-description class="text-xs">Client device geographic distribution</x-ui.card-description>
             </x-ui.card-header>
             <x-ui.card-content class="pt-0">
                 @if (count($countries))
                     @php($busiest = collect($countries)->max('total') ?: 1)
-                    <div class="flex flex-col gap-3">
+                    <div class="flex flex-col gap-3.5">
                         @foreach ($countries as $row)
-                            <div class="flex flex-col gap-1">
+                            <div class="flex flex-col gap-1.5">
                                 <div class="flex items-center justify-between gap-2 text-xs">
-                                    <span class="truncate font-medium">{{ $row['country'] }}</span>
-                                    <span class="shrink-0 tabular-nums text-muted-foreground">{{ number_format($row['total']) }}</span>
+                                    <span class="truncate font-semibold text-foreground">{{ $row['country'] }}</span>
+                                    <span class="shrink-0 font-mono font-medium tabular-nums text-muted-foreground">{{ number_format($row['total']) }}</span>
                                 </div>
-                                <x-ui.progress :value="round($row['total'] / $busiest * 100)" class="h-1.5" />
+                                <x-ui.progress :value="round($row['total'] / $busiest * 100)" class="h-2" />
                             </div>
                         @endforeach
                     </div>
                 @else
-                    {{-- No geo-IP package is installed; country is only ever client-reported
-                         at device registration, so an empty list just means none sent one. --}}
                     <p class="py-16 text-center text-xs text-muted-foreground">{{ __('dashboard.no_data') }}</p>
                 @endif
             </x-ui.card-content>
         </x-ui.card>
     @endif
 
+    {{-- Activity Origins --}}
     @if ($contexts)
         <x-ui.card>
             <x-ui.card-header class="flex flex-row items-center justify-between pb-4">
-                <x-ui.card-title class="flex items-center gap-2 text-sm font-medium">
-                    <x-lucide-chart-column class="size-4 text-muted-foreground" />
-                    {{ __('dashboard.widgets.activity_contexts') }}
-                </x-ui.card-title>
-                <span class="text-xs tabular-nums text-muted-foreground">{{ number_format(array_sum($contexts['values'])) }}</span>
+                <div class="flex flex-col gap-1">
+                    <x-ui.card-title class="flex items-center gap-2 text-sm font-semibold">
+                        <x-lucide-chart-column class="size-4 text-orange-500" />
+                        {{ __('dashboard.widgets.activity_contexts') }}
+                    </x-ui.card-title>
+                    <x-ui.card-description class="text-xs">Audit events by origin runtime</x-ui.card-description>
+                </div>
+                <x-ui.badge variant="outline" class="font-mono text-xs tabular-nums">
+                    Total: {{ number_format(array_sum($contexts['values'])) }}
+                </x-ui.badge>
             </x-ui.card-header>
             <x-ui.card-content class="pt-0">
                 @if (count($contexts['labels']))

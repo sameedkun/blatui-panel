@@ -19,6 +19,7 @@ return [
         'overview' => 'Genel Bakış',
         'analytics' => 'Analitik',
         'reports' => 'Raporlar',
+        'system' => 'Sistem',
         'infrastructure' => 'Altyapı',
     ],
 
@@ -43,7 +44,11 @@ return [
         'blocked_ips' => 'Engellenen IP’ler',
         'device_risk' => 'Risk sinyalleri',
         'system_health' => 'Sistem sağlığı',
+        'system_runtime' => 'Çalışma Zamanı ve Ortam',
+        'system_database' => 'Veritabanı Telemetrisi',
+        'system_queue' => 'Kuyruk ve Çalışanlar',
         'infrastructure_slot' => 'Bağlı servisler',
+        'infrastructure_fleet' => 'Bölgesel Düğümler ve Filo',
         'activity_contexts' => 'Kaynağa göre etkinlik',
         'activity_feed' => 'Son etkinlikler',
     ],
@@ -119,13 +124,19 @@ return [
     ],
 
     'infrastructure' => [
-        'empty_title' => 'Henüz bağlı bir şey yok',
-        'empty_description' => 'Bu sekme, bu panelin ileride yöneteceği altyapı için ayrılmıştır — düğüm filoları, çıkarım işçileri, bölgesel kapasite, çıkış trafiği. Bunlar geldiğinde kontrol panelinin biçimi değişmesin diye şimdiden burada.',
+        'title' => 'Hedef Altyapı Filosu',
+        'subtitle' => 'Modüler beyaz etiket düğüm ve küme yönetim konsolu.',
+        'empty_title' => 'Düğüm Filosu Entegrasyona Hazır',
+        'empty_description' => 'Bu konsol, harici hedef altyapıyı (VPN düğüm filoları, edge vekilleri, bölgesel çıkış sunucuları veya AI çıkarım çalışanları) yönetmek için yapılandırılmıştır.',
+        'nodes_online' => 'Aktif Düğümler',
+        'egress_bandwidth' => 'Çıkış Bant Genişliği',
+        'regional_clusters' => 'Bölgesel Kümeler',
     ],
 
     'health' => [
         'healthy' => 'Sağlıklı',
         'degraded' => 'Dikkat gerekiyor',
         'idle' => 'Boşta',
+        'operational' => 'Operasyonel',
     ],
 ];

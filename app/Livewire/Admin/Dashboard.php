@@ -61,6 +61,13 @@ class Dashboard extends Component
                 'permission' => null,
             ],
             [
+                'key' => 'system',
+                'label' => __('dashboard.tabs.system'),
+                'icon' => 'cpu',
+                'component' => 'admin.dashboard.system',
+                'permission' => null,
+            ],
+            [
                 'key' => 'infrastructure',
                 'label' => __('dashboard.tabs.infrastructure'),
                 'icon' => 'server',
@@ -115,6 +122,7 @@ class Dashboard extends Component
             'analytics.revenue', 'analytics.churn', 'analytics.tickets', 'analytics.devices',
             'analytics.device_types', 'analytics.platforms', 'analytics.countries', 'analytics.contexts',
             'reports.plans', 'reports.statuses', 'reports.conversion', 'reports.priorities',
+            'system.info', 'system.db_stats',
         ]);
 
         $this->toastSuccess(__('dashboard.refreshed'));
