@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Subscription\SubscriptionService;
 use App\Support\ActivityLogger;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 
 /**
@@ -75,6 +76,13 @@ class MergeService
     private function finish(User $guest, User $destination): void
     {
         $this->migrateRelatedData($guest, $destination);
+
+        // The guest's avatar isn't migrated to the destination, so its file
+        // would otherwise be orphaned on disk once the row is gone.
+        if ($guest->avatar) {
+            Storage::delete($guest->avatar);
+        }
+
         $guest->forceDelete();
     }
 

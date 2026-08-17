@@ -9,6 +9,8 @@ use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Account\MergeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
@@ -188,5 +190,18 @@ class AccountMergeSubscriptionTest extends TestCase
             ->count();
 
         $this->assertSame(1, $activeCount);
+    }
+
+    public function test_merge_deletes_the_guests_avatar_file_from_disk(): void
+    {
+        Storage::fake();
+
+        $path = UploadedFile::fake()->image('avatar.jpg')->store('avatars');
+        $guest = User::factory()->guest()->create(['banned_at' => null, 'avatar' => $path]);
+        $destination = $this->appUser();
+
+        $this->service()->mergeByAdmin($guest, $destination, 'Duplicate account');
+
+        Storage::assertMissing($path);
     }
 }

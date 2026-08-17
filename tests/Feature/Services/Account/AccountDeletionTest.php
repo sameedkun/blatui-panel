@@ -7,7 +7,9 @@ use App\Notifications\Account\AccountDeletionScheduledNotification;
 use App\Services\Account\DeletionService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -138,6 +140,27 @@ class AccountDeletionTest extends TestCase
             fn (AccountDeletionScheduledNotification $notification) => $notification->initiatedByAdmin === true
                 && $notification->purgesAt->equalTo($user->fresh()->deletionPurgesAt())
         );
+    }
+
+    public function test_purge_deletes_the_avatar_file_from_disk(): void
+    {
+        Storage::fake();
+
+        $path = UploadedFile::fake()->image('avatar.jpg')->store('avatars');
+        $user = User::factory()->app()->create(['avatar' => $path]);
+
+        $this->service()->instantPurgeByAdmin($user, 'Immediate removal');
+
+        Storage::assertMissing($path);
+    }
+
+    public function test_purge_does_not_fail_for_a_user_without_an_avatar(): void
+    {
+        $user = User::factory()->app()->create(['avatar' => null]);
+
+        $this->service()->instantPurgeByAdmin($user, 'Immediate removal');
+
+        $this->assertNull(User::withTrashed()->find($user->id));
     }
 
     public function test_scheduled_purge_ignores_guest_accounts(): void

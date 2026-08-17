@@ -146,4 +146,26 @@ class BlockedIpTest extends TestCase
             ->getJson('/api/v1/devices')
             ->assertOk();
     }
+
+    /**
+     * The `database`/`file` cache stores don't support tagging — Cache::tags()
+     * throws BadMethodCallException on them. This must never surface to a
+     * request; the block check should still work (and stay enforced), even
+     * though tag-based invalidation degrades to relying on the TTL.
+     */
+    public function test_a_block_is_still_enforced_on_a_cache_store_without_tag_support(): void
+    {
+        config(['cache.default' => 'database']);
+
+        $user = User::factory()->app()->create();
+        $token = $this->tokenFor($user);
+
+        BlockedIp::factory()->global()->create(['ip_address' => '203.0.113.70']);
+
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.70'])
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/v1/devices')
+            ->assertStatus(403)
+            ->assertJson(['error' => 'IP_BLOCKED']);
+    }
 }

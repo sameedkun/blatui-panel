@@ -12,6 +12,7 @@ use App\Support\ActivityLogger;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 
 /**
@@ -222,6 +223,10 @@ class DeletionService
      * a polymorphic `morphs()` column, `sessions.user_id` is a plain nullable
      * column), so nothing at the DB level cleans them up; without this they'd
      * be orphaned forever.
+     *
+     * The avatar file itself is deleted here too — it lives on disk, not in
+     * a DB row, so nothing about the forceDelete() below would ever remove
+     * it on its own.
      */
     protected function deleteRelatedData(User $user): void
     {
@@ -238,6 +243,10 @@ class DeletionService
 
         if (Schema::hasTable('sessions')) {
             DB::table('sessions')->where('user_id', $user->id)->delete();
+        }
+
+        if ($user->avatar) {
+            Storage::delete($user->avatar);
         }
     }
 

@@ -17,6 +17,7 @@
     "skills": [
         "infer-conventions",
         "laravel-best-practices",
+        "configure-nightwatch",
         "socialite-development",
         "livewire-development",
         "tailwindcss-development",

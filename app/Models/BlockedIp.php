@@ -3,12 +3,12 @@
 namespace App\Models;
 
 use App\Http\Middleware\CheckBlockedIp;
+use App\Support\BlockedIpCache;
 use Database\Factories\BlockedIpFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Cache;
 
 /**
  * A block on an IP address — global (`user_id` null) or scoped to a single
@@ -17,13 +17,14 @@ use Illuminate\Support\Facades\Cache;
  * one per-user block per (IP, user) pair. All mutations go through the
  * BlockedIps admin Livewire components — never written to directly.
  *
- * {@see CheckBlockedIp} caches its per-(ip, user) lookup
- * under a `blocked-ip:{ip}` tag. A single-row create/update/delete here
- * self-invalidates that tag via the hooks below, so a deleted/edited block
- * takes effect immediately instead of waiting out the cache TTL. Bulk
- * `whereIn(...)->delete()` paths (the Index's bulk-delete/delete-expired
- * actions, and the PruneExpiredBlockedIps job) bypass Eloquent events
- * entirely — those call {@see forgetCache()} explicitly.
+ * {@see CheckBlockedIp} caches its per-(ip, user) lookup via
+ * {@see BlockedIpCache}, tagged `blocked-ip:{ip}` when the cache store
+ * supports it. A single-row create/update/delete here self-invalidates that
+ * tag via the hooks below, so a deleted/edited block takes effect
+ * immediately instead of waiting out the cache TTL. Bulk `whereIn(...)
+ * ->delete()` paths (the Index's bulk-delete/delete-expired actions, and the
+ * PruneExpiredBlockedIps job) bypass Eloquent events entirely — those call
+ * {@see forgetCache()} explicitly.
  */
 class BlockedIp extends Model
 {
@@ -76,9 +77,7 @@ class BlockedIp extends Model
      */
     public static function forgetCache(string|iterable $ipAddresses): void
     {
-        foreach (is_string($ipAddresses) ? [$ipAddresses] : $ipAddresses as $ip) {
-            Cache::tags(["blocked-ip:{$ip}"])->flush();
-        }
+        BlockedIpCache::forget($ipAddresses);
     }
 
     /**
