@@ -4,9 +4,12 @@ namespace Tests\Feature\Admin\Accounts\Guests;
 
 use App\Livewire\Admin\Management\Guests\Index as GuestsIndex;
 use App\Livewire\Admin\Management\Guests\Show;
+use App\Models\BlockedIp;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
@@ -211,6 +214,29 @@ class GuestShowTest extends TestCase
             ->assertRedirect(route('admin.guests.index'));
 
         $this->assertDatabaseMissing('users', ['id' => $guest->id]);
+    }
+
+    public function test_force_delete_from_profile_cleans_up_related_data(): void
+    {
+        Storage::fake();
+        $this->actingAsSuperAdmin();
+
+        $avatarPath = UploadedFile::fake()->image('avatar.jpg')->store('avatars');
+        $guest = User::factory()->guest()->create(['banned_at' => null, 'avatar' => $avatarPath]);
+        $token = $guest->createToken('test');
+        BlockedIp::factory()->forUser($guest)->create();
+        $guest->delete();
+        $guest->refresh();
+
+        Livewire::test(Show::class, ['user' => $guest])
+            ->set('forceDeleteId', $guest->id)
+            ->call('forceDelete')
+            ->assertRedirect(route('admin.guests.index'));
+
+        $this->assertDatabaseMissing('users', ['id' => $guest->id]);
+        Storage::assertMissing($avatarPath);
+        $this->assertDatabaseMissing('personal_access_tokens', ['id' => $token->accessToken->id]);
+        $this->assertDatabaseMissing('blocked_ips', ['user_id' => $guest->id]);
     }
 
     public function test_convert_to_app_user_from_profile_flips_type_and_redirects_to_users_show(): void

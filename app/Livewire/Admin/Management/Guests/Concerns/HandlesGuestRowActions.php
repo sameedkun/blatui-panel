@@ -152,7 +152,7 @@ trait HandlesGuestRowActions
         $this->dispatch('open-alert-dialog-force-delete-user');
     }
 
-    public function forceDelete(): void
+    public function forceDelete(DeletionService $deletions): void
     {
         $this->authorize('guests.force-delete');
 
@@ -163,7 +163,7 @@ trait HandlesGuestRowActions
 
         $this->logActivity(ActivityModule::Guest, ActivityAction::ForceDeleted, $guest, ['user_id' => $guest->id, 'name' => $name]);
 
-        $guest->forceDelete();
+        $deletions->forceDeleteRecord($guest);
 
         $this->forceDeleteId = null;
         $this->toastSuccess(__('guests.toasts.guest_permanently_deleted', ['name' => $name]));

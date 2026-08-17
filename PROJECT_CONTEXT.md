@@ -154,14 +154,41 @@ conversion, or merge logic inline in a Livewire component.**
     <UserResource>}`, letting the client read the same `pending_deletion` shape it'd get from
     `GET /api/v1/me`.
   - `purge()` is transactional and idempotent (`if (! $user->exists) return;`), snapshots the
-    account into the audit-log properties before `forceDelete()`, and cleans up related rows
-    (`deleteRelatedData()` — explicitly deletes `blocked_ips`/`personal_access_tokens`/`sessions`
-    rows; `subscriptions` and `user_devices` aren't listed there since both have a `user_id` FK
-    that's `cascadeOnDelete()`, so the subsequent `forceDelete()` already removes those rows
-    without needing an explicit query — `subscription_receipts` cascades transitively off
-    `subscriptions` the same way).
+    account into the audit-log properties before `forceDelete()`, and cleans up related rows via
+    `forceDeleteRecord()` (`deleteRelatedData()` — explicitly deletes `blocked_ips`/
+    `personal_access_tokens`/`sessions` rows and the avatar file off disk; `subscriptions` and
+    `user_devices` aren't listed there since both have a `user_id` FK that's `cascadeOnDelete()`,
+    so the subsequent `forceDelete()` already removes those rows without needing an explicit query
+    — `subscription_receipts` cascades transitively off `subscriptions` the same way).
+  - `forceDeleteRecord()` is the low-level primitive `purge()` builds on — the same transactional
+    cleanup-then-forceDelete, but with no audit entry or type assertion of its own. It's what the
+    admin panel's "force delete" row/bulk actions (already-trashed Users/Guests, both index and
+    profile) call directly, since forceDelete() being reachable at all already implies the
+    record's delete/restore permissions were checked earlier in that lifecycle.
   - Scheduled purges use an explicit `causer: null` + `context: Scheduler` (no `auth()` session
-    exists in that context); admin-triggered purges auto-resolve the causer/context.
+    exists in that context); admin-triggered purges auto-resolve the causer/context, or accept an
+    explicit override (`purge()`/`instantPurgeByAdmin()`/`purgeGuestByAdmin()` all take optional
+    `$causer`/`$context` params) — needed by the queued bulk jobs below, where there's no `auth()`
+    session and runtime auto-detection would otherwise resolve to `Console` instead of `Queue`.
+  - **Bulk admin actions past a size threshold are queued, not run inline.** Users/Index and
+    Guests/Index's bulk force-delete (`executeBulkForceDelete()`) and bulk
+    instant-purge/delete (`executeBulkInstantPurge()`, Guests' `executeBulkDelete()`) each check
+    `panel.bulk_account_action_queue_threshold` (default 100, via
+    `BULK_ACCOUNT_ACTION_QUEUE_THRESHOLD` env): at or under it they run exactly as before
+    (synchronous, one row at a time); past it they dispatch `App\Jobs\Account\
+    {BulkForceDeleteAccounts,BulkPurgeAccounts}` instead and toast `common.bulk_action_queued`.
+    This exists because each row is its own DB transaction plus a `Storage::delete()` call for its
+    avatar — synchronous at 1000+ selected rows risks the web server's request timeout.
+    `BulkForceDeleteAccounts` (takes an `ActivityModule` so it works for either Users or Guests)
+    logs one bulk wrapper entry itself, mirroring the synchronous action; `BulkPurgeAccounts`
+    (takes a `'app'|'guest'` `$type`) logs nothing itself since each row already logs its own
+    `Purged` entry via `purge()`. Same threshold-gating pattern as `ExportActivityLog`'s
+    `activity_log_export_queue_threshold` — see "Activity logging" below. Separately, a hard
+    ceiling (`panel.bulk_account_action_max_selection`, default 1000, via
+    `BULK_ACCOUNT_ACTION_MAX_SELECTION` env) rejects the action outright — queued or not — once
+    the selection exceeds it (`common.bulk_selection_too_large` toast, selection left intact so
+    the admin can trim and retry); the queue threshold above only decides sync vs. async, it
+    doesn't cap anything, so an unbounded selection would otherwise become an unbounded job.
 - **`GuestConversionService`** — flips a guest in place into an app user (same row/id).
   `convertBySelf()` (user sets their own email+password), `convertByAdmin()` (admin sets email;
   password is a random unusable string — admin never sets/sees a real password; a reset-link send
@@ -1312,7 +1339,8 @@ app/
   Http/Resources/V1/{UserDeviceResource,UserResource,SubscriptionResource,PlanResource,PlanPriceResource,
                       PlanPriceProviderResource,TicketResource,TicketMessageResource,TicketCategoryResource,
                       PolicyResource,PolicyDetailResource,LanguageResource,LanguageDetailResource}.php
-  Jobs/            Account/PurgeExpiredAccounts, Activity/ExportActivityLog,
+  Jobs/            Account/{PurgeExpiredAccounts, BulkForceDeleteAccounts, BulkPurgeAccounts},
+                   Activity/ExportActivityLog,
                    Auth/{PruneExpiredBlockedIps, RecordBlockedIpHit},
                    Device/{PruneRevokedDevices, ResolveDeviceLocation},
                    Notification/SendPushNotification, Subscription/SyncSubscriptionStatuses,

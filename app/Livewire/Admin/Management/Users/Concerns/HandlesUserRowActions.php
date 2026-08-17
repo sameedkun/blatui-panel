@@ -156,7 +156,7 @@ trait HandlesUserRowActions
         $this->dispatch('open-alert-dialog-force-delete-user');
     }
 
-    public function forceDelete(): void
+    public function forceDelete(DeletionService $deletions): void
     {
         $this->authorize('users.force-delete');
 
@@ -167,7 +167,7 @@ trait HandlesUserRowActions
 
         $this->logActivity(ActivityModule::User, ActivityAction::ForceDeleted, $user, ['user_id' => $user->id, 'name' => $name]);
 
-        $user->forceDelete();
+        $deletions->forceDeleteRecord($user);
 
         $this->forceDeleteId = null;
         $this->toastSuccess(__('users.toasts.user_permanently_deleted', ['name' => $name]));

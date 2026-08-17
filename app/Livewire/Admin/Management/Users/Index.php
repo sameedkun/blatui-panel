@@ -4,6 +4,8 @@ namespace App\Livewire\Admin\Management\Users;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
+use App\Jobs\Account\BulkForceDeleteAccounts;
+use App\Jobs\Account\BulkPurgeAccounts;
 use App\Livewire\Admin\BaseIndex;
 use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Livewire\Admin\Management\Users\Concerns\HandlesUserRowActions;
@@ -339,23 +341,52 @@ class Index extends BaseIndex
         $this->toastSuccess(__('users.toasts.bulk_restored', ['count' => $count]));
     }
 
-    public function executeBulkForceDelete(): void
+    /**
+     * Runs each row through {@see DeletionService::forceDeleteRecord()} rather
+     * than a single bulk `whereIn(...)->forceDelete()` — that raw query bypasses
+     * related-data cleanup entirely (orphaning tokens/sessions/avatar files, and
+     * risking an FK violation on `blocked_ips`, whose `user_id` is
+     * restrictOnDelete()) and would blow up the whole batch on the first such
+     * row. Still one bulk audit entry, matching every other bulk action here.
+     *
+     * A selection past {@see bulkQueueThreshold()} is handed to
+     * {@see BulkForceDeleteAccounts} instead — each row's own transaction plus
+     * a Storage::delete() call for its avatar makes a large synchronous batch
+     * risk the request timeout. A selection past {@see bulkMaxSelection()} is
+     * rejected outright, queued or not.
+     */
+    public function executeBulkForceDelete(DeletionService $deletions): void
     {
         $this->authorize('users.force-delete');
 
         $ids = $this->selectedIds;
         $count = count($ids);
 
+        if (! $this->withinBulkSelectionLimit($count)) {
+            return;
+        }
+
+        if ($count > $this->bulkQueueThreshold()) {
+            BulkForceDeleteAccounts::dispatch($ids, ActivityModule::User, auth()->id());
+
+            $this->clearSelection();
+            $this->toastSuccess(__('common.bulk_action_queued', ['count' => $count]));
+
+            return;
+        }
+
+        $users = User::withTrashed()->whereIn('id', $ids)->get();
+
         $this->logActivity(ActivityModule::User, ActivityAction::ForceDeleted, null, [
             'bulk' => true,
             'user_ids' => $ids,
-            'count' => $count,
+            'count' => $users->count(),
         ]);
 
-        User::withTrashed()->whereIn('id', $ids)->forceDelete();
+        $users->each(fn (User $user) => $deletions->forceDeleteRecord($user));
 
         $this->clearSelection();
-        $this->toastSuccess(__('users.toasts.bulk_permanently_deleted', ['count' => $count]));
+        $this->toastSuccess(__('users.toasts.bulk_permanently_deleted', ['count' => $users->count()]));
     }
 
     public function executeBulkScheduleDeletion(DeletionService $deletions): void
@@ -393,14 +424,35 @@ class Index extends BaseIndex
         $this->toastSuccess(__('users.toasts.bulk_deletion_cancelled', ['count' => $count]));
     }
 
+    /**
+     * A selection past {@see bulkQueueThreshold()} is handed to
+     * {@see BulkPurgeAccounts} instead of looping inline — same reasoning as
+     * {@see executeBulkForceDelete()}.
+     */
     public function executeBulkInstantPurge(DeletionService $deletions): void
     {
         $this->authorize('users.force-delete');
 
+        $ids = $this->selectedIds;
         $reason = trim($this->bulkPurgeReason) ?: null;
+
+        if (! $this->withinBulkSelectionLimit(count($ids))) {
+            return;
+        }
+
+        if (count($ids) > $this->bulkQueueThreshold()) {
+            BulkPurgeAccounts::dispatch($ids, 'app', $reason, auth()->id());
+
+            $this->clearSelection();
+            $this->bulkPurgeReason = '';
+            $this->toastSuccess(__('common.bulk_action_queued', ['count' => count($ids)]));
+
+            return;
+        }
+
         $count = 0;
 
-        User::query()->appUsers()->whereIn('id', $this->selectedIds)->get()
+        User::query()->appUsers()->whereIn('id', $ids)->get()
             ->each(function (User $user) use ($deletions, $reason, &$count): void {
                 $deletions->instantPurgeByAdmin($user, $reason);
                 $count++;
@@ -409,6 +461,36 @@ class Index extends BaseIndex
         $this->clearSelection();
         $this->bulkPurgeReason = '';
         $this->toastSuccess(__('users.toasts.bulk_permanently_deleted', ['count' => $count]));
+    }
+
+    /** Above this many selected accounts, a destructive bulk action is queued instead of run inline. */
+    private function bulkQueueThreshold(): int
+    {
+        return (int) config('panel.bulk_account_action_queue_threshold', 100);
+    }
+
+    /** Hard ceiling — past this, a destructive bulk action is rejected outright, queued or not. */
+    private function bulkMaxSelection(): int
+    {
+        return (int) config('panel.bulk_account_action_max_selection', 1000);
+    }
+
+    /**
+     * Rejects an oversized selection before any work starts. The selection
+     * itself is left intact (no clearSelection()) so the admin can trim it
+     * and retry rather than losing their picks.
+     */
+    private function withinBulkSelectionLimit(int $count): bool
+    {
+        $max = $this->bulkMaxSelection();
+
+        if ($count <= $max) {
+            return true;
+        }
+
+        $this->toastError(__('common.bulk_selection_too_large', ['count' => $count, 'max' => $max]));
+
+        return false;
     }
 
     // ── Render ────────────────────────────────────────────────────────────────

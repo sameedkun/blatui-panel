@@ -45,4 +45,6 @@ return [
     'back' => 'Geri',
     'close' => 'Kapat',
     'reason' => 'Sebep',
+    'bulk_action_queued' => ':count hesap arka planda işleniyor — bu birkaç dakika sürebilir.',
+    'bulk_selection_too_large' => 'Aynı anda en fazla :max hesap seçin (:count seçildi).',
 ];

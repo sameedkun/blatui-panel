@@ -2,14 +2,21 @@
 
 namespace Tests\Feature\Admin\Accounts\Users;
 
+use App\Enum\ActivityModule;
+use App\Jobs\Account\BulkForceDeleteAccounts;
+use App\Jobs\Account\BulkPurgeAccounts;
 use App\Livewire\Admin\Management\Users\Index as UsersIndex;
 use App\Livewire\Admin\Management\Users\Show;
+use App\Models\BlockedIp;
 use App\Models\User;
 use App\Notifications\Auth\ResetPasswordNotification;
 use App\Notifications\Auth\VerifyEmailNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
@@ -196,6 +203,183 @@ class UserShowTest extends TestCase
             ->assertRedirect(route('admin.users.index'));
 
         $this->assertDatabaseMissing('users', ['id' => $user->id]);
+    }
+
+    public function test_force_delete_from_profile_cleans_up_related_data(): void
+    {
+        Storage::fake();
+        $this->actingAsSuperAdmin();
+
+        $avatarPath = UploadedFile::fake()->image('avatar.jpg')->store('avatars');
+        $user = User::factory()->app()->create(['avatar' => $avatarPath]);
+        $token = $user->createToken('test');
+        BlockedIp::factory()->forUser($user)->create();
+        $user->delete();
+        $user->refresh();
+
+        Livewire::test(Show::class, ['user' => $user])
+            ->set('forceDeleteId', $user->id)
+            ->call('forceDelete')
+            ->assertRedirect(route('admin.users.index'));
+
+        $this->assertDatabaseMissing('users', ['id' => $user->id]);
+        Storage::assertMissing($avatarPath);
+        $this->assertDatabaseMissing('personal_access_tokens', ['id' => $token->accessToken->id]);
+        $this->assertDatabaseMissing('blocked_ips', ['user_id' => $user->id]);
+    }
+
+    public function test_index_row_force_delete_cleans_up_related_data(): void
+    {
+        Storage::fake();
+        $this->actingAsSuperAdmin();
+
+        $avatarPath = UploadedFile::fake()->image('avatar.jpg')->store('avatars');
+        $user = User::factory()->app()->create(['avatar' => $avatarPath]);
+        $user->delete();
+
+        Livewire::test(UsersIndex::class)
+            ->set('forceDeleteId', $user->id)
+            ->call('forceDelete');
+
+        $this->assertDatabaseMissing('users', ['id' => $user->id]);
+        Storage::assertMissing($avatarPath);
+    }
+
+    /**
+     * The raw `whereIn(...)->forceDelete()` this bulk action used to run would
+     * also throw a foreign-key violation here — `blocked_ips.user_id` is
+     * restrictOnDelete(), so a selected user with a block on record would abort
+     * the whole batch. Routing each row through DeletionService is what avoids
+     * both that and the orphaned avatar/token files.
+     */
+    public function test_bulk_force_delete_cleans_up_related_data_for_every_selected_user(): void
+    {
+        Storage::fake();
+        $this->actingAsSuperAdmin();
+
+        $pathA = UploadedFile::fake()->image('a.jpg')->store('avatars');
+        $pathB = UploadedFile::fake()->image('b.jpg')->store('avatars');
+        $userA = User::factory()->app()->create(['avatar' => $pathA]);
+        $userB = User::factory()->app()->create(['avatar' => $pathB]);
+        BlockedIp::factory()->forUser($userA)->create();
+        $userA->delete();
+        $userB->delete();
+
+        Livewire::test(UsersIndex::class)
+            ->set('tab', 'trashed')
+            ->set('selectedIds', collect([$userA->id, $userB->id])->map(fn ($id) => (string) $id)->all())
+            ->call('executeBulkForceDelete');
+
+        $this->assertDatabaseMissing('users', ['id' => $userA->id]);
+        $this->assertDatabaseMissing('users', ['id' => $userB->id]);
+        Storage::assertMissing($pathA);
+        Storage::assertMissing($pathB);
+        $this->assertDatabaseMissing('blocked_ips', ['user_id' => $userA->id]);
+
+        $row = Activity::where('event', 'force_deleted')->whereNull('subject_id')->latest('id')->firstOrFail();
+        $this->assertTrue($row->properties['bulk']);
+        $this->assertSame(2, $row->properties['count']);
+    }
+
+    public function test_bulk_force_delete_dispatches_a_queued_job_once_selection_exceeds_the_threshold(): void
+    {
+        Queue::fake();
+        config(['panel.bulk_account_action_queue_threshold' => 1]);
+        $admin = $this->actingAsSuperAdmin();
+
+        $userA = User::factory()->app()->create();
+        $userB = User::factory()->app()->create();
+        $userA->delete();
+        $userB->delete();
+
+        Livewire::test(UsersIndex::class)
+            ->set('tab', 'trashed')
+            ->set('selectedIds', collect([$userA->id, $userB->id])->map(fn ($id) => (string) $id)->all())
+            ->call('executeBulkForceDelete')
+            ->assertDispatched('toast', type: 'success');
+
+        // Nothing runs inline once queued — the accounts must still exist.
+        $this->assertNotNull(User::withTrashed()->find($userA->id));
+        $this->assertNotNull(User::withTrashed()->find($userB->id));
+
+        Queue::assertPushed(BulkForceDeleteAccounts::class, function (BulkForceDeleteAccounts $job) use ($userA, $userB, $admin): bool {
+            return $job->userIds === [(string) $userA->id, (string) $userB->id]
+                && $job->module === ActivityModule::User
+                && $job->requestedBy === $admin->id;
+        });
+    }
+
+    public function test_bulk_instant_purge_dispatches_a_queued_job_once_selection_exceeds_the_threshold(): void
+    {
+        Queue::fake();
+        config(['panel.bulk_account_action_queue_threshold' => 1]);
+        $admin = $this->actingAsSuperAdmin();
+
+        $userA = User::factory()->app()->create();
+        $userB = User::factory()->app()->create();
+
+        Livewire::test(UsersIndex::class)
+            ->set('selectedIds', collect([$userA->id, $userB->id])->map(fn ($id) => (string) $id)->all())
+            ->set('bulkPurgeReason', 'Bulk cleanup')
+            ->call('executeBulkInstantPurge')
+            ->assertDispatched('toast', type: 'success');
+
+        $this->assertNotNull(User::withTrashed()->find($userA->id));
+        $this->assertNotNull(User::withTrashed()->find($userB->id));
+
+        Queue::assertPushed(BulkPurgeAccounts::class, function (BulkPurgeAccounts $job) use ($userA, $userB, $admin): bool {
+            return $job->userIds === [(string) $userA->id, (string) $userB->id]
+                && $job->type === 'app'
+                && $job->reason === 'Bulk cleanup'
+                && $job->requestedBy === $admin->id;
+        });
+    }
+
+    /**
+     * The queue threshold only decides sync vs. async — this cap is what
+     * actually stops an unbounded selection from being handed to anything at
+     * all, queued included.
+     */
+    public function test_bulk_force_delete_rejects_a_selection_over_the_max_cap(): void
+    {
+        Queue::fake();
+        config(['panel.bulk_account_action_max_selection' => 1]);
+        $this->actingAsSuperAdmin();
+
+        $userA = User::factory()->app()->create();
+        $userB = User::factory()->app()->create();
+        $userA->delete();
+        $userB->delete();
+
+        Livewire::test(UsersIndex::class)
+            ->set('tab', 'trashed')
+            ->set('selectedIds', collect([$userA->id, $userB->id])->map(fn ($id) => (string) $id)->all())
+            ->call('executeBulkForceDelete')
+            ->assertDispatched('toast', type: 'error');
+
+        // Selection is left intact so the admin can trim and retry.
+        $this->assertNotNull(User::withTrashed()->find($userA->id));
+        $this->assertNotNull(User::withTrashed()->find($userB->id));
+        Queue::assertNotPushed(BulkForceDeleteAccounts::class);
+    }
+
+    public function test_bulk_instant_purge_rejects_a_selection_over_the_max_cap(): void
+    {
+        Queue::fake();
+        config(['panel.bulk_account_action_max_selection' => 1]);
+        $this->actingAsSuperAdmin();
+
+        $userA = User::factory()->app()->create();
+        $userB = User::factory()->app()->create();
+
+        Livewire::test(UsersIndex::class)
+            ->set('selectedIds', collect([$userA->id, $userB->id])->map(fn ($id) => (string) $id)->all())
+            ->call('executeBulkInstantPurge')
+            ->assertDispatched('toast', type: 'error');
+
+        $this->assertNotNull(User::withTrashed()->find($userA->id));
+        $this->assertNotNull(User::withTrashed()->find($userB->id));
+        Queue::assertNotPushed(BulkPurgeAccounts::class);
     }
 
     public function test_verify_email_manually_marks_the_email_verified(): void

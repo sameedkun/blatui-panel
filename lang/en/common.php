@@ -45,4 +45,6 @@ return [
     'back' => 'Back',
     'close' => 'Close',
     'reason' => 'Reason',
+    'bulk_action_queued' => ':count accounts are being processed in the background — this may take a few minutes.',
+    'bulk_selection_too_large' => 'Select at most :max accounts at a time (:count selected).',
 ];

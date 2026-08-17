@@ -364,6 +364,35 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Bulk Account Action Queue Threshold
+    |--------------------------------------------------------------------------
+    |
+    | A bulk force-delete/purge selection (Users or Guests index) up to this
+    | many accounts runs inline in the request; anything larger is handed to a
+    | queued job instead. Each account is its own DB transaction plus a
+    | Storage::delete() call for its avatar, so a large selection running
+    | synchronously risks blowing the request timeout.
+    |
+    */
+    'bulk_account_action_queue_threshold' => env('BULK_ACCOUNT_ACTION_QUEUE_THRESHOLD', 100),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Bulk Account Action Selection Cap
+    |--------------------------------------------------------------------------
+    |
+    | Hard ceiling on how many accounts a single bulk force-delete/purge action
+    | (Users or Guests index) will accept at all, queued or not — past this,
+    | the action is rejected outright rather than handed to a queue worker.
+    | The queue threshold above only decides sync vs. async; this is what
+    | actually stops an unbounded selection from becoming an unbounded job
+    | (every row is a real network call to delete an avatar).
+    |
+    */
+    'bulk_account_action_max_selection' => env('BULK_ACCOUNT_ACTION_MAX_SELECTION', 1000),
+
+    /*
+    |--------------------------------------------------------------------------
     | Dashboard Metric Cache
     |--------------------------------------------------------------------------
     |

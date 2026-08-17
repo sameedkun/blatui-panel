@@ -97,8 +97,16 @@ class DeletionService
      * transaction and safe to run more than once on the same account.
      *
      * @param  string  $initiatedBy  'scheduled' | 'admin_instant'
+     * @param  User|null  $causer  Explicit causer override — needed when called
+     *                             from a queued job, where auth()->user() has
+     *                             no session to resolve. Ignored for 'scheduled'.
+     * @param  ActivityContext|null  $context  Explicit context override — needed
+     *                                         from a queued job, where runtime
+     *                                         auto-detection would otherwise
+     *                                         resolve to Console, not Queue.
+     *                                         Ignored for 'scheduled'.
      */
-    public function purge(User $user, string $initiatedBy): void
+    public function purge(User $user, string $initiatedBy, ?User $causer = null, ?ActivityContext $context = null): void
     {
         // Already purged — stay idempotent and skip a duplicate audit entry.
         if (! $user->exists) {
@@ -115,11 +123,40 @@ class DeletionService
 
         // The scheduled sweep runs with no auth() session, so force a null
         // (system) causer and an explicit Scheduler context rather than trusting
-        // the ambient runtime; admin instant-purge keeps the acting admin and
-        // auto-detects its (Admin) context.
-        $causer = $initiatedBy === 'scheduled' ? null : auth()->user();
-        $context = $initiatedBy === 'scheduled' ? ActivityContext::Scheduler : null;
+        // the ambient runtime; admin instant-purge keeps the acting admin (an
+        // explicit $causer when supplied, e.g. from a queued job, else the
+        // ambient auth() session) and auto-detects its context unless the
+        // caller overrides it.
+        $resolvedCauser = $initiatedBy === 'scheduled' ? null : ($causer ?? auth()->user());
+        $resolvedContext = $initiatedBy === 'scheduled' ? ActivityContext::Scheduler : $context;
         $module = $user->type === UserType::Guest ? ActivityModule::Guest : ActivityModule::User;
+
+        $this->forceDeleteRecord($user);
+
+        ActivityLogger::log($module, ActivityAction::Purged, null, [
+            'initiated_by' => $initiatedBy,
+            'snapshot' => $snapshot,
+        ], causer: $resolvedCauser, context: $resolvedContext);
+    }
+
+    /**
+     * Wraps related-data cleanup and the forceDelete() itself in one
+     * transaction. This is the low-level primitive {@see purge()} builds on;
+     * it carries no audit-log entry of its own and no type assertion — the
+     * caller decides what to log (and under what action) around it. Used
+     * directly by the admin panel's "force delete" row/bulk actions on an
+     * already-trashed record, where forceDelete() being reachable at all
+     * already implies the record's own delete/restore permissions were
+     * checked earlier in that lifecycle, so nothing here re-derives that.
+     *
+     * Safe to call on a record that's already gone (mirrors purge()'s own
+     * idempotency).
+     */
+    public function forceDeleteRecord(User $user): void
+    {
+        if (! $user->exists) {
+            return;
+        }
 
         DB::transaction(function () use ($user): void {
             $this->deleteRelatedData($user);
@@ -128,17 +165,14 @@ class DeletionService
                 $user->forceDelete();
             }
         });
-
-        ActivityLogger::log($module, ActivityAction::Purged, null, [
-            'initiated_by' => $initiatedBy,
-            'snapshot' => $snapshot,
-        ], causer: $causer, context: $context);
     }
 
     /**
      * Admin permanently deletes an account immediately, skipping the grace period.
+     *
+     * @param  User|null  $causer  See {@see purge()} — pass explicitly from a queued job.
      */
-    public function instantPurgeByAdmin(User $user, ?string $reason = null): void
+    public function instantPurgeByAdmin(User $user, ?string $reason = null, ?User $causer = null, ?ActivityContext $context = null): void
     {
         $this->assertAppUser($user);
 
@@ -146,19 +180,21 @@ class DeletionService
             $user->forceFill(['deletion_reason' => $reason])->save();
         }
 
-        $this->purge($user, 'admin_instant');
+        $this->purge($user, 'admin_instant', $causer, $context);
     }
 
     /**
      * Admin permanently deletes a guest account immediately. Guests never enter
      * the grace-period flow at all, so this skips straight to the purge — no
      * request/cancel phase, no reason column to persist.
+     *
+     * @param  User|null  $causer  See {@see purge()} — pass explicitly from a queued job.
      */
-    public function purgeGuestByAdmin(User $guest): void
+    public function purgeGuestByAdmin(User $guest, ?User $causer = null, ?ActivityContext $context = null): void
     {
         $this->assertGuestUser($guest);
 
-        $this->purge($guest, 'admin_instant');
+        $this->purge($guest, 'admin_instant', $causer, $context);
     }
 
     /**

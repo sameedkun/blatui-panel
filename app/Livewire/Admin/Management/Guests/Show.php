@@ -336,8 +336,11 @@ class Show extends BaseShow
     /**
      * Force-delete also removes the record — same "nowhere to stay" reasoning
      * as {@see delete()} — so the profile redirects back to the list on success.
+     * Related data (devices, tokens, sessions, blocked-IP rows, avatar file) is
+     * cleaned up via {@see DeletionService::forceDeleteRecord()} — this action
+     * logs its own ForceDeleted row, so it skips purge()'s own audit entry.
      */
-    public function forceDelete()
+    public function forceDelete(DeletionService $deletions)
     {
         $this->authorize('guests.force-delete');
 
@@ -348,7 +351,7 @@ class Show extends BaseShow
 
         $this->logActivity(ActivityModule::Guest, ActivityAction::ForceDeleted, $guest, ['user_id' => $guest->id, 'name' => $name]);
 
-        $guest->forceDelete();
+        $deletions->forceDeleteRecord($guest);
 
         session()->flash('toast', ['type' => 'success', 'title' => __('guests.toasts.guest_permanently_deleted', ['name' => $name])]);
 

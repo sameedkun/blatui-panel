@@ -4,6 +4,8 @@ namespace App\Livewire\Admin\Management\Guests;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
+use App\Jobs\Account\BulkForceDeleteAccounts;
+use App\Jobs\Account\BulkPurgeAccounts;
 use App\Livewire\Admin\BaseIndex;
 use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Livewire\Admin\Management\Guests\Concerns\HandlesGuestRowActions;
@@ -210,14 +212,35 @@ class Index extends BaseIndex
      * Instant, on-the-spot delete — permanently purges every selected guest and
      * their related data, same as the single-row {@see HandlesGuestRowActions::delete()}.
      * Fetches first, then mutates, since purging changes each row's scope mid-loop.
+     *
+     * A selection past {@see bulkQueueThreshold()} is handed to
+     * {@see BulkPurgeAccounts} instead — each row's own transaction plus a
+     * Storage::delete() call for its avatar makes a large synchronous batch
+     * risk the request timeout. A selection past {@see bulkMaxSelection()} is
+     * rejected outright, queued or not.
      */
     public function executeBulkDelete(DeletionService $deletions): void
     {
         $this->authorize('guests.delete');
 
+        $ids = $this->selectedIds;
+
+        if (! $this->withinBulkSelectionLimit(count($ids))) {
+            return;
+        }
+
+        if (count($ids) > $this->bulkQueueThreshold()) {
+            BulkPurgeAccounts::dispatch($ids, 'guest', null, auth()->id());
+
+            $this->clearSelection();
+            $this->toastSuccess(__('common.bulk_action_queued', ['count' => count($ids)]));
+
+            return;
+        }
+
         $count = 0;
 
-        User::query()->guests()->whereIn('id', $this->selectedIds)->get()
+        User::query()->guests()->whereIn('id', $ids)->get()
             ->each(function (User $guest) use ($deletions, &$count): void {
                 $deletions->purgeGuestByAdmin($guest);
                 $count++;
@@ -245,23 +268,80 @@ class Index extends BaseIndex
         $this->toastSuccess(__('guests.toasts.bulk_restored', ['count' => $count]));
     }
 
-    public function executeBulkForceDelete(): void
+    /**
+     * Runs each row through {@see DeletionService::forceDeleteRecord()} rather
+     * than a single bulk `whereIn(...)->forceDelete()` — that raw query bypasses
+     * related-data cleanup entirely (orphaning tokens/sessions/avatar files, and
+     * risking an FK violation on `blocked_ips`, whose `user_id` is
+     * restrictOnDelete()) and would blow up the whole batch on the first such
+     * row. Still one bulk audit entry, matching every other bulk action here.
+     *
+     * A selection past {@see bulkQueueThreshold()} is handed to
+     * {@see BulkForceDeleteAccounts} instead of running inline. A selection
+     * past {@see bulkMaxSelection()} is rejected outright, queued or not.
+     */
+    public function executeBulkForceDelete(DeletionService $deletions): void
     {
         $this->authorize('guests.force-delete');
 
         $ids = $this->selectedIds;
         $count = count($ids);
 
+        if (! $this->withinBulkSelectionLimit($count)) {
+            return;
+        }
+
+        if ($count > $this->bulkQueueThreshold()) {
+            BulkForceDeleteAccounts::dispatch($ids, ActivityModule::Guest, auth()->id());
+
+            $this->clearSelection();
+            $this->toastSuccess(__('common.bulk_action_queued', ['count' => $count]));
+
+            return;
+        }
+
+        $guests = User::query()->guests()->withTrashed()->whereIn('id', $ids)->get();
+
         $this->logActivity(ActivityModule::Guest, ActivityAction::ForceDeleted, null, [
             'bulk' => true,
             'user_ids' => $ids,
-            'count' => $count,
+            'count' => $guests->count(),
         ]);
 
-        User::query()->guests()->withTrashed()->whereIn('id', $ids)->forceDelete();
+        $guests->each(fn (User $guest) => $deletions->forceDeleteRecord($guest));
 
         $this->clearSelection();
-        $this->toastSuccess(__('guests.toasts.bulk_permanently_deleted', ['count' => $count]));
+        $this->toastSuccess(__('guests.toasts.bulk_permanently_deleted', ['count' => $guests->count()]));
+    }
+
+    /** Above this many selected accounts, a destructive bulk action is queued instead of run inline. */
+    private function bulkQueueThreshold(): int
+    {
+        return (int) config('panel.bulk_account_action_queue_threshold', 100);
+    }
+
+    /** Hard ceiling — past this, a destructive bulk action is rejected outright, queued or not. */
+    private function bulkMaxSelection(): int
+    {
+        return (int) config('panel.bulk_account_action_max_selection', 1000);
+    }
+
+    /**
+     * Rejects an oversized selection before any work starts. The selection
+     * itself is left intact (no clearSelection()) so the admin can trim it
+     * and retry rather than losing their picks.
+     */
+    private function withinBulkSelectionLimit(int $count): bool
+    {
+        $max = $this->bulkMaxSelection();
+
+        if ($count <= $max) {
+            return true;
+        }
+
+        $this->toastError(__('common.bulk_selection_too_large', ['count' => $count, 'max' => $max]));
+
+        return false;
     }
 
     // ── Render ────────────────────────────────────────────────────────────────

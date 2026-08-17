@@ -163,6 +163,31 @@ class AccountDeletionTest extends TestCase
         $this->assertNull(User::withTrashed()->find($user->id));
     }
 
+    /**
+     * forceDeleteRecord() is the low-level primitive the admin panel's
+     * "force delete" row/bulk actions call directly on an already-trashed
+     * record (no grace-period/purge semantics, no audit entry of its own —
+     * see {@see Users\Concerns\HandlesUserRowActions::forceDelete()}). It must
+     * still run the same related-data cleanup purge() gets, and stay
+     * idempotent on a record that's already gone.
+     */
+    public function test_force_delete_record_cleans_up_related_data_and_is_idempotent(): void
+    {
+        Storage::fake();
+
+        $path = UploadedFile::fake()->image('avatar.jpg')->store('avatars');
+        $user = User::factory()->app()->create(['avatar' => $path]);
+        $user->delete();
+
+        $this->service()->forceDeleteRecord($user);
+
+        $this->assertNull(User::withTrashed()->find($user->id));
+        Storage::assertMissing($path);
+
+        // Running again on an already-destroyed model must not throw.
+        $this->service()->forceDeleteRecord($user);
+    }
+
     public function test_scheduled_purge_ignores_guest_accounts(): void
     {
         // Even if a guest somehow carries a stale deletion timestamp, the

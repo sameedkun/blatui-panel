@@ -2,12 +2,19 @@
 
 namespace Tests\Feature\Admin\Accounts\Guests;
 
+use App\Enum\ActivityModule;
+use App\Jobs\Account\BulkForceDeleteAccounts;
+use App\Jobs\Account\BulkPurgeAccounts;
 use App\Livewire\Admin\Management\Guests\Index;
+use App\Models\BlockedIp;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Lang;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
@@ -145,6 +152,23 @@ class GuestsIndexTest extends TestCase
         $this->assertSame('guest', $row->properties['module']);
     }
 
+    public function test_force_delete_cleans_up_related_data(): void
+    {
+        Storage::fake();
+        $this->actingAsSuperAdmin();
+
+        $avatarPath = UploadedFile::fake()->image('avatar.jpg')->store('avatars');
+        $guest = User::factory()->guest()->create(['banned_at' => null, 'avatar' => $avatarPath]);
+        $guest->delete();
+
+        Livewire::test(Index::class)
+            ->set('forceDeleteId', $guest->id)
+            ->call('forceDelete');
+
+        $this->assertDatabaseMissing('users', ['id' => $guest->id]);
+        Storage::assertMissing($avatarPath);
+    }
+
     public function test_bulk_ban_writes_a_single_bulk_activity_log_row(): void
     {
         $this->actingAsSuperAdmin();
@@ -176,5 +200,135 @@ class GuestsIndexTest extends TestCase
         }
 
         $this->assertSame(2, Activity::where('event', 'purged')->count());
+    }
+
+    /**
+     * The raw `whereIn(...)->forceDelete()` this bulk action used to run would
+     * also throw a foreign-key violation here — `blocked_ips.user_id` is
+     * restrictOnDelete(), so a selected guest with a block on record would
+     * abort the whole batch. Routing each row through DeletionService avoids
+     * both that and the orphaned avatar/token files.
+     */
+    public function test_bulk_force_delete_cleans_up_related_data_for_every_selected_guest(): void
+    {
+        Storage::fake();
+        $this->actingAsSuperAdmin();
+
+        $pathA = UploadedFile::fake()->image('a.jpg')->store('avatars');
+        $pathB = UploadedFile::fake()->image('b.jpg')->store('avatars');
+        $guestA = User::factory()->guest()->create(['banned_at' => null, 'avatar' => $pathA]);
+        $guestB = User::factory()->guest()->create(['banned_at' => null, 'avatar' => $pathB]);
+        BlockedIp::factory()->forUser($guestA)->create();
+        $guestA->delete();
+        $guestB->delete();
+
+        Livewire::test(Index::class)
+            ->set('selectedIds', collect([$guestA->id, $guestB->id])->map(fn ($id) => (string) $id)->all())
+            ->call('executeBulkForceDelete');
+
+        $this->assertDatabaseMissing('users', ['id' => $guestA->id]);
+        $this->assertDatabaseMissing('users', ['id' => $guestB->id]);
+        Storage::assertMissing($pathA);
+        Storage::assertMissing($pathB);
+        $this->assertDatabaseMissing('blocked_ips', ['user_id' => $guestA->id]);
+
+        $row = Activity::where('event', 'force_deleted')->whereNull('subject_id')->latest('id')->firstOrFail();
+        $this->assertTrue($row->properties['bulk']);
+        $this->assertSame(2, $row->properties['count']);
+    }
+
+    public function test_bulk_delete_dispatches_a_queued_job_once_selection_exceeds_the_threshold(): void
+    {
+        Queue::fake();
+        config(['panel.bulk_account_action_queue_threshold' => 1]);
+        $admin = $this->actingAsSuperAdmin();
+
+        $guestA = User::factory()->guest()->create(['banned_at' => null]);
+        $guestB = User::factory()->guest()->create(['banned_at' => null]);
+
+        Livewire::test(Index::class)
+            ->set('selectedIds', collect([$guestA->id, $guestB->id])->map(fn ($id) => (string) $id)->all())
+            ->call('executeBulkDelete')
+            ->assertDispatched('toast', type: 'success');
+
+        $this->assertNotNull($guestA->fresh());
+        $this->assertNotNull($guestB->fresh());
+
+        Queue::assertPushed(BulkPurgeAccounts::class, function (BulkPurgeAccounts $job) use ($guestA, $guestB, $admin): bool {
+            return $job->userIds === [(string) $guestA->id, (string) $guestB->id]
+                && $job->type === 'guest'
+                && $job->requestedBy === $admin->id;
+        });
+    }
+
+    public function test_bulk_force_delete_dispatches_a_queued_job_once_selection_exceeds_the_threshold(): void
+    {
+        Queue::fake();
+        config(['panel.bulk_account_action_queue_threshold' => 1]);
+        $admin = $this->actingAsSuperAdmin();
+
+        $guestA = User::factory()->guest()->create(['banned_at' => null]);
+        $guestB = User::factory()->guest()->create(['banned_at' => null]);
+        $guestA->delete();
+        $guestB->delete();
+
+        Livewire::test(Index::class)
+            ->set('selectedIds', collect([$guestA->id, $guestB->id])->map(fn ($id) => (string) $id)->all())
+            ->call('executeBulkForceDelete')
+            ->assertDispatched('toast', type: 'success');
+
+        $this->assertNotNull(User::withTrashed()->find($guestA->id));
+        $this->assertNotNull(User::withTrashed()->find($guestB->id));
+
+        Queue::assertPushed(BulkForceDeleteAccounts::class, function (BulkForceDeleteAccounts $job) use ($guestA, $guestB, $admin): bool {
+            return $job->userIds === [(string) $guestA->id, (string) $guestB->id]
+                && $job->module === ActivityModule::Guest
+                && $job->requestedBy === $admin->id;
+        });
+    }
+
+    /**
+     * The queue threshold only decides sync vs. async — this cap is what
+     * actually stops an unbounded selection from being handed to anything at
+     * all, queued included.
+     */
+    public function test_bulk_delete_rejects_a_selection_over_the_max_cap(): void
+    {
+        Queue::fake();
+        config(['panel.bulk_account_action_max_selection' => 1]);
+        $this->actingAsSuperAdmin();
+
+        $guestA = User::factory()->guest()->create(['banned_at' => null]);
+        $guestB = User::factory()->guest()->create(['banned_at' => null]);
+
+        Livewire::test(Index::class)
+            ->set('selectedIds', collect([$guestA->id, $guestB->id])->map(fn ($id) => (string) $id)->all())
+            ->call('executeBulkDelete')
+            ->assertDispatched('toast', type: 'error');
+
+        $this->assertNotNull($guestA->fresh());
+        $this->assertNotNull($guestB->fresh());
+        Queue::assertNotPushed(BulkPurgeAccounts::class);
+    }
+
+    public function test_bulk_force_delete_rejects_a_selection_over_the_max_cap(): void
+    {
+        Queue::fake();
+        config(['panel.bulk_account_action_max_selection' => 1]);
+        $this->actingAsSuperAdmin();
+
+        $guestA = User::factory()->guest()->create(['banned_at' => null]);
+        $guestB = User::factory()->guest()->create(['banned_at' => null]);
+        $guestA->delete();
+        $guestB->delete();
+
+        Livewire::test(Index::class)
+            ->set('selectedIds', collect([$guestA->id, $guestB->id])->map(fn ($id) => (string) $id)->all())
+            ->call('executeBulkForceDelete')
+            ->assertDispatched('toast', type: 'error');
+
+        $this->assertNotNull(User::withTrashed()->find($guestA->id));
+        $this->assertNotNull(User::withTrashed()->find($guestB->id));
+        Queue::assertNotPushed(BulkForceDeleteAccounts::class);
     }
 }
