@@ -11,7 +11,7 @@
             <x-ui.card-description>Enter your email below to login to your account.</x-ui.card-description>
         </x-ui.card-header>
         <x-ui.card-content>
-            <form class="flex flex-col gap-6">
+            <form wire:submit="login" class="flex flex-col gap-6">
                 <x-ui.field>
                     <x-ui.field-label for="card-login-email">Email</x-ui.field-label>
                     <x-ui.input id="card-login-email" type="email" placeholder="m@example.com" wire:model="email"
@@ -34,18 +34,16 @@
                     <x-ui.checkbox id="terms" wire:model="remember" />
                     <x-ui.label for="terms">Remember me</x-ui.label>
                 </div>
+                <x-ui.button type="submit" class="w-full" wire:loading.attr="disabled" wire:target="login">
+                    <span wire:loading.remove wire:target="login" class="inline-flex items-center gap-2">
+                        <x-lucide-log-in />
+                        Sign in
+                    </span>
+                    <span wire:loading.flex wire:target="login" class="items-center gap-2">
+                        <x-ui.spinner class="size-4" /> Signing in…
+                    </span>
+                </x-ui.button>
             </form>
         </x-ui.card-content>
-        <x-ui.card-footer class="flex-col gap-2">
-            <x-ui.button type="submit" class="w-full" wire:click="login" wire:loading.attr="disabled" wire:target="login">
-                <span wire:loading.remove wire:target="login" class="inline-flex items-center gap-2">
-                    <x-lucide-log-in />
-                    Sign in
-                </span>
-                <span wire:loading.flex wire:target="login" class="items-center gap-2">
-                    <x-ui.spinner class="size-4" /> Signing in…
-                </span>
-            </x-ui.button>
-        </x-ui.card-footer>
     </x-ui.card>
 </div>
