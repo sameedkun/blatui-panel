@@ -416,6 +416,66 @@
                             </div>
                         </form>
                     </x-ui.card>
+
+                    {{-- Passkeys --}}
+                    <x-ui.card class="p-6">
+                        <div class="mb-4">
+                            <h4 class="text-sm font-medium">{{ __('account.security.passkeys_heading') }}</h4>
+                            <p class="text-xs text-muted-foreground">{{ __('account.security.passkeys_description') }}</p>
+                        </div>
+
+                        <ul class="mb-4 divide-y divide-border">
+                            @forelse ($passkeys as $passkey)
+                                <li class="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                                    <div class="min-w-0">
+                                        <p class="truncate text-sm font-medium">{{ $passkey->name }}</p>
+                                        <p class="text-xs text-muted-foreground">
+                                            {{ __('account.security.passkey_last_used') }}:
+                                            @if ($passkey->last_used_at)
+                                                <x-ui.local-time :value="$passkey->last_used_at" show-diff="true" />
+                                            @else
+                                                {{ __('account.security.passkey_never_used') }}
+                                            @endif
+                                        </p>
+                                    </div>
+                                    <x-ui.button type="button" variant="outline" size="sm"
+                                        class="shrink-0 text-destructive cursor-pointer"
+                                        wire:click="deletePasskey({{ $passkey->id }})"
+                                        wire:confirm="{{ __('account.security.passkey_delete_confirm_description') }}">
+                                        <x-lucide-trash-2 class="size-4" />
+                                        {{ __('account.actions.delete_passkey') }}
+                                    </x-ui.button>
+                                </li>
+                            @empty
+                                <li class="py-4 text-center text-sm text-muted-foreground">
+                                    {{ __('account.security.passkeys_empty') }}
+                                </li>
+                            @endforelse
+                        </ul>
+
+                        <form id="passkeyForm" wire:submit="validatePasskeyName" class="flex items-end gap-2">
+                            <x-ui.field class="flex-1">
+                                <x-ui.field-label for="passkeyName" required>{{ __('account.security.passkey_name') }}</x-ui.field-label>
+                                <x-ui.input id="passkeyName" wire:model="passkeyName" autocomplete="off"
+                                    :placeholder="__('account.security.passkey_name_placeholder')"
+                                    aria-invalid="{{ $errors->has('passkeyName') ? 'true' : 'false' }}" />
+                                @error('passkeyName')
+                                    <x-ui.field-error>{{ $message }}</x-ui.field-error>
+                                @enderror
+                            </x-ui.field>
+
+                            <x-ui.button type="submit" variant="outline" wire:loading.attr="disabled" wire:target="validatePasskeyName,storePasskey">
+                                <span wire:loading.remove wire:target="validatePasskeyName,storePasskey" class="inline-flex items-center gap-2">
+                                    <x-lucide-fingerprint class="size-4" />
+                                    {{ __('account.actions.add_passkey') }}
+                                </span>
+                                <span wire:loading.flex wire:target="validatePasskeyName,storePasskey" class="items-center gap-2">
+                                    <x-ui.spinner class="size-4" />
+                                    {{ __('account.actions.adding_passkey') }}
+                                </span>
+                            </x-ui.button>
+                        </form>
+                    </x-ui.card>
                 </div>
             </x-ui.tabs-content>
 
@@ -470,3 +530,35 @@
     </x-ui.tabs>
 
 </div>
+
+@script
+<script>
+    Livewire.on('passkey-registration-options-ready', async ({ options }) => {
+        if (!window.browserSupportsWebAuthn || !browserSupportsWebAuthn()) {
+            @this.dispatch('toast', {
+                type: 'error',
+                title: @js(__('account.validation.passkey_unsupported_browser')),
+                description: null,
+            });
+
+            return;
+        }
+
+        try {
+            const passkey = await startRegistration({ optionsJSON: options });
+
+            @this.call('storePasskey', JSON.stringify(passkey));
+        } catch (e) {
+            if (e && e.name === 'NotAllowedError') {
+                return; // user cancelled the browser/password-manager prompt
+            }
+
+            @this.dispatch('toast', {
+                type: 'error',
+                title: @js(__('account.validation.passkey_registration_failed')),
+                description: null,
+            });
+        }
+    });
+</script>
+@endscript

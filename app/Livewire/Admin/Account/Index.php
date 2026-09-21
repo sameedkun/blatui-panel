@@ -19,6 +19,10 @@ use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
+use Spatie\LaravelPasskeys\Actions\GeneratePasskeyRegisterOptionsAction;
+use Spatie\LaravelPasskeys\Actions\StorePasskeyAction;
+use Spatie\LaravelPasskeys\Support\Config as PasskeysConfig;
+use Throwable;
 
 /**
  * The authenticated staff member's own account page — self-service, never an
@@ -57,6 +61,11 @@ class Index extends Component
 
     /** Confirms identity for the "log out other devices" action (its own field so it can't be confused with a password change). */
     public string $logout_password = '';
+
+    // ── Passkeys ───────────────────────────────────────────────────────────────
+
+    /** Label for a new passkey, pending its browser-side registration ceremony. */
+    public string $passkeyName = '';
 
     public function mount(): void
     {
@@ -197,6 +206,88 @@ class Index extends Component
         session()->put('password_hash_'.$guard, $this->user()->getAuthPassword());
     }
 
+    // ── Passkeys ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Step 1 of registration: validate the label, then hand the browser-side
+     * WebAuthn options to the `passkey-registration-options-ready` JS listener
+     * (see the view), which runs the ceremony and calls storePasskey() back.
+     */
+    public function validatePasskeyName(): void
+    {
+        $this->validate(['passkeyName' => ['required', 'string', 'max:255']]);
+
+        $this->dispatch('passkey-registration-options-ready', options: json_decode($this->generatePasskeyRegisterOptions()));
+    }
+
+    /** Step 2: persist the credential the browser's password manager produced. */
+    public function storePasskey(string $passkeyJson): void
+    {
+        $user = $this->user();
+
+        $storePasskeyAction = PasskeysConfig::getAction('store_passkey', StorePasskeyAction::class);
+
+        try {
+            $storePasskeyAction->execute(
+                $user,
+                $passkeyJson,
+                $this->pullPasskeyRegistrationOptions(),
+                request()->getHost(),
+                ['name' => $this->passkeyName],
+            );
+        } catch (Throwable) {
+            $this->addError('passkeyName', __('account.validation.passkey_registration_failed'));
+
+            return;
+        }
+
+        $this->logActivity(ActivityModule::Staff, ActivityAction::Created, $user, [
+            'type' => 'passkey_created',
+            'passkey_name' => $this->passkeyName,
+        ]);
+
+        $this->reset('passkeyName');
+        $this->toastSuccess(__('account.toasts.passkey_created'));
+    }
+
+    /** Scoped to the logged-in user's own passkeys — never any other account's. */
+    public function deletePasskey(int|string $passkeyId): void
+    {
+        $user = $this->user();
+
+        $passkey = $user->passkeys()->find($passkeyId);
+
+        if (! $passkey) {
+            return;
+        }
+
+        $passkeyName = $passkey->name;
+        $passkey->delete();
+
+        $this->logActivity(ActivityModule::Staff, ActivityAction::Deleted, $user, [
+            'type' => 'passkey_deleted',
+            'passkey_name' => $passkeyName,
+        ]);
+
+        $this->toastSuccess(__('account.toasts.passkey_deleted'));
+    }
+
+    protected function generatePasskeyRegisterOptions(): string
+    {
+        $action = PasskeysConfig::getAction('generate_passkey_register_options', GeneratePasskeyRegisterOptionsAction::class);
+
+        $options = $action->execute($this->user());
+
+        session()->put('passkeys.registration-options', $options);
+
+        return $options;
+    }
+
+    protected function pullPasskeyRegistrationOptions(): ?string
+    {
+        return session()->pull('passkeys.registration-options');
+    }
+
     // ── Read-only account facts ───────────────────────────────────────────────────
 
     /**
@@ -225,6 +316,7 @@ class Index extends Component
             'current_password' => __('account.validation_attributes.current_password'),
             'password' => __('account.validation_attributes.new_password'),
             'logout_password' => __('account.validation_attributes.password'),
+            'passkeyName' => __('account.validation_attributes.passkey_name'),
         ];
     }
 
@@ -252,6 +344,8 @@ class Index extends Component
             'password.uncompromised' => __('account.validation.password_uncompromised'),
             'logout_password.required' => __('account.validation.logout_password_required'),
             'logout_password.current_password' => __('account.validation.logout_password_incorrect'),
+            'passkeyName.required' => __('account.validation.passkey_name_required'),
+            'passkeyName.max' => __('account.validation.passkey_name_max', ['max' => 255]),
         ];
     }
 
@@ -277,6 +371,7 @@ class Index extends Component
             // The user's own audit trail — sourced from the causer relation, never rebuilt.
             'recentActivity' => $user->activitiesAsCauser()->latest()->limit(8)->get(),
             'canViewFullLog' => $user->can('activity_logs.view'),
+            'passkeys' => $user->passkeys()->latest()->get(),
         ])->title(__('account.title'));
     }
 

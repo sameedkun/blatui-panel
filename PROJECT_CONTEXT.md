@@ -19,6 +19,8 @@ this repo — just the admin panel itself (`/*`) plus login/logout.
 - `spatie/laravel-permission` — RBAC for staff (roles/permissions), guard `web`
 - `spatie/laravel-activitylog` — audit trail (see "Activity logging" below)
 - `spatie/laravel-sluggable` — `User::slug` generated from `name`
+- `spatie/laravel-passkeys` (+ `@simplewebauthn/browser`) — staff passkey (WebAuthn) login and
+  management; see "Passkey (WebAuthn) login" below
 - `league/flysystem-aws-s3-v3` — powers a Cloudflare R2 disk (`r2` in `config/filesystems.php`, S3-compatible) for avatars/exports
 - `mallardduck/blade-lucide-icons` — icon set used throughout (`<x-lucide-*>`)
 - `grazulex/laravel-apiroute` — URI-path API versioning (`/api/v1/...`); see "REST API" below
@@ -1100,6 +1102,50 @@ to the shared enums; `ActivityPresenter` has `device`/`blocked_ip` branches (sam
 `ticket`/`ticket_category` ones) so these events read as "Device Blocked"/"IP Block Created" etc.
 rather than colliding with generic titles.
 
+## Passkey (WebAuthn) login
+
+`spatie/laravel-passkeys` (+ `@simplewebauthn/browser` on the JS side) lets a **staff member**
+sign in without a password, from the panel login page, and manage their own passkeys from
+**My Account → Security**. `User` implements `HasPasskeys` and uses `InteractsWithPasskeys`
+(`$user->passkeys()`) — the trait is on the shared `User` model, but in practice only staff ever
+have a passkey row, since the only UI that can create one (`Account\Index`) sits behind panel
+auth.
+
+- **The package's own routes are not used.** `Route::passkeys()` wires two controllers that, as
+  shipped in 1.8.1, disagree on the session key holding the WebAuthn challenge —
+  `GeneratePasskeyAuthenticationOptionsController` flashes it under `passkey-registration-options`,
+  `AuthenticateUsingPasskeyController` reads `passkey-authentication-options` — so a passkey login
+  would always fail with "Could not login using the given passkey." `routes/auth.php` instead
+  registers `App\Http\Controllers\Auth\{PasskeyAuthenticationOptionsController,
+  AuthenticateUsingPasskeyController}` under the *same* route names/paths the vendor
+  `<x-authenticate-passkey />` component's JS expects (`passkeys.authentication_options`,
+  `passkeys.login`) — one fixed, agreed-upon session key (`Session::put()`/`pull()`, not
+  `flash()`, so the challenge survives however long the browser's own UI takes), everything else
+  (the `find_passkey` action, login, `PasskeyUsedToAuthenticateEvent`, redirect) delegated to the
+  parent controller's protected helpers. Both are behind `guest` + `throttle:10,1`, same as every
+  other unauthenticated auth endpoint in this app.
+- **`App\Services\Auth\FindPasskeyToAuthenticateAction`** (registered as `config('passkeys.
+  actions.find_passkey')`) re-checks `isStaff()` / not-banned / `can(panel.access.admin)` on the
+  resolved authenticatable — the same three checks `App\Livewire\Auth\Login::login()` applies to
+  a password login — after the credential itself verifies. Defense-in-depth: a verified passkey
+  only proves possession of the private key, not that the account is still allowed into the panel
+  (demoted, banned since the key was registered). Returning `null` here makes the controller treat
+  it as an invalid passkey, same UX as a credential that didn't verify at all.
+- **Management**: `App\Livewire\Admin\Account\Index` (My Account → Security tab) owns passkey
+  create/list/delete directly — it does **not** embed the package's own `<livewire:passkeys />`
+  component, so behavior matches every other mutation on that page: BlatUI styling, centralized
+  `lang/*/account.php` translations, and an `ActivityLogger` entry per create/delete (module
+  `Staff`, reusing `Created`/`Deleted` with a `type: passkey_created|passkey_deleted` property, the
+  same "reusable verbs, detail in properties" convention as `password_changed`/
+  `logged_out_other_sessions`). Registration is two Livewire round-trips mirroring the vendor
+  component's own flow: `validatePasskeyName()` generates WebAuthn creation options server-side and
+  dispatches them to a `@script` block that calls `startRegistration()`, which calls back into
+  `storePasskey()` with the signed credential. `deletePasskey()` is scoped to `$user->passkeys()`
+  — never any other account's row.
+- Migration/config are vendor-published as-is (`database/migrations/*_create_passkeys_table.php`,
+  `config/passkeys.php`), the latter only edited to point `actions.find_passkey` at the app's
+  override.
+
 ## REST API
 
 The mobile/API surface (currently just device self-service — see "Device Management & IP
@@ -1310,6 +1356,8 @@ app/
   Exceptions/      DeviceLimitExceededException, DeviceBlockedException, TicketClosedException,
                    ProviderTokenInvalidException (thrown by Http/Controllers/Api/V1/Concerns/ResolvesSocialiteUser)
                    Api/ApiExceptionRenderer (unifies framework exceptions into ApiController's envelope)
+  Http/Controllers/Auth/{PasskeyAuthenticationOptionsController,AuthenticateUsingPasskeyController}.php
+                   replace spatie/laravel-passkeys' own routes — see "Passkey (WebAuthn) login"
   Http/Controllers/Api/ApiController.php        unversioned base (success/error/etc. helpers)
                    Api/V1/DeviceController.php  self-service list/revoke own devices, revoke-all-except-current
                    Api/V1/AuthController.php    signup + login + logout (rate limiting, ban/trashed/device checks — see "Device Management & IP Blocking")
@@ -1351,7 +1399,7 @@ app/
     Admin/         BaseIndex, BaseForm, BaseShow + Concerns/ (shared traits)
       Dashboard.php                         tabbed dashboard shell (tab bar + range + cache flush)
       Dashboard/                            Overview, Analytics, Reports, Infrastructure (lazy tabs)
-      Account/Index.php                     self-service account page
+      Account/Index.php                     self-service account page (incl. passkey management)
       Management/Users/                     Index, Show, Form + Concerns/HandlesUserRowActions
       Management/Guests/                    Index, Show + Concerns/HandlesGuestRowActions
       Management/Plans/                     Index, Show, Form + Concerns/HandlesPlanRowActions
@@ -1367,7 +1415,7 @@ app/
       Settings/                             BaseSettings, Index, General, Mail, Policies
   Mail/            Concerns/HasMailPurpose.php (trait for purpose-based mailables),
                    Auth/VerifyEmailMail.php, Auth/ResetPasswordMail.php, Support/TicketAutoClosedMail.php
-  Models/          User.php (canAccessModule helper), EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php,
+  Models/          User.php (canAccessModule helper; implements passkeys' HasPasskeys), EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php,
                    Plan.php, PlanPrice.php, PlanPriceProvider.php, Subscription.php, SubscriptionReceipt.php,
                    Ticket.php, TicketCategory.php, TicketMessage.php, UserDevice.php, BlockedIp.php
     Webhooks/      AppleNotification.php (implements ProviderNotification; RevenueCat/Google/Stripe
@@ -1379,7 +1427,8 @@ app/
                                              registers socialiteproviders/apple's Provider via
                                              SocialiteWasCalled (google is a laravel/socialite
                                              built-in, no extra registration needed)
-  Services/        Account/{DeletionService, MergeService, GuestConversionService}, Auth/UrlResolver,
+  Services/        Account/{DeletionService, MergeService, GuestConversionService},
+                   Auth/{UrlResolver, FindPasskeyToAuthenticateAction},
                    Device/{DeviceService, BrowserDeviceResolver, LocationService}, Mail/Configurator, Notification/OneSignalService,
                    Subscription/{LifecycleService, SubscriptionService},
                    Ticket/{AssignmentService, LifecycleService, TicketService}
@@ -1391,6 +1440,8 @@ app/
   Traits/          HasSubscriptions (mixed into User), HasFeatures (mixed into Plan)
 config/panel.php    RBAC modules/actions/children, grace period, export threshold, seeded admin creds
 config/apiroute.php grazulex/laravel-apiroute — API version registry (see "REST API" above)
+config/passkeys.php spatie/laravel-passkeys — only `actions.find_passkey` edited (see "Passkey
+                    (WebAuthn) login" above), everything else vendor-default
 database/
   migrations/       users, permission_tables (Spatie), activity_log (+ 3 hand-added indexes),
                      cache, jobs, email_domains, email_senders, smtp_settings, policies_tables,
@@ -1400,7 +1451,8 @@ database/
                      user_devices_table, blocked_ips_table (generated `user_scope` column backing
                      its unique constraint), apple_notifications_table (subscriptions_tables' own
                      `subscription_receipts` block carries the loose `notification_provider`/
-                     `notification_id` link columns directly, no separate migration)
+                     `notification_id` link columns directly, no separate migration),
+                     create_passkeys_table (vendor-published, unmodified)
   seeders/          DatabaseSeeder, RolesAndPermissionsSeeder (idempotent), UserSeeder,
                      EmailSendersSeeder (idempotent)
   factories/         one per model, incl. Plan/PlanPrice/PlanPriceProvider/Subscription/SubscriptionReceipt,

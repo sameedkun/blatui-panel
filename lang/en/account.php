@@ -57,6 +57,15 @@ return [
         'logout_heading' => 'Log out other devices',
         'logout_description' => 'Sign out of every other browser and device. This one stays signed in. Confirm with your password.',
         'logout_password' => 'Password',
+        'passkeys_heading' => 'Passkeys',
+        'passkeys_description' => 'Sign in without a password using your device, security key, or password manager.',
+        'passkey_name' => 'Name',
+        'passkey_name_placeholder' => 'e.g. Work laptop, YubiKey',
+        'passkeys_empty' => 'No passkeys registered yet.',
+        'passkey_last_used' => 'Last used',
+        'passkey_never_used' => 'Never used',
+        'passkey_delete_confirm_title' => 'Delete this passkey?',
+        'passkey_delete_confirm_description' => 'You will no longer be able to sign in using this passkey.',
     ],
     'activity' => [
         'heading' => 'My Activity',
@@ -72,6 +81,9 @@ return [
         'updating' => 'Updating…',
         'logout_others' => 'Log out other devices',
         'working' => 'Working…',
+        'add_passkey' => 'Add a passkey',
+        'adding_passkey' => 'Follow your browser prompt…',
+        'delete_passkey' => 'Delete',
     ],
     'values' => [
         'never' => 'Never',
@@ -90,6 +102,8 @@ return [
         'profile_updated' => 'Your profile has been updated.',
         'password_updated' => 'Your password has been changed.',
         'other_sessions_logged_out' => 'All other sessions have been logged out.',
+        'passkey_created' => 'Passkey added.',
+        'passkey_deleted' => 'Passkey deleted.',
     ],
     'errors' => [
         'email_change_forbidden' => 'You are not permitted to change your email address.',
@@ -101,6 +115,7 @@ return [
         'current_password' => 'current password',
         'new_password' => 'new password',
         'password' => 'password',
+        'passkey_name' => 'passkey name',
     ],
     'validation' => [
         'name_required' => 'Please enter your name.',
@@ -124,5 +139,9 @@ return [
         'password_uncompromised' => 'The new password has appeared in a data leak. Please choose a different password.',
         'logout_password_required' => 'Please enter your password.',
         'logout_password_incorrect' => 'The password is incorrect.',
+        'passkey_name_required' => 'Please give this passkey a name.',
+        'passkey_name_max' => 'The passkey name may not be greater than :max characters.',
+        'passkey_registration_failed' => 'Something went wrong saving this passkey. Please try again.',
+        'passkey_unsupported_browser' => 'This browser does not support passkeys.',
     ],
 ];

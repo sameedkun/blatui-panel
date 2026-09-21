@@ -42,9 +42,25 @@ class AuthActivityListener
             $this->moduleFor($user),
             ActivityAction::Login,
             $user,
+            // 'area' is the same generic sub-category slot the Settings pages already
+            // use to tell apart what would otherwise be an identical "Updated" row —
+            // here it's what lets a passkey login read as "Staff · Passkey" instead
+            // of being indistinguishable from an ordinary password login.
+            properties: $this->wasViaPasskey() ? ['area' => 'passkey'] : [],
             causer: $user,
             logName: ActivityLogName::Authentication,
         );
+    }
+
+    /**
+     * Passkey login is the only auth flow that lands on its own dedicated,
+     * named route (routes/auth.php's `passkeys.login`) rather than going through
+     * a Livewire component action — so the current route name is a reliable,
+     * zero-plumbing signal for which flow just fired this Login event.
+     */
+    private function wasViaPasskey(): bool
+    {
+        return request()->route()?->getName() === 'passkeys.login';
     }
 
     public function handleFailed(Failed $event): void

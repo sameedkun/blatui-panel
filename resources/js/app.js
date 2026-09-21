@@ -1,5 +1,10 @@
+import { browserSupportsWebAuthn, startAuthentication, startRegistration } from '@simplewebauthn/browser';
 import { registerBlatUI } from './blatui-core.js';
 import { registerCharts } from './blatui-charts.js';
+
+window.browserSupportsWebAuthn = browserSupportsWebAuthn;
+window.startAuthentication = startAuthentication;
+window.startRegistration = startRegistration;
 
 document.addEventListener('alpine:init', () => {
     registerBlatUI(window.Alpine, { darkMode: 'system' });

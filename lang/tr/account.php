@@ -57,6 +57,15 @@ return [
         'logout_heading' => 'Diğer cihazlardan çıkış yap',
         'logout_description' => 'Diğer tüm tarayıcı ve cihazlardaki oturumları kapatın. Bu cihazdaki oturumunuz açık kalır. Parolanızla onaylayın.',
         'logout_password' => 'Parola',
+        'passkeys_heading' => 'Geçiş Anahtarları',
+        'passkeys_description' => 'Cihazınızı, güvenlik anahtarınızı veya parola yöneticinizi kullanarak parolasız giriş yapın.',
+        'passkey_name' => 'Ad',
+        'passkey_name_placeholder' => 'ör. İş dizüstü bilgisayarı, YubiKey',
+        'passkeys_empty' => 'Henüz kayıtlı geçiş anahtarı yok.',
+        'passkey_last_used' => 'Son kullanım',
+        'passkey_never_used' => 'Hiç kullanılmadı',
+        'passkey_delete_confirm_title' => 'Bu geçiş anahtarı silinsin mi?',
+        'passkey_delete_confirm_description' => 'Bu geçiş anahtarıyla artık giriş yapamayacaksınız.',
     ],
     'activity' => [
         'heading' => 'Etkinliklerim',
@@ -72,6 +81,9 @@ return [
         'updating' => 'Güncelleniyor…',
         'logout_others' => 'Diğer cihazlardan çıkış yap',
         'working' => 'İşleniyor…',
+        'add_passkey' => 'Geçiş anahtarı ekle',
+        'adding_passkey' => 'Tarayıcı istemini takip edin…',
+        'delete_passkey' => 'Sil',
     ],
     'values' => [
         'never' => 'Hiçbir zaman',
@@ -90,6 +102,8 @@ return [
         'profile_updated' => 'Profiliniz güncellendi.',
         'password_updated' => 'Parolanız değiştirildi.',
         'other_sessions_logged_out' => 'Diğer tüm oturumlar kapatıldı.',
+        'passkey_created' => 'Geçiş anahtarı eklendi.',
+        'passkey_deleted' => 'Geçiş anahtarı silindi.',
     ],
     'errors' => [
         'email_change_forbidden' => 'E-posta adresinizi değiştirme izniniz yok.',
@@ -101,6 +115,7 @@ return [
         'current_password' => 'mevcut parola',
         'new_password' => 'yeni parola',
         'password' => 'parola',
+        'passkey_name' => 'geçiş anahtarı adı',
     ],
     'validation' => [
         'name_required' => 'Lütfen adınızı girin.',
@@ -124,5 +139,9 @@ return [
         'password_uncompromised' => 'Yeni parola bir veri sızıntısında yer alıyor. Lütfen farklı bir parola seçin.',
         'logout_password_required' => 'Lütfen parolanızı girin.',
         'logout_password_incorrect' => 'Parola hatalı.',
+        'passkey_name_required' => 'Lütfen bu geçiş anahtarına bir ad verin.',
+        'passkey_name_max' => 'Geçiş anahtarı adı :max karakterden uzun olamaz.',
+        'passkey_registration_failed' => 'Bu geçiş anahtarı kaydedilirken bir sorun oluştu. Lütfen tekrar deneyin.',
+        'passkey_unsupported_browser' => 'Bu tarayıcı geçiş anahtarlarını desteklemiyor.',
     ],
 ];

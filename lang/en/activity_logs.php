@@ -130,6 +130,7 @@ return [
         'email_domain' => 'Email domain',
         'email_sender' => 'Email sender',
         'test_email' => 'Test email',
+        'passkey' => 'Passkey',
     ],
     'subject_types' => [
         'user' => 'User',
@@ -156,6 +157,7 @@ return [
             'unbanned' => 'Account Unbanned',
             'assigned' => 'Role Assigned',
             'login' => 'Logged In',
+            'login_via_passkey' => 'Logged In via Passkey',
             'logout' => 'Logged Out',
             'failed' => 'Failed Login',
             'password_reset' => 'Password Reset',

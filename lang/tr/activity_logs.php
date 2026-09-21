@@ -79,6 +79,7 @@ return [
     'areas' => [
         'smtp' => 'SMTP', 'email_domain' => 'E-posta alan adı',
         'email_sender' => 'E-posta göndericisi', 'test_email' => 'Test e-postası',
+        'passkey' => 'Geçiş anahtarı',
     ],
     'subject_types' => [
         'user' => 'Kullanıcı', 'plan' => 'Plan', 'ticket' => 'Destek Talebi',
@@ -94,7 +95,8 @@ return [
             'restored' => 'Hesap Geri Yüklendi', 'force_deleted' => 'Hesap Kalıcı Olarak Silindi',
             'purged' => 'Hesap Kalıcı Olarak Silindi', 'banned' => 'Hesap Engellendi',
             'unbanned' => 'Hesap Engeli Kaldırıldı', 'assigned' => 'Rol Atandı',
-            'login' => 'Giriş Yapıldı', 'logout' => 'Çıkış Yapıldı', 'failed' => 'Başarısız Giriş',
+            'login' => 'Giriş Yapıldı', 'login_via_passkey' => 'Geçiş Anahtarıyla Giriş Yapıldı',
+            'logout' => 'Çıkış Yapıldı', 'failed' => 'Başarısız Giriş',
             'password_reset' => 'Parola Sıfırlandı', 'deletion_requested' => 'Silme Planlandı',
             'deletion_cancelled' => 'Silme İptal Edildi', 'converted' => 'Uygulama Kullanıcısına Dönüştürüldü',
             'merged' => 'Başka Bir Hesapla Birleştirildi', 'setting_smtp' => 'SMTP Ayarları Güncellendi',

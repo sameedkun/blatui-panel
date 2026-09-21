@@ -244,6 +244,10 @@ class ActivityPresenter
             return 'password_changed';
         }
 
+        if ($event === 'login' && ($properties['area'] ?? null) === 'passkey') {
+            return 'login_via_passkey';
+        }
+
         return $event;
     }
 
@@ -260,6 +264,7 @@ class ActivityPresenter
             'unbanned' => 'shield-check',
             'assigned' => 'key',
             'login' => 'log-in',
+            'login_via_passkey' => 'fingerprint',
             'logout' => 'log-out',
             'verified' => 'badge-check',
             'failed' => 'triangle-alert',
@@ -313,7 +318,7 @@ class ActivityPresenter
     protected static function tone(string $kind): string
     {
         return match ($kind) {
-            'created', 'login', 'verified', 'unbanned', 'restored', 'deletion_cancelled', 'setting_domain_created', 'plan_created',
+            'created', 'login', 'login_via_passkey', 'verified', 'unbanned', 'restored', 'deletion_cancelled', 'setting_domain_created', 'plan_created',
             'subscription_assigned', 'subscription_reactivated', 'subscription_trial_converted',
             'ticket_created', 'ticket_category_created' => 'success',
             'updated', 'password_changed', 'password_reset', 'assigned', 'converted', 'merged',
@@ -385,7 +390,7 @@ class ActivityPresenter
         $rows = [];
 
         // Self-evident for auth events — never worth a "Performed by" row.
-        if (! in_array($kind, ['login', 'logout', 'failed'], true)) {
+        if (! in_array($kind, ['login', 'login_via_passkey', 'logout', 'failed'], true)) {
             $performedByLabel = str_starts_with($kind, 'ticket_')
                 ? __('tickets.activity.performed_by')
                 : __('activity_logs.fields.performed_by');
@@ -393,7 +398,7 @@ class ActivityPresenter
         }
 
         $rows = [...$rows, ...match ($kind) {
-            'login' => [
+            'login', 'login_via_passkey' => [
                 self::row(__('activity_logs.fields.device'), UserAgentParser::device($properties['user_agent'] ?? null)),
                 self::row(__('activity_logs.fields.ip'), $properties['ip'] ?? null),
             ],

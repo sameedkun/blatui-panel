@@ -22,6 +22,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Activitylog\Models\Concerns\CausesActivity;
+use Spatie\LaravelPasskeys\Models\Concerns\HasPasskeys;
+use Spatie\LaravelPasskeys\Models\Concerns\InteractsWithPasskeys;
 use Spatie\Permission\Traits\HasRoles;
 use Spatie\Sluggable\Attributes\Sluggable;
 
@@ -47,10 +49,10 @@ use Spatie\Sluggable\Attributes\Sluggable;
     'email_verified_at',
 ])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable implements MustVerifyEmail
+class User extends Authenticatable implements HasPasskeys, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
-    use CausesActivity, HasApiTokens, HasFactory, HasRoles, HasSubscriptions, Notifiable, SoftDeletes;
+    use CausesActivity, HasApiTokens, HasFactory, HasRoles, HasSubscriptions, InteractsWithPasskeys, Notifiable, SoftDeletes;
 
     /**
      * Get the attributes that should be cast.
