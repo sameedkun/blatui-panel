@@ -65,14 +65,32 @@ class SocialController extends ApiController
         $emailVerified = $this->isSocialiteEmailVerified($socialiteUser);
 
         // Same account-linking logic as GuestConversionService::convertWithProvider():
-        // match by provider id first, otherwise by email on an account that
-        // has never linked this provider — an OAuth-verified email is proof
-        // of ownership, so auto-linking here is safe.
+        // a previously-linked provider id always matches; matching by bare email is
+        // only safe when the provider verifies it this time — an unverified email is
+        // just an unproven claim, and auto-linking into an existing account on that
+        // basis would let anyone claiming a victim's email log into their account.
         $user = User::withTrashed()
             ->where('type', UserType::App)
-            ->where(fn ($q) => $q->where($column, $providerId)
-                ->orWhere(fn ($sub) => $sub->where('email', $email)->whereNull($column)))
+            ->where(function ($q) use ($column, $providerId, $email, $emailVerified) {
+                $q->where($column, $providerId);
+
+                if ($emailVerified) {
+                    $q->orWhere(fn ($sub) => $sub->where('email', $email)->whereNull($column));
+                }
+            })
             ->first();
+
+        // Not matched above, but an app account already owns this exact email (under a
+        // different, or no, provider link) — creating a new row would also collide with
+        // users.email's own DB-level unique constraint. Refuse rather than silently
+        // logging into or overwriting an unverified claim.
+        if (! $user && ! $emailVerified && User::withTrashed()->where('type', UserType::App)->where('email', $email)->exists()) {
+            return $this->error(
+                'This provider did not verify the email address, and it is already associated with an existing account.',
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                ['code' => 'PROVIDER_EMAIL_UNVERIFIED'],
+            );
+        }
 
         $isNewUser = $user === null;
 

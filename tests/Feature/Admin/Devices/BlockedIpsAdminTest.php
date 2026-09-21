@@ -212,6 +212,56 @@ class BlockedIpsAdminTest extends TestCase
         $this->assertTrue(Activity::where('event', 'updated')->where('causer_id', $admin->id)->exists());
     }
 
+    /**
+     * `blocked-ips.update` alone must never let staff escalate an existing per-user block
+     * into a global one — that's reserved for `blocked-ips.create-global` since a global
+     * block can lock out every user behind a shared/carrier-NAT IP at once.
+     */
+    public function test_editing_a_per_user_block_to_global_is_rejected_without_create_global_permission(): void
+    {
+        $this->actingAsAdminWith(['blocked-ips.view', 'blocked-ips.update']);
+        $target = User::factory()->app()->create();
+        $blockedIp = BlockedIp::factory()->forUser($target)->create(['ip_address' => '198.51.100.44']);
+
+        Livewire::test(Form::class, ['blockedIp' => $blockedIp])
+            ->set('scope', 'global')
+            ->set('globalConfirmed', true)
+            ->call('save');
+
+        $this->assertSame($target->id, $blockedIp->fresh()->user_id);
+    }
+
+    public function test_editing_a_per_user_block_to_global_succeeds_with_create_global_permission(): void
+    {
+        $this->actingAsAdminWith(['blocked-ips.view', 'blocked-ips.update', 'blocked-ips.create-global']);
+        $target = User::factory()->app()->create();
+        $blockedIp = BlockedIp::factory()->forUser($target)->create(['ip_address' => '198.51.100.45']);
+
+        Livewire::test(Form::class, ['blockedIp' => $blockedIp])
+            ->set('scope', 'global')
+            ->set('globalConfirmed', true)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertNull($blockedIp->fresh()->user_id);
+    }
+
+    public function test_editing_an_already_global_block_does_not_require_create_global_permission(): void
+    {
+        $this->actingAsAdminWith(['blocked-ips.view', 'blocked-ips.update']);
+        $blockedIp = BlockedIp::factory()->global()->create(['reason' => 'Old reason.']);
+
+        Livewire::test(Form::class, ['blockedIp' => $blockedIp])
+            ->set('reason', 'Updated reason.')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('admin.blocked-ips.index'));
+
+        $blockedIp->refresh();
+        $this->assertSame('Updated reason.', $blockedIp->reason);
+        $this->assertNull($blockedIp->user_id);
+    }
+
     public function test_creating_a_global_block_is_rejected_without_blocked_ips_create_global_permission(): void
     {
         $this->actingAsAdminWith(['blocked-ips.view', 'blocked-ips.create']);

@@ -50,7 +50,7 @@ trait HandlesUserRowActions
     {
         $this->authorize('users.ban');
 
-        $user = User::withTrashed()->findOrFail($userId);
+        $user = User::query()->appUsers()->withTrashed()->findOrFail($userId);
         $this->assertLifecycleState($user, ['active', 'pending']);
 
         $this->banningUserId = $userId;
@@ -62,7 +62,7 @@ trait HandlesUserRowActions
     {
         $this->authorize('users.ban');
 
-        $user = User::withTrashed()->findOrFail($this->banningUserId);
+        $user = User::query()->appUsers()->withTrashed()->findOrFail($this->banningUserId);
         $this->assertLifecycleState($user, ['active', 'pending']);
 
         $reason = trim($this->banReason) ?: __('users.defaults.ban_reason');
@@ -82,7 +82,7 @@ trait HandlesUserRowActions
     {
         $this->authorize('users.unban');
 
-        $user = User::withTrashed()->findOrFail($userId);
+        $user = User::query()->appUsers()->withTrashed()->findOrFail($userId);
         $this->assertLifecycleState($user, ['active', 'pending']);
 
         $user->update(['banned_at' => null, 'ban_reason' => null]);
@@ -96,7 +96,7 @@ trait HandlesUserRowActions
     {
         $this->authorize('users.delete');
 
-        $user = User::withTrashed()->findOrFail($userId);
+        $user = User::query()->appUsers()->withTrashed()->findOrFail($userId);
         $this->assertLifecycleState($user, ['active']);
 
         $this->deletingId = $userId;
@@ -107,7 +107,7 @@ trait HandlesUserRowActions
     {
         $this->authorize('users.delete');
 
-        $user = User::withTrashed()->findOrFail($this->deletingId);
+        $user = User::query()->appUsers()->withTrashed()->findOrFail($this->deletingId);
         $this->assertLifecycleState($user, ['active']);
 
         $name = $user->name;
@@ -123,7 +123,7 @@ trait HandlesUserRowActions
     {
         $this->authorize('users.restore');
 
-        $user = User::withTrashed()->findOrFail($userId);
+        $user = User::query()->appUsers()->withTrashed()->findOrFail($userId);
         $this->assertLifecycleState($user, ['trashed']);
 
         $this->restoringId = $userId;
@@ -134,7 +134,7 @@ trait HandlesUserRowActions
     {
         $this->authorize('users.restore');
 
-        $user = User::withTrashed()->findOrFail($this->restoringId);
+        $user = User::query()->appUsers()->withTrashed()->findOrFail($this->restoringId);
         $this->assertLifecycleState($user, ['trashed']);
 
         $user->restore();
@@ -149,7 +149,7 @@ trait HandlesUserRowActions
     {
         $this->authorize('users.force-delete');
 
-        $user = User::withTrashed()->findOrFail($userId);
+        $user = User::query()->appUsers()->withTrashed()->findOrFail($userId);
         $this->assertLifecycleState($user, ['trashed']);
 
         $this->forceDeleteId = $userId;
@@ -160,7 +160,7 @@ trait HandlesUserRowActions
     {
         $this->authorize('users.force-delete');
 
-        $user = User::withTrashed()->findOrFail($this->forceDeleteId);
+        $user = User::query()->appUsers()->withTrashed()->findOrFail($this->forceDeleteId);
         $this->assertLifecycleState($user, ['trashed']);
 
         $name = $user->name;
@@ -177,7 +177,7 @@ trait HandlesUserRowActions
     {
         $this->authorize('users.delete');
 
-        $user = User::withTrashed()->findOrFail($userId);
+        $user = User::query()->appUsers()->withTrashed()->findOrFail($userId);
         $this->assertLifecycleState($user, ['active']);
 
         $this->schedulingId = $userId;

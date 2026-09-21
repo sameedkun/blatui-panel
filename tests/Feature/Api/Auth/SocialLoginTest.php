@@ -116,6 +116,66 @@ class SocialLoginTest extends TestCase
         $this->assertSame('google-456', $existing->fresh()->google_id);
     }
 
+    /**
+     * The provider claiming an unverified email must never be enough to auto-link into
+     * (or log into) an existing account by that email alone — only a previously-linked
+     * provider id, or a *verified* email, is proof of ownership. Otherwise anyone who
+     * can get a provider to hand back an unverified claim to a victim's address could
+     * take over that account.
+     */
+    public function test_an_existing_account_with_a_matching_email_but_unverified_email_is_not_auto_linked(): void
+    {
+        $existing = User::factory()->app()->create(['email' => 'jane@example.com', 'google_id' => null]);
+
+        $this->mockSocialiteProvider('google', [
+            'id' => 'google-456',
+            'email' => 'jane@example.com',
+            'email_verified' => false,
+        ]);
+
+        $this->postJson('/api/v1/social/google', $this->payload())
+            ->assertStatus(422)
+            ->assertJsonPath('errors.code', 'PROVIDER_EMAIL_UNVERIFIED');
+
+        $this->assertNull($existing->fresh()->google_id);
+        $this->assertSame(0, $existing->tokens()->count());
+    }
+
+    public function test_an_unverified_email_with_no_matching_account_still_creates_a_new_one(): void
+    {
+        $this->mockSocialiteProvider('google', [
+            'id' => 'google-999',
+            'email' => 'brand-new@example.com',
+            'email_verified' => false,
+        ]);
+
+        $this->postJson('/api/v1/social/google', $this->payload())
+            ->assertOk()
+            ->assertJsonPath('data.is_new_user', true);
+
+        $user = User::where('email', 'brand-new@example.com')->firstOrFail();
+        $this->assertNull($user->email_verified_at);
+        $this->assertSame('google-999', $user->google_id);
+    }
+
+    public function test_a_previously_linked_provider_id_still_logs_in_even_without_email_verification_this_time(): void
+    {
+        $existing = User::factory()->app()->create(['email' => 'jane@example.com', 'google_id' => 'google-123']);
+
+        $this->mockSocialiteProvider('google', [
+            'id' => 'google-123',
+            'email' => 'jane@example.com',
+            'email_verified' => false,
+        ]);
+
+        $this->postJson('/api/v1/social/google', $this->payload())
+            ->assertOk()
+            ->assertJsonPath('data.is_new_user', false)
+            ->assertJsonPath('data.user.email', 'jane@example.com');
+
+        $this->assertSame($existing->id, User::where('email', 'jane@example.com')->firstOrFail()->id);
+    }
+
     public function test_rejects_an_unverifiable_token(): void
     {
         $providerMock = Mockery::mock();

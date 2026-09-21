@@ -271,7 +271,7 @@ class Index extends BaseIndex
 
         $ids = $this->selectedIds;
         $reason = trim($this->bulkBanReason) ?: __('users.defaults.ban_reason');
-        $count = User::whereIn('id', $ids)->update([
+        $count = User::query()->appUsers()->whereIn('id', $ids)->update([
             'banned_at' => now(),
             'ban_reason' => $reason,
         ]);
@@ -292,7 +292,7 @@ class Index extends BaseIndex
         $this->authorize('users.unban');
 
         $ids = $this->selectedIds;
-        $count = User::whereIn('id', $ids)
+        $count = User::query()->appUsers()->whereIn('id', $ids)
             ->update(['banned_at' => null, 'ban_reason' => null]);
 
         $this->logActivity(ActivityModule::User, ActivityAction::Unbanned, null, [
@@ -311,7 +311,7 @@ class Index extends BaseIndex
 
         $ids = $this->selectedIds;
         $count = count($ids);
-        User::whereIn('id', $ids)->delete();
+        User::query()->appUsers()->whereIn('id', $ids)->delete();
 
         $this->logActivity(ActivityModule::User, ActivityAction::Deleted, null, [
             'bulk' => true,
@@ -329,7 +329,7 @@ class Index extends BaseIndex
 
         $ids = $this->selectedIds;
         $count = count($ids);
-        User::withTrashed()->whereIn('id', $ids)->restore();
+        User::query()->appUsers()->withTrashed()->whereIn('id', $ids)->restore();
 
         $this->logActivity(ActivityModule::User, ActivityAction::Restored, null, [
             'bulk' => true,
@@ -375,7 +375,7 @@ class Index extends BaseIndex
             return;
         }
 
-        $users = User::withTrashed()->whereIn('id', $ids)->get();
+        $users = User::query()->appUsers()->withTrashed()->whereIn('id', $ids)->get();
 
         $this->logActivity(ActivityModule::User, ActivityAction::ForceDeleted, null, [
             'bulk' => true,

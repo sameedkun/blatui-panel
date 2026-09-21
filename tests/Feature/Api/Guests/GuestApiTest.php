@@ -259,6 +259,31 @@ class GuestApiTest extends TestCase
             ->assertOk();
     }
 
+    /**
+     * Mirrors SocialLoginTest's equivalent case: an unverified provider email must
+     * never be enough on its own to merge a guest into an existing app account —
+     * only a previously-linked provider id, or a verified email, proves ownership.
+     */
+    public function test_convert_via_provider_does_not_merge_on_an_unverified_email(): void
+    {
+        $destination = User::factory()->app()->create(['email' => 'existing@example.com', 'google_id' => null]);
+        [$guest, $guestToken] = $this->authenticatedGuest();
+
+        $this->mockSocialiteProvider('google', [
+            'id' => 'google-456',
+            'email' => 'existing@example.com',
+            'email_verified' => false,
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$guestToken)
+            ->postJson('/api/v1/guests/convert/google', ['token' => 'fake-google-access-token'])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.code', 'PROVIDER_EMAIL_UNVERIFIED');
+
+        $this->assertNotNull(User::find($guest->id), 'Guest row must not be deleted when the merge is refused');
+        $this->assertNull($destination->fresh()->google_id);
+    }
+
     public function test_unsupported_provider_404s(): void
     {
         [, $token] = $this->authenticatedGuest();

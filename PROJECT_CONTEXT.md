@@ -26,6 +26,12 @@ this repo — just the admin panel itself (`/*`) plus login/logout.
 - `grazulex/laravel-apiroute` — URI-path API versioning (`/api/v1/...`); see "REST API" below
 - `ua-parser/uap-php` — User-Agent parsing for browser logins (display metadata only — see
   "Device Management & IP Blocking" below)
+- `opcodesio/log-viewer` — package's own `/logs` UI, gated in `AppServiceProvider::configureLogViewer()`
+  via `LogViewer::auth()` (staff + not banned + `logs.access`; module `logs`, group `settings`,
+  excluded from the seeded admin role — reserved for super-admins)
+- `dedoc/scramble` — auto-generated OpenAPI docs for the `v1` API, registered at `/docs/v1/api` /
+  `/docs/v1/openapi.json` in `AppServiceProvider::configureApiDocs()`, gated by a `viewApiDocs`
+  Gate (staff + not banned + `api_docs.access`; module `api_docs`, same group/exclusion as `logs`)
 - Laravel Boost (MCP dev-tooling), Pint, PHPUnit 12
 
 Dev loop: `composer run dev` runs server + queue listener + pail (log viewer) + vite concurrently.
@@ -56,7 +62,9 @@ Key state, all first-class on the model:
 ## Authorization: permissions, not roles, everywhere
 
 `config/panel.php` is the single source of truth for the whole RBAC surface:
-- `modules` — each entry (`users`, `guests`, `plans`, `subscriptions`, `tickets`, `ticket_categories`, `staff`, `roles`, `activity_logs`, `dashboard`, `settings`)
+- `modules` — each entry (`users`, `guests`, `plans`, `subscriptions`, `tickets`, `ticket_categories`,
+  `devices`, `blocked-ips`, `webhook_notifications`, `languages`, `feedback`, `notifications`,
+  `staff`, `roles`, `activity_logs`, `dashboard`, `settings`, `logs`, `api_docs`)
   declares its allowed `actions` from a fixed `action_vocabulary` (`view`, `create`, `edit`,
   `delete`, `restore`, `force-delete`, `ban`, `unban`, `export`, `import`, `manage`, `access`,
   `reply`, `assign`, `convert`, `merge`), plus optional `children` sub-modules (`general`, `mail`, `policies`, `storage`, `authentication`). Permissions are generated as `{module}.{action}` or `{module}.{child}.{action}`.
@@ -246,13 +254,15 @@ account. Sits in `routes/api/v1.php`'s `guest`-middleware group for creation (un
   sees), so that's the one case a client-supplied name actually matters. An unverifiable/expired
   token → `422 PROVIDER_TOKEN_INVALID`; a token that resolves but shares no email → `422
   PROVIDER_EMAIL_MISSING`. Dispatches to `convertWithGoogle()`/`convertWithApple()`, which *already*
-  transparently merges internally when the provider id or email matches an existing app account —
-  there is no separate merge endpoint, since merge is never something a guest calls directly. When
-  it merges, the guest row is `forceDelete()`d, orphaning the token that authenticated the request
-  (`personal_access_tokens` has no real FK to clean it up), so the controller detects that
-  (`$result->id !== $guest->id`), deletes the dead token, and mints + returns a **new** token for
-  the destination account; a plain convert (no merge) keeps the same row and token, so the response
-  omits a token entirely.
+  transparently merges internally when the provider id matches an existing app account, or the
+  email matches one on a **verified** email only (`app\Exceptions\ProviderEmailUnverifiedException`
+  → `422 PROVIDER_EMAIL_UNVERIFIED` otherwise — see the account-linking note under "Guest
+  self-service API" below) — there is no separate merge endpoint, since merge is never something a
+  guest calls directly. When it merges, the guest row is `forceDelete()`d, orphaning the token that
+  authenticated the request (`personal_access_tokens` has no real FK to clean it up), so the
+  controller detects that (`$result->id !== $guest->id`), deletes the dead token, and mints +
+  returns a **new** token for the destination account; a plain convert (no merge) keeps the same
+  row and token, so the response omits a token entirely.
   - Testing note: `Socialite::fake()` only overrides `redirect()`/`user()` — `userFromToken()` falls
     through to the real provider (a live HTTP call) via `FakeProvider::__call()`, so
     `GuestApiTest::mockSocialiteProvider()` mocks the `Socialite` facade's `driver()` call directly
@@ -749,6 +759,39 @@ TicketMessageResource,TicketCategoryResource}` — `TicketMessageResource` reuse
 `TicketMessage::attachmentsWithUrls()`, the same disk-agnostic-path-to-URL resolution the admin
 conversation tab already relies on.
 
+## Application module (Languages, Feedback, Notifications)
+
+Three admin-facing features grouped under the `'app'` (label "Application") permission group in
+`config/panel.php` — distinct from `management`/`support`/`infrastructure` since these are
+content/config the panel administers rather than accounts or operational records. Livewire lives
+under `app/Livewire/Admin/Application/{Language,Feedback,Notification}/`, routed at
+`admin.languages.*` / `admin.feedback.*` / `admin.notifications.*` in `routes/admin.php`.
+
+- **Languages** (`App\Models\Language`, module `languages`: `view`/`create`/`edit`/`delete`) —
+  `code`/`name`/`native_name`/`flag` (a 2-letter country code rendered as a flag emoji via
+  `flagEmoji()`) /`is_rtl`/`is_default`/`is_active`/`sort_order`/`translations` (JSON). `Index`,
+  `Form` (create/edit, no Show page). This is the admin CRUD counterpart to the public
+  `GET /api/v1/languages` / `GET /api/v1/languages/{language:code}` endpoints documented under
+  "Public catalog + feedback endpoints" below — `scopeActive()` is what that controller filters on.
+- **Feedback** (`App\Models\Feedback`, table `feedback`, module `feedback`: `view`/`manage`) —
+  `user_id` (nullable — `isAnonymous()`), `email`, `subject`, `message`, `type`
+  (`App\Enum\FeedbackType`), `status` (`App\Enum\FeedbackStatus`), `admin_notes`, `read_at`,
+  `resolved_at`. `matchingAccount()` looks up a `User` by the submission's email for the Show page
+  to link out to, even when `user_id` is null. `Index`, `Show` (no Form — feedback is only ever
+  created by `POST /api/v1/feedback`, documented under "Public catalog + feedback endpoints" below;
+  the admin surface is read/triage only, gated `feedback.manage` for the Show page).
+- **Notifications** (`App\Models\Notification`, module `notifications`:
+  `view`/`create`/`edit`/`delete`) — `title`/`message`/`type` (`App\Enum\NotificationType`)/`link`,
+  plus push-broadcast state: `push_status` (`App\Enum\NotificationPushStatus`:
+  Draft/Pending/Sent/Failed), `push_sent_at`, `push_error`, `onesignal_notification_id`. `Index`,
+  `Form` (create/edit; "send now" dispatches `App\Jobs\Notification\SendPushNotification`).
+  **`App\Services\Notification\OneSignalService::sendToAll()`** broadcasts to every subscribed
+  device via the OneSignal REST API (`config('services.onesignal.{app_id,rest_api_key}')`,
+  `included_segments: ['All']` — no per-user/segment targeting yet). The job writes the outcome
+  back onto the row (`Sent`+`push_sent_at`+`onesignal_notification_id`, or `Failed`+`push_error`)
+  and logs it via `ActivityLogger` (module `Notification`, action `Sent`/`Failed`) with
+  `causer: null` + `ActivityContext::Queue`, mirroring every other queued job's audit pattern.
+
 ## Device Management & IP Blocking
 
 `app/Models/{UserDevice,BlockedIp}.php`, backed by the `user_devices` and `blocked_ips` tables.
@@ -837,13 +880,21 @@ with the existing admin-triggered `revokeAll()` via a private `revokeActiveDevic
 
 `App\Http\Controllers\Api\V1\AuthController` (`App\Http\Requests\V1\Auth\{SignupRequest,
 LoginRequest}`) is where both halves of self-service auth live:
-- **`signup()`** (`POST /api/v1/signup`, guest route) creates a `type=App` user, logs it
+- **`signup()`** (`POST /api/v1/signup`, guest route, coarse per-IP `throttle:10,1` matching every
+  other guest route) creates a `type=App` user, logs it
   (`ActivityModule::User` + `ActivityAction::Created`, same pair the admin-created path in
   `Users/Form.php` uses — so both render identically in the Activity viewer — with an explicit
   `causer: $user` since no session exists yet at signup, and `'initiated_by' => 'self'`
   distinguishing it from an admin-created account), and sends the standard
   `VerifyEmailNotification` via `sendEmailVerificationNotification()`, same call
-  `GuestConversionService::convert()` makes. Deliberately issues no Sanctum token and calls
+  `GuestConversionService::convert()` makes. `SignupRequest`'s `email` rule is scoped to active
+  app-user rows only (`Rule::unique('users', 'email')->where(...)`) — matching against a staff,
+  guest, or trashed row would leak that account's existence/type to an unauthenticated caller.
+  `users.email` still carries a global DB-level unique constraint across every type though, so a
+  collision with one of those excluded rows surfaces at `User::create()` instead, as a
+  `UniqueConstraintViolationException` this method catches and turns into the exact same
+  "already taken" wording the ordinary validation failure would have produced — the two paths are
+  indistinguishable to the caller. Deliberately issues no Sanctum token and calls
   `DeviceService::register()` nowhere — that's `login()`'s job.
 - **`login()`** (`POST /api/v1/login`, guest route, additionally behind a coarse per-IP
   `throttle:10,1`) is the first real caller of `DeviceService::register()`. Looks the user up with
@@ -913,11 +964,15 @@ one action, just authenticated by a Socialite-verified provider token instead of
 the same `App\Http\Controllers\Api\V1\Concerns\ResolvesSocialiteUser` trait as `GuestController`
 (see "Guest self-service API" above) to call `Socialite::driver($provider)->userFromToken($token)`
 and read `email_verified`. Account lookup mirrors `GuestConversionService::convertWithProvider()`'s
-own linking logic exactly: match by `{provider}_id` first, otherwise by email on an account that's
-never linked this provider — an OAuth-verified email is proof of ownership, so auto-linking here is
-as safe as it is there. No match at all → creates a brand-new `type=App` account inline (skips
-`AuthController::signup()` entirely, so no separate signup call is needed); a match → logs in.
-`is_new_user` in the response tells the client which branch it took. Every check
+own linking logic exactly: match by `{provider}_id` first — a prior link is proof of ownership
+regardless of this call's verification status — otherwise by email, but **only when the provider
+verifies it this time** (`email_verified` is actually consulted in the matching query, not just
+computed and discarded); an unverified email claim matching an unlinked existing app account is
+refused outright with `422 PROVIDER_EMAIL_UNVERIFIED` rather than silently logging into or linking
+that account — auto-linking on an unproven claim would let anyone who can get a provider to hand
+back an unverified email take over the matching account. No match at all → creates a brand-new
+`type=App` account inline (skips `AuthController::signup()` entirely, so no separate signup call is
+needed); a match → logs in. `is_new_user` in the response tells the client which branch it took. Every check
 `AuthController::login()` performs runs identically here and in the same order — trashed (`410`),
 banned (`403 ACCOUNT_BANNED`), device registration (`403 DEVICE_BLOCKED`/`DEVICE_LIMIT_EXCEEDED`,
 same orphaned-token cleanup on rejection), `Login` event (writes `last_login` for free via
@@ -1310,9 +1365,9 @@ group in `bootstrap/app.php` rather than being route-scoped.
   `POST /api/v1/signup` / `POST /api/v1/login` / `POST /api/v1/guests` / `POST
   /api/v1/social/{provider}` (`AuthController`/`GuestController`/`SocialController`) sit outside
   the `auth:sanctum` group entirely, wrapped in their own `Route::middleware('guest')` group as
-  this file's guest routes — `login` additionally carries its own `throttle:10,1` middleware (see
-  "Device Management & IP Blocking" above for the full login security write-up), `guests.store` its
-  own `throttle:10,1` (see "Guest self-service API" above), and `social.login` its own
+  this file's guest routes — `signup` and `login` each carry their own `throttle:10,1` middleware
+  (see "Device Management & IP Blocking" above for the full login security write-up), `guests.store`
+  its own `throttle:10,1` (see "Guest self-service API" above), and `social.login` its own
   `throttle:10,1` too (see the `SocialController` write-up above). That same guest group also holds
   `GET /api/v1/email/verify/{id}/{hash}`, `POST
   /api/v1/email/resend`, `POST /api/v1/password/forgot`, `POST /api/v1/password/reset`
@@ -1352,9 +1407,12 @@ app/
   Enum/            UserType, Activity{LogName,Module,Action,Context}, MailPurpose,
                    BillingInterval, PaymentProvider, SubscriptionStatus, CancelledBy, ReceiptType,
                    TicketStatus, TicketPriority, TicketMessageAuthorType, DeviceType,
-                   AppleNotificationType, AppleNotificationSubtype
+                   AppleNotificationType, AppleNotificationSubtype,
+                   FeedbackType, FeedbackStatus, NotificationType, NotificationPushStatus
   Exceptions/      DeviceLimitExceededException, DeviceBlockedException, TicketClosedException,
-                   ProviderTokenInvalidException (thrown by Http/Controllers/Api/V1/Concerns/ResolvesSocialiteUser)
+                   ProviderTokenInvalidException (thrown by Http/Controllers/Api/V1/Concerns/ResolvesSocialiteUser),
+                   ProviderEmailUnverifiedException (thrown by GuestConversionService::convertWithProvider()
+                   when an unverified provider email would otherwise auto-link/merge into an existing account)
                    Api/ApiExceptionRenderer (unifies framework exceptions into ApiController's envelope)
   Http/Controllers/Auth/{PasskeyAuthenticationOptionsController,AuthenticateUsingPasskeyController}.php
                    replace spatie/laravel-passkeys' own routes — see "Passkey (WebAuthn) login"
@@ -1407,6 +1465,9 @@ app/
       Management/Devices/                   Index, SharedFingerprints + Concerns/HandlesDeviceRowActions
       Management/BlockedIps/                Index + Concerns/{HandlesBlockedIpForm,HandlesIpActivityPanel}
       Management/WebhookNotifications/      Index, Show (provider-filtered raw webhook log)
+      Application/Language/                 Index, Form (no Show) — see "Application module" above
+      Application/Feedback/                 Index, Show (no Form — created only via the public API)
+      Application/Notification/             Index, Form — "send now" dispatches SendPushNotification
       Support/Tickets/                      Index, Show, Form + Concerns/HandlesTicketRowActions
       Support/Categories/                   Index, Form + Concerns/HandlesCategoryRowActions
       Administration/Staff/                         Index, Form (staff CRUD + role assignment)
@@ -1417,7 +1478,8 @@ app/
                    Auth/VerifyEmailMail.php, Auth/ResetPasswordMail.php, Support/TicketAutoClosedMail.php
   Models/          User.php (canAccessModule helper; implements passkeys' HasPasskeys), EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php,
                    Plan.php, PlanPrice.php, PlanPriceProvider.php, Subscription.php, SubscriptionReceipt.php,
-                   Ticket.php, TicketCategory.php, TicketMessage.php, UserDevice.php, BlockedIp.php
+                   Ticket.php, TicketCategory.php, TicketMessage.php, UserDevice.php, BlockedIp.php,
+                   Language.php, Feedback.php, Notification.php
     Webhooks/      AppleNotification.php (implements ProviderNotification; RevenueCat/Google/Stripe
                    are future additions in the same subnamespace, not yet built)
   Notifications/   Auth/VerifyEmailNotification.php, Auth/ResetPasswordNotification.php,
@@ -1426,7 +1488,9 @@ app/
                                              module view permission inheritance policy,
                                              registers socialiteproviders/apple's Provider via
                                              SocialiteWasCalled (google is a laravel/socialite
-                                             built-in, no extra registration needed)
+                                             built-in, no extra registration needed),
+                                             gates opcodesio/log-viewer + dedoc/scramble behind
+                                             logs.access / api_docs.access (see "Stack & versions")
   Services/        Account/{DeletionService, MergeService, GuestConversionService},
                    Auth/{UrlResolver, FindPasskeyToAuthenticateAction},
                    Device/{DeviceService, BrowserDeviceResolver, LocationService}, Mail/Configurator, Notification/OneSignalService,
@@ -1452,11 +1516,15 @@ database/
                      its unique constraint), apple_notifications_table (subscriptions_tables' own
                      `subscription_receipts` block carries the loose `notification_provider`/
                      `notification_id` link columns directly, no separate migration),
-                     create_passkeys_table (vendor-published, unmodified)
+                     create_passkeys_table (vendor-published, unmodified),
+                     languages_table, feedback_table, notifications_table (the `App\Models\Notification`
+                     push-broadcast table — unrelated to Laravel's own notifications table, which this
+                     app doesn't use)
   seeders/          DatabaseSeeder, RolesAndPermissionsSeeder (idempotent), UserSeeder,
                      EmailSendersSeeder (idempotent)
   factories/         one per model, incl. Plan/PlanPrice/PlanPriceProvider/Subscription/SubscriptionReceipt,
-                     TicketCategory/Ticket/TicketMessage, UserDevice, BlockedIp, Webhooks/AppleNotification
+                     TicketCategory/Ticket/TicketMessage, UserDevice, BlockedIp, Webhooks/AppleNotification,
+                     Language, Feedback, Notification
 resources/
   views/components/ui/       BlatUI copy-paste components (x-ui.*) — see CLAUDE.md BlatUI section;
                               `drawer` extended with the same id-driven open/close prop `dialog` has
@@ -1499,15 +1567,13 @@ tests/
   this key doesn't exist. Local-only seeding path; harmless but dead config lookup.
   - Note: app users are never assigned Spatie roles anywhere else in the codebase — this line
     looks like leftover/aspirational code.
-- Several TODOs mark intentionally-deferred wiring: email verification notifications on guest
-  conversion, password-reset-link dispatch on admin-initiated conversion, and
-  `MergeService::migrateRelatedData()`'s `user_devices` reassignment — a guest's devices
-  aren't moved to the destination account on merge yet. Its `subscriptions` reassignment *is*
-  wired up: every guest subscription is reassigned to the destination up front (so history
-  survives the guest's `forceDelete()`), and if both accounts have an active subscription the
-  destination's wins and the guest's is cancelled — except a `local` (no real gateway) app
-  subscription always loses to a real external guest subscription, which is reassigned and
-  linked via `previous_subscription_id` instead.
+- One TODO still marks intentionally-deferred wiring: `MergeService::migrateRelatedData()`'s
+  `user_devices` reassignment — a guest's devices aren't moved to the destination account on merge
+  yet. Its `subscriptions` reassignment *is* wired up: every guest subscription is reassigned to
+  the destination up front (so history survives the guest's `forceDelete()`), and if both accounts
+  have an active subscription the destination's wins and the guest's is cancelled — except a
+  `local` (no real gateway) app subscription always loses to a real external guest subscription,
+  which is reassigned and linked via `previous_subscription_id` instead.
 - `Users/Show.php` actions (`verifyEmailManually`, `resendVerificationEmail`, `sendPasswordResetLink`) are fully wired up to Laravel's email verification and password reset broker flows.
 - Staff module has no `show` route/page and no `delete` route — staff are only listed/created/edited.
 - Mail-sending data layer (`EmailDomain`, `EmailSender`, `SmtpSetting` models; `MailPurpose` enum —

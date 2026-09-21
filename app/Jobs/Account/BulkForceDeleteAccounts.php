@@ -48,7 +48,9 @@ class BulkForceDeleteAccounts implements ShouldQueue
             'count' => count($this->userIds),
         ], causer: $this->resolveCauser(), context: ActivityContext::Queue);
 
-        User::withTrashed()->whereIn('id', $this->userIds)->get()
+        $query = $this->module === ActivityModule::Guest ? User::query()->guests() : User::query()->appUsers();
+
+        $query->withTrashed()->whereIn('id', $this->userIds)->get()
             ->each(fn (User $user) => $deletions->forceDeleteRecord($user));
     }
 

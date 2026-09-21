@@ -5,6 +5,7 @@ namespace App\Services\Account;
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
 use App\Enum\UserType;
+use App\Exceptions\ProviderEmailUnverifiedException;
 use App\Models\User;
 use App\Support\ActivityLogger;
 use Illuminate\Support\Facades\Hash;
@@ -71,6 +72,9 @@ class GuestConversionService
         return $this->merger->mergeByAdmin($guest, $destination, $reason);
     }
 
+    /**
+     * @throws ProviderEmailUnverifiedException
+     */
     private function convertWithProvider(
         User $guest,
         string $provider,
@@ -84,13 +88,34 @@ class GuestConversionService
 
         $column = "{$provider}_id";
 
+        // A previously-linked provider id is always safe to match on, regardless of
+        // whether the provider verified the email this time — the account already
+        // proved ownership by linking. Matching by bare email is only safe when the
+        // provider verifies it; an unverified email is just an unproven claim, and
+        // auto-linking/merging into an existing account on that basis would let
+        // anyone claiming a victim's email take over their account.
         $existing = User::where('type', UserType::App)
-            ->where(fn ($q) => $q->where($column, $providerId)
-                ->orWhere(fn ($sub) => $sub->where('email', $email)->whereNull($column)))
+            ->where(function ($q) use ($column, $providerId, $email, $emailVerified) {
+                $q->where($column, $providerId);
+
+                if ($emailVerified) {
+                    $q->orWhere(fn ($sub) => $sub->where('email', $email)->whereNull($column));
+                }
+            })
             ->first();
 
         if ($existing) {
             return $this->merger->mergeFromProvider($guest, $existing, $provider, $providerId);
+        }
+
+        // Not matched above, but an app account already owns this exact email (under a
+        // different, or no, provider link) — creating a new row would also collide with
+        // users.email's own DB-level unique constraint. Refuse rather than silently
+        // merging on an unverified claim.
+        if (! $emailVerified && User::where('type', UserType::App)->where('email', $email)->exists()) {
+            throw new ProviderEmailUnverifiedException(
+                'This provider did not verify the email address, and it is already associated with an existing account.'
+            );
         }
 
         $guest->forceFill([

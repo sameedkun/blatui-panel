@@ -45,6 +45,9 @@ class Form extends BaseForm
 
     public bool $globalConfirmed = false;
 
+    /** The scope this record had when the form was mounted — 'user' for a brand-new one. */
+    public string $originalScope = 'user';
+
     public function selectUser(string $email): void
     {
         $this->formUserEmail = $email;
@@ -106,11 +109,12 @@ class Form extends BaseForm
             $this->blockedIpId = $blockedIp->id;
             $this->ipAddress = $blockedIp->ip_address;
             $this->scope = $blockedIp->user_id ? 'user' : 'global';
+            $this->originalScope = $this->scope;
             $this->formUserEmail = $blockedIp->user?->email ?? '';
             $this->reason = (string) $blockedIp->reason;
             $this->permanent = $blockedIp->expires_at === null;
             $this->expiresAt = $blockedIp->expires_at?->format('Y-m-d\TH:i');
-            $this->globalConfirmed = true; // editing an already-existing global block doesn't need re-confirming
+            $this->globalConfirmed = $this->scope === 'global'; // an already-global block doesn't need re-confirming
         } else {
             $this->scope = $this->canCreateGlobal() ? $this->scope : 'user';
             $this->expiresAt = now()->addDays(7)->format('Y-m-d\TH:i');
@@ -189,9 +193,7 @@ class Form extends BaseForm
 
     public function save()
     {
-        if (! $this->isEditing) {
-            $this->authorizeCreateScope();
-        }
+        $this->authorizeCreateScope();
 
         $this->validate();
 
@@ -278,13 +280,16 @@ class Form extends BaseForm
     }
 
     /**
-     * The create route's `permission:blocked-ips.create` middleware already covers a
-     * per-user block; a global one additionally needs `blocked-ips.create-global`, which
-     * only becomes knowable once the form itself picks a scope.
+     * The create/edit routes' `permission:blocked-ips.create|update` middleware already
+     * covers a per-user block; going global additionally needs `blocked-ips.create-global`,
+     * which only becomes knowable once the form itself picks a scope. Only checked when the
+     * record is actually *becoming* global (new record, or an existing per-user block being
+     * switched) — re-saving a block that was already global doesn't require re-authorizing,
+     * matching how `$globalConfirmed` is pre-seeded in {@see mount()} for that case.
      */
     protected function authorizeCreateScope(): void
     {
-        if ($this->scope === 'global') {
+        if ($this->scope === 'global' && $this->originalScope !== 'global') {
             $this->authorize('blocked-ips.create-global');
         }
     }

@@ -61,6 +61,51 @@ class SignupTest extends TestCase
             ->assertJson(['status' => false]);
     }
 
+    public function test_signup_is_rate_limited(): void
+    {
+        for ($i = 0; $i < 10; $i++) {
+            $this->postJson('/api/v1/signup', $this->payload(['email' => "user{$i}@example.com"]));
+        }
+
+        $this->postJson('/api/v1/signup', $this->payload(['email' => 'one-too-many@example.com']))
+            ->assertStatus(429);
+    }
+
+    /**
+     * Signing up against an email that already belongs to a staff, guest, or trashed
+     * account must be indistinguishable from the ordinary "already taken" app-user
+     * duplicate — anything else would let an unauthenticated caller enumerate staff
+     * emails (a targeted phishing list) by sweeping /signup. SignupRequest's own
+     * `unique` rule is scoped to active app users only, so these three cases fall
+     * through to AuthController::signup()'s UniqueConstraintViolationException catch
+     * instead — this asserts that fallback produces the exact same response.
+     */
+    public function test_signup_against_a_staff_guest_or_trashed_email_matches_the_ordinary_duplicate_response(): void
+    {
+        $duplicateAppUser = User::factory()->app()->create(['email' => 'app-dup@example.com']);
+        $duplicateResponse = $this->postJson('/api/v1/signup', $this->payload(['email' => $duplicateAppUser->email]));
+
+        $staff = User::factory()->create(['type' => 'staff', 'email' => 'staff-dup@example.com']);
+        $staffResponse = $this->postJson('/api/v1/signup', $this->payload(['email' => $staff->email]));
+
+        $guest = User::factory()->guest()->create(['email' => 'guest-dup@example.com']);
+        $guestResponse = $this->postJson('/api/v1/signup', $this->payload(['email' => $guest->email]));
+
+        $trashed = User::factory()->app()->create(['email' => 'trashed-dup@example.com']);
+        $trashed->delete();
+        $trashedResponse = $this->postJson('/api/v1/signup', $this->payload(['email' => $trashed->email]));
+
+        foreach ([$staffResponse, $guestResponse, $trashedResponse] as $response) {
+            $response->assertStatus($duplicateResponse->status());
+            $response->assertExactJson($duplicateResponse->json());
+        }
+
+        // No new row was created for any of them — the collision was refused, not merged.
+        $this->assertSame(1, User::where('email', 'staff-dup@example.com')->count());
+        $this->assertSame(1, User::where('email', 'guest-dup@example.com')->count());
+        $this->assertSame(1, User::withTrashed()->where('email', 'trashed-dup@example.com')->count());
+    }
+
     public function test_signup_requires_matching_password_confirmation(): void
     {
         $this->postJson('/api/v1/signup', $this->payload(['password_confirmation' => 'different']))

@@ -11,6 +11,7 @@ use App\Models\BlockedIp;
 use App\Models\User;
 use App\Notifications\Auth\ResetPasswordNotification;
 use App\Notifications\Auth\VerifyEmailNotification;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\App;
@@ -178,6 +179,50 @@ class UserShowTest extends TestCase
         Livewire::test(Show::class, ['user' => $user])
             ->call('openBanDialog', $user->id)
             ->assertForbidden();
+    }
+
+    /**
+     * Defense-in-depth: a staff member holding only `users.*` permissions must never be
+     * able to reach a Staff or Guest row through the Users module's actions, even by
+     * forging the id in the wire payload — that would bypass the `staff.*`/`guests.*`
+     * permission boundary entirely (e.g. banning or force-deleting another admin).
+     */
+    public function test_row_actions_reject_a_staff_account_even_if_forged(): void
+    {
+        $this->actingAsSuperAdmin();
+        $staffMember = User::factory()->create(['type' => 'staff', 'banned_at' => null]);
+
+        $this->expectException(ModelNotFoundException::class);
+
+        Livewire::test(UsersIndex::class)
+            ->call('openBanDialog', $staffMember->id);
+    }
+
+    public function test_force_delete_row_action_rejects_a_staff_account_even_if_forged(): void
+    {
+        $this->actingAsSuperAdmin();
+        $staffMember = User::factory()->create(['type' => 'staff', 'banned_at' => null]);
+        $staffMember->delete();
+
+        $this->expectException(ModelNotFoundException::class);
+
+        Livewire::test(UsersIndex::class)
+            ->call('confirmForceDelete', $staffMember->id);
+    }
+
+    public function test_bulk_ban_only_affects_app_users_even_if_a_staff_id_is_selected(): void
+    {
+        $this->actingAsSuperAdmin();
+        $appUser = User::factory()->app()->create();
+        $staffMember = User::factory()->create(['type' => 'staff', 'banned_at' => null]);
+
+        Livewire::test(UsersIndex::class)
+            ->set('selectedIds', [$appUser->id, $staffMember->id])
+            ->set('bulkBanReason', 'bulk sweep')
+            ->call('executeBulkBan');
+
+        $this->assertNotNull($appUser->fresh()->banned_at);
+        $this->assertNull($staffMember->fresh()->banned_at);
     }
 
     public function test_schedule_deletion_rejects_an_already_pending_account(): void

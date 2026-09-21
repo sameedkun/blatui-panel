@@ -18,7 +18,11 @@ use Illuminate\Support\Facades\Route;
 
 // Registered under the api/v1 prefix by config/apiroute.php's "v1" version
 Route::middleware('guest')->group(function () {
-    Route::post('/signup', [AuthController::class, 'signup'])->name('signup');
+    // Coarse per-IP backstop, matching every other guest route below —
+    // zero-friction account creation is otherwise an unthrottled spam/abuse vector.
+    Route::post('/signup', [AuthController::class, 'signup'])
+        ->middleware('throttle:10,1')
+        ->name('signup');
 
     // throttle:10,1 is a coarse per-IP backstop; the real brute-force defense is
     // AuthController::login()'s own per-email+IP RateLimiter lockout.

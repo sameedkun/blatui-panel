@@ -249,7 +249,7 @@ class Index extends BaseIndex
     /** IDs from the current selection that the acting user is allowed to mutate. */
     protected function allowedSelectedIds(bool $withTrashed = false): array
     {
-        $query = $withTrashed ? User::withTrashed() : User::query();
+        $query = $withTrashed ? User::query()->staff()->withTrashed() : User::query()->staff();
         $query->whereIn('id', $this->selectedIds)->where('id', '!=', auth()->id());
 
         if (! auth()->user()->isSuperAdmin()) {
@@ -264,7 +264,7 @@ class Index extends BaseIndex
     public function openBanDialog(int $userId): void
     {
         $this->authorize('staff.ban');
-        $this->assertCanManage(User::findOrFail($userId));
+        $this->assertCanManage(User::query()->staff()->findOrFail($userId));
 
         $this->banningUserId = $userId;
         $this->banReason = '';
@@ -275,7 +275,7 @@ class Index extends BaseIndex
     {
         $this->authorize('staff.ban');
 
-        $user = User::findOrFail($this->banningUserId);
+        $user = User::query()->staff()->findOrFail($this->banningUserId);
         $this->assertCanManage($user);
 
         $user->update([
@@ -292,7 +292,7 @@ class Index extends BaseIndex
     {
         $this->authorize('staff.unban');
 
-        $user = User::findOrFail($userId);
+        $user = User::query()->staff()->findOrFail($userId);
         $this->assertCanManage($user);
 
         $user->update(['banned_at' => null, 'ban_reason' => null]);
@@ -303,7 +303,7 @@ class Index extends BaseIndex
     public function confirmDelete(int $userId): void
     {
         $this->authorize('staff.delete');
-        $this->assertCanManage(User::findOrFail($userId));
+        $this->assertCanManage(User::query()->staff()->findOrFail($userId));
 
         $this->deletingId = $userId;
         $this->dispatch('open-alert-dialog-delete-user');
@@ -313,7 +313,7 @@ class Index extends BaseIndex
     {
         $this->authorize('staff.delete');
 
-        $user = User::findOrFail($this->deletingId);
+        $user = User::query()->staff()->findOrFail($this->deletingId);
         $this->assertCanManage($user);
 
         $name = $user->name;
@@ -326,7 +326,7 @@ class Index extends BaseIndex
     public function confirmRestore(int $userId): void
     {
         $this->authorize('staff.restore');
-        $this->assertCanManage(User::withTrashed()->findOrFail($userId));
+        $this->assertCanManage(User::query()->staff()->withTrashed()->findOrFail($userId));
 
         $this->restoringId = $userId;
         $this->dispatch('open-alert-dialog-restore-user');
@@ -336,7 +336,7 @@ class Index extends BaseIndex
     {
         $this->authorize('staff.restore');
 
-        $user = User::withTrashed()->findOrFail($this->restoringId);
+        $user = User::query()->staff()->withTrashed()->findOrFail($this->restoringId);
         $this->assertCanManage($user);
 
         $user->restore();
@@ -348,7 +348,7 @@ class Index extends BaseIndex
     public function confirmForceDelete(int $userId): void
     {
         $this->authorize('staff.force-delete');
-        $this->assertCanManage(User::withTrashed()->findOrFail($userId));
+        $this->assertCanManage(User::query()->staff()->withTrashed()->findOrFail($userId));
 
         $this->forceDeleteId = $userId;
         $this->dispatch('open-alert-dialog-force-delete-user');
@@ -358,7 +358,7 @@ class Index extends BaseIndex
     {
         $this->authorize('staff.force-delete');
 
-        $user = User::withTrashed()->findOrFail($this->forceDeleteId);
+        $user = User::query()->staff()->withTrashed()->findOrFail($this->forceDeleteId);
         $this->assertCanManage($user);
 
         $name = $user->name;

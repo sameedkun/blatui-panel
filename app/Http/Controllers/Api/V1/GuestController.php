@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
 use App\Enum\UserType;
+use App\Exceptions\ProviderEmailUnverifiedException;
 use App\Exceptions\ProviderTokenInvalidException;
 use App\Http\Controllers\Api\ApiController;
 use App\Http\Controllers\Api\V1\Concerns\ResolvesSocialiteUser;
@@ -124,9 +125,13 @@ class GuestController extends ApiController
         $name = $socialiteUser->getName() ?: $request->validated('name');
         $providerId = (string) $socialiteUser->getId();
 
-        $result = $provider === 'google'
-            ? $conversions->convertWithGoogle($guest, $providerId, $email, $this->isSocialiteEmailVerified($socialiteUser), $name)
-            : $conversions->convertWithApple($guest, $providerId, $email, $this->isSocialiteEmailVerified($socialiteUser), $name);
+        try {
+            $result = $provider === 'google'
+                ? $conversions->convertWithGoogle($guest, $providerId, $email, $this->isSocialiteEmailVerified($socialiteUser), $name)
+                : $conversions->convertWithApple($guest, $providerId, $email, $this->isSocialiteEmailVerified($socialiteUser), $name);
+        } catch (ProviderEmailUnverifiedException $e) {
+            return $this->error($e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY, ['code' => 'PROVIDER_EMAIL_UNVERIFIED']);
+        }
 
         $merged = $result->id !== $guestId;
         $data = ['user' => new UserResource($result)];

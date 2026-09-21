@@ -24,6 +24,7 @@ use App\Support\DeviceData;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -37,18 +38,31 @@ class AuthController extends ApiController
     /** Per email+IP, mirrors the panel's own Livewire\Auth\Login::ensureIsNotRateLimited(). */
     private const MAX_LOGIN_ATTEMPTS = 5;
 
-    /** Create a new app-user account. */
+    /**
+     * Create a new app-user account.
+     *
+     * SignupRequest's own `unique` rule only matches an active app-user row, so it never
+     * leaks whether an email belongs to a staff/guest/trashed account — but users.email
+     * still carries a global DB-level unique constraint across every type, so a collision
+     * with one of those excluded rows surfaces here instead. Caught and turned into the
+     * exact same "already taken" wording SignupRequest itself would have produced, so the
+     * two paths are indistinguishable to the caller.
+     */
     public function signup(SignupRequest $request): JsonResponse
     {
         $validated = $request->validated();
 
-        $user = User::create([
-            'type' => UserType::App,
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => $validated['password'],
-            'registration_date' => now(),
-        ]);
+        try {
+            $user = User::create([
+                'type' => UserType::App,
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => $validated['password'],
+                'registration_date' => now(),
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            return $this->validationError(['email' => ['The email has already been taken.']]);
+        }
 
         // Explicit causer: the account, not auth()->user() — no session
         // exists yet at signup, but the registration was still self-initiated,
