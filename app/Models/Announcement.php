@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
-use App\Enum\NotificationPushStatus;
-use App\Enum\NotificationType;
+use App\Enum\AnnouncementPushStatus;
+use App\Enum\AnnouncementType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Notification extends Model
+class Announcement extends Model
 {
     use HasFactory;
 
@@ -25,19 +25,19 @@ class Notification extends Model
     protected function casts(): array
     {
         return [
-            'type' => NotificationType::class,
-            'push_status' => NotificationPushStatus::class,
+            'type' => AnnouncementType::class,
+            'push_status' => AnnouncementPushStatus::class,
             'push_sent_at' => 'datetime',
         ];
     }
 
     public function isSent(): bool
     {
-        return $this->push_status === NotificationPushStatus::Sent;
+        return $this->push_status === AnnouncementPushStatus::Sent;
     }
 
     public function isFailed(): bool
     {
-        return $this->push_status === NotificationPushStatus::Failed;
+        return $this->push_status === AnnouncementPushStatus::Failed;
     }
 }

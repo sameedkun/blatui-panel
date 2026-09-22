@@ -2,13 +2,13 @@
 
 namespace App\Enum;
 
-use App\Models\Notification;
+use App\Models\Announcement;
 
 /**
- * The category a {@see Notification} broadcast was tagged with. Closed
+ * The category an {@see Announcement} broadcast was tagged with. Closed
  * vocabulary — adding a new type is a code change.
  */
-enum NotificationType: string
+enum AnnouncementType: string
 {
     case General = 'general';
     case Announcement = 'announcement';
@@ -17,6 +17,6 @@ enum NotificationType: string
 
     public function label(): string
     {
-        return __("enums.notification_type.{$this->name}");
+        return __("enums.announcement_type.{$this->name}");
     }
 }

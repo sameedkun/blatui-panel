@@ -45,14 +45,14 @@ return [
         'Other' => 'Other',
     ],
 
-    'notification_push_status' => [
+    'announcement_push_status' => [
         'Draft' => 'Draft',
         'Pending' => 'Pending',
         'Sent' => 'Sent',
         'Failed' => 'Failed',
     ],
 
-    'notification_type' => [
+    'announcement_type' => [
         'General' => 'General',
         'Announcement' => 'Announcement',
         'Promotional' => 'Promotional',

@@ -4,11 +4,11 @@ namespace Tests\Feature\Jobs;
 
 use App\Jobs\Account\PurgeExpiredAccounts;
 use App\Jobs\Activity\ExportActivityLog;
+use App\Jobs\Announcement\SendPushNotification;
 use App\Jobs\Auth\PruneExpiredBlockedIps;
 use App\Jobs\Auth\RecordBlockedIpHit;
 use App\Jobs\Device\PruneRevokedDevices;
 use App\Jobs\Device\ResolveDeviceLocation;
-use App\Jobs\Notification\SendPushNotification;
 use App\Jobs\Subscription\SyncSubscriptionStatuses;
 use App\Jobs\Ticket\CloseInactiveTickets;
 use App\Jobs\Ticket\PurgeClosedTickets;

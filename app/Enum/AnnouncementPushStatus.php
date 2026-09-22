@@ -2,11 +2,11 @@
 
 namespace App\Enum;
 
-use App\Jobs\Notification\SendPushNotification;
-use App\Models\Notification;
+use App\Jobs\Announcement\SendPushNotification;
+use App\Models\Announcement;
 
 /**
- * The push-delivery state of a {@see Notification}. Closed vocabulary —
+ * The push-delivery state of an {@see Announcement}. Closed vocabulary —
  * adding a new state is a code change.
  *
  * Draft   — saved without sending; never queued.
@@ -14,7 +14,7 @@ use App\Models\Notification;
  * Sent    — OneSignal accepted the broadcast.
  * Failed  — OneSignal rejected it or the request errored; see `push_error`.
  */
-enum NotificationPushStatus: string
+enum AnnouncementPushStatus: string
 {
     case Draft = 'draft';
     case Pending = 'pending';
@@ -23,6 +23,6 @@ enum NotificationPushStatus: string
 
     public function label(): string
     {
-        return __("enums.notification_push_status.{$this->name}");
+        return __("enums.announcement_push_status.{$this->name}");
     }
 }

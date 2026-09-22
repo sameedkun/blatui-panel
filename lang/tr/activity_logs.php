@@ -84,7 +84,7 @@ return [
     'subject_types' => [
         'user' => 'Kullanıcı', 'plan' => 'Plan', 'ticket' => 'Destek Talebi',
         'ticket_category' => 'Destek Talebi Kategorisi', 'language' => 'Dil',
-        'notification' => 'Bildirim', 'feedback' => 'Geri Bildirim',
+        'announcement' => 'Duyuru', 'feedback' => 'Geri Bildirim',
         'role' => 'Rol', 'user_device' => 'Cihaz',
     ],
     'presenter' => [
@@ -133,7 +133,7 @@ return [
         'modules' => [
             'user' => 'Kullanıcı', 'guest' => 'Misafir', 'staff' => 'Personel', 'role' => 'Rol',
             'permission' => 'İzin', 'plan' => 'Plan', 'language' => 'Dil', 'feedback' => 'Geri Bildirim',
-            'notification' => 'Bildirim', 'server' => 'Sunucu', 'ticket' => 'Destek Talebi',
+            'announcement' => 'Duyuru', 'server' => 'Sunucu', 'ticket' => 'Destek Talebi',
             'ticket_category' => 'Destek Talebi Kategorisi', 'setting' => 'Ayar',
             'device' => 'Cihaz', 'blocked_ip' => 'Engellenen IP', 'webhook_notification' => 'Webhook Bildirimi',
         ],

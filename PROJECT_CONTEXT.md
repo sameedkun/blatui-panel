@@ -63,7 +63,7 @@ Key state, all first-class on the model:
 
 `config/panel.php` is the single source of truth for the whole RBAC surface:
 - `modules` — each entry (`users`, `guests`, `plans`, `subscriptions`, `tickets`, `ticket_categories`,
-  `devices`, `blocked-ips`, `webhook_notifications`, `languages`, `feedback`, `notifications`,
+  `devices`, `blocked-ips`, `webhook_notifications`, `languages`, `feedback`, `announcements`,
   `staff`, `roles`, `activity_logs`, `dashboard`, `settings`, `logs`, `api_docs`)
   declares its allowed `actions` from a fixed `action_vocabulary` (`view`, `create`, `edit`,
   `delete`, `restore`, `force-delete`, `ban`, `unban`, `export`, `import`, `manage`, `access`,
@@ -357,7 +357,7 @@ both the global viewer and every per-record Activity tab) resolves its "Subject"
 **`ActivityPresenter::subjectUrl(?Model $subject)`** — a lookup table
 (`subjectUrlResolvers()`: subject class → a permission-gated closure building the right route)
 covering every model actually logged as a subject (`User` — staff/app/guest each to their own
-route, `Plan`, `Ticket`, `TicketCategory`, `Language`, `Notification`, `Feedback`, `Role`). Adding
+route, `Plan`, `Ticket`, `TicketCategory`, `Language`, `Announcement`, `Feedback`, `Role`). Adding
 support for a new subject type is one array entry there, not a new `if`/`elseif` in every view that
 renders a subject link. The dialog also accepts an optional `$currentRecord` (the profile page's own
 bound model, passed by the three per-record Activity tabs — Tickets, Plans, Users, and by extension
@@ -759,13 +759,13 @@ TicketMessageResource,TicketCategoryResource}` — `TicketMessageResource` reuse
 `TicketMessage::attachmentsWithUrls()`, the same disk-agnostic-path-to-URL resolution the admin
 conversation tab already relies on.
 
-## Application module (Languages, Feedback, Notifications)
+## Application module (Languages, Feedback, Announcements)
 
 Three admin-facing features grouped under the `'app'` (label "Application") permission group in
 `config/panel.php` — distinct from `management`/`support`/`infrastructure` since these are
 content/config the panel administers rather than accounts or operational records. Livewire lives
-under `app/Livewire/Admin/Application/{Language,Feedback,Notification}/`, routed at
-`admin.languages.*` / `admin.feedback.*` / `admin.notifications.*` in `routes/admin.php`.
+under `app/Livewire/Admin/Application/{Language,Feedback,Announcement}/`, routed at
+`admin.languages.*` / `admin.feedback.*` / `admin.announcements.*` in `routes/admin.php`.
 
 - **Languages** (`App\Models\Language`, module `languages`: `view`/`create`/`edit`/`delete`) —
   `code`/`name`/`native_name`/`flag` (a 2-letter country code rendered as a flag emoji via
@@ -780,16 +780,19 @@ under `app/Livewire/Admin/Application/{Language,Feedback,Notification}/`, routed
   to link out to, even when `user_id` is null. `Index`, `Show` (no Form — feedback is only ever
   created by `POST /api/v1/feedback`, documented under "Public catalog + feedback endpoints" below;
   the admin surface is read/triage only, gated `feedback.manage` for the Show page).
-- **Notifications** (`App\Models\Notification`, module `notifications`:
-  `view`/`create`/`edit`/`delete`) — `title`/`message`/`type` (`App\Enum\NotificationType`)/`link`,
-  plus push-broadcast state: `push_status` (`App\Enum\NotificationPushStatus`:
-  Draft/Pending/Sent/Failed), `push_sent_at`, `push_error`, `onesignal_notification_id`. `Index`,
-  `Form` (create/edit; "send now" dispatches `App\Jobs\Notification\SendPushNotification`).
-  **`App\Services\Notification\OneSignalService::sendToAll()`** broadcasts to every subscribed
-  device via the OneSignal REST API (`config('services.onesignal.{app_id,rest_api_key}')`,
+- **Announcements** (`App\Models\Announcement`, table `announcements`, module `announcements`:
+  `view`/`create`/`edit`/`delete`) — a broadcast message pushed to every subscribed app-user
+  device (not a per-user notification — hence the name, renamed from the original `Notification`
+  model/table). `title`/`message`/`type` (`App\Enum\AnnouncementType`)/`link`, plus push-broadcast
+  state: `push_status` (`App\Enum\AnnouncementPushStatus`: Draft/Pending/Sent/Failed),
+  `push_sent_at`, `push_error`, `onesignal_notification_id`. `Index`, `Form` (create/edit; "send
+  now" dispatches `App\Jobs\Announcement\SendPushNotification` — the job/class name kept
+  "Notification" since it still literally sends a OneSignal push notification for the
+  announcement). **`App\Services\Announcement\OneSignalService::sendToAll()`** broadcasts to every
+  subscribed device via the OneSignal REST API (`config('services.onesignal.{app_id,rest_api_key}')`,
   `included_segments: ['All']` — no per-user/segment targeting yet). The job writes the outcome
   back onto the row (`Sent`+`push_sent_at`+`onesignal_notification_id`, or `Failed`+`push_error`)
-  and logs it via `ActivityLogger` (module `Notification`, action `Sent`/`Failed`) with
+  and logs it via `ActivityLogger` (module `Announcement`, action `Sent`/`Failed`) with
   `causer: null` + `ActivityContext::Queue`, mirroring every other queued job's audit pattern.
 
 ## Device Management & IP Blocking
@@ -1408,7 +1411,7 @@ app/
                    BillingInterval, PaymentProvider, SubscriptionStatus, CancelledBy, ReceiptType,
                    TicketStatus, TicketPriority, TicketMessageAuthorType, DeviceType,
                    AppleNotificationType, AppleNotificationSubtype,
-                   FeedbackType, FeedbackStatus, NotificationType, NotificationPushStatus
+                   FeedbackType, FeedbackStatus, AnnouncementType, AnnouncementPushStatus
   Exceptions/      DeviceLimitExceededException, DeviceBlockedException, TicketClosedException,
                    ProviderTokenInvalidException (thrown by Http/Controllers/Api/V1/Concerns/ResolvesSocialiteUser),
                    ProviderEmailUnverifiedException (thrown by GuestConversionService::convertWithProvider()
@@ -1449,7 +1452,7 @@ app/
                    Activity/ExportActivityLog,
                    Auth/{PruneExpiredBlockedIps, RecordBlockedIpHit},
                    Device/{PruneRevokedDevices, ResolveDeviceLocation},
-                   Notification/SendPushNotification, Subscription/SyncSubscriptionStatuses,
+                   Announcement/SendPushNotification, Subscription/SyncSubscriptionStatuses,
                    Ticket/{CloseInactiveTickets, PurgeClosedTickets}
   Listeners/       AuthActivityListener
   Livewire/
@@ -1467,7 +1470,7 @@ app/
       Management/WebhookNotifications/      Index, Show (provider-filtered raw webhook log)
       Application/Language/                 Index, Form (no Show) — see "Application module" above
       Application/Feedback/                 Index, Show (no Form — created only via the public API)
-      Application/Notification/             Index, Form — "send now" dispatches SendPushNotification
+      Application/Announcement/              Index, Form — "send now" dispatches SendPushNotification
       Support/Tickets/                      Index, Show, Form + Concerns/HandlesTicketRowActions
       Support/Categories/                   Index, Form + Concerns/HandlesCategoryRowActions
       Administration/Staff/                         Index, Form (staff CRUD + role assignment)
@@ -1479,7 +1482,7 @@ app/
   Models/          User.php (canAccessModule helper; implements passkeys' HasPasskeys), EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php,
                    Plan.php, PlanPrice.php, PlanPriceProvider.php, Subscription.php, SubscriptionReceipt.php,
                    Ticket.php, TicketCategory.php, TicketMessage.php, UserDevice.php, BlockedIp.php,
-                   Language.php, Feedback.php, Notification.php
+                   Language.php, Feedback.php, Announcement.php
     Webhooks/      AppleNotification.php (implements ProviderNotification; RevenueCat/Google/Stripe
                    are future additions in the same subnamespace, not yet built)
   Notifications/   Auth/VerifyEmailNotification.php, Auth/ResetPasswordNotification.php,
@@ -1493,7 +1496,7 @@ app/
                                              logs.access / api_docs.access (see "Stack & versions")
   Services/        Account/{DeletionService, MergeService, GuestConversionService},
                    Auth/{UrlResolver, FindPasskeyToAuthenticateAction},
-                   Device/{DeviceService, BrowserDeviceResolver, LocationService}, Mail/Configurator, Notification/OneSignalService,
+                   Device/{DeviceService, BrowserDeviceResolver, LocationService}, Mail/Configurator, Announcement/OneSignalService,
                    Subscription/{LifecycleService, SubscriptionService},
                    Ticket/{AssignmentService, LifecycleService, TicketService}
   Support/Dashboard/ DateRange, DashboardMetrics, {Audience,Revenue,Support,Security,System}Metrics,
@@ -1517,14 +1520,14 @@ database/
                      `subscription_receipts` block carries the loose `notification_provider`/
                      `notification_id` link columns directly, no separate migration),
                      create_passkeys_table (vendor-published, unmodified),
-                     languages_table, feedback_table, notifications_table (the `App\Models\Notification`
-                     push-broadcast table — unrelated to Laravel's own notifications table, which this
-                     app doesn't use)
+                     languages_table, feedback_table, notifications_table (renamed to `announcements`
+                     by a later migration — the `App\Models\Announcement` push-broadcast table,
+                     unrelated to Laravel's own notifications table, which this app doesn't use)
   seeders/          DatabaseSeeder, RolesAndPermissionsSeeder (idempotent), UserSeeder,
                      EmailSendersSeeder (idempotent)
   factories/         one per model, incl. Plan/PlanPrice/PlanPriceProvider/Subscription/SubscriptionReceipt,
                      TicketCategory/Ticket/TicketMessage, UserDevice, BlockedIp, Webhooks/AppleNotification,
-                     Language, Feedback, Notification
+                     Language, Feedback, Announcement
 resources/
   views/components/ui/       BlatUI copy-paste components (x-ui.*) — see CLAUDE.md BlatUI section;
                               `drawer` extended with the same id-driven open/close prop `dialog` has
@@ -1539,7 +1542,7 @@ tests/
     Api/              Authentication, Devices, Exceptions, Profile, Security, Subscriptions, Tickets,
                       Feedback, Plans, Policies, Languages, Account, Guests
     Admin/            Activity, Accounts/{Guests,Users}, Dashboard{,QueryCount}Test, Devices, Feedback,
-                     Languages, Notifications, Plans, Settings, Staff, Support, Webhooks
+                     Languages, Announcements, Plans, Settings, Staff, Support, Webhooks
     Auth/             panel authentication flows
     Jobs/             scheduled and queued job behavior
     Localization/     locale and translation coverage

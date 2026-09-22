@@ -45,14 +45,14 @@ return [
         'Other' => 'Diğer',
     ],
 
-    'notification_push_status' => [
+    'announcement_push_status' => [
         'Draft' => 'Taslak',
         'Pending' => 'Beklemede',
         'Sent' => 'Gönderildi',
         'Failed' => 'Başarısız',
     ],
 
-    'notification_type' => [
+    'announcement_type' => [
         'General' => 'Genel',
         'Announcement' => 'Duyuru',
         'Promotional' => 'Tanıtım',

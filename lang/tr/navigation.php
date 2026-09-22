@@ -21,7 +21,7 @@ return [
         'webhook_notifications' => 'Webhook Bildirimleri',
         'languages' => 'Diller',
         'feedback' => 'Geri Bildirimler',
-        'notifications' => 'Bildirimler',
+        'announcements' => 'Duyurular',
         'tickets' => 'Destek Talepleri',
         'ticket_categories' => 'Talep Kategorileri',
         'staff' => 'Personel',

@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Jobs\Notification;
+namespace App\Jobs\Announcement;
 
 use App\Enum\ActivityAction;
 use App\Enum\ActivityContext;
 use App\Enum\ActivityModule;
-use App\Enum\NotificationPushStatus;
-use App\Models\Notification;
-use App\Services\Notification\OneSignalService;
+use App\Enum\AnnouncementPushStatus;
+use App\Models\Announcement;
+use App\Services\Announcement\OneSignalService;
 use App\Support\ActivityLogger;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Sends a {@see Notification} as a OneSignal push broadcast and records the
+ * Sends an {@see Announcement} as a OneSignal push broadcast and records the
  * outcome back onto the row — dispatched from the admin panel (create/edit
  * with "send now", or a manual resend/retry) rather than the scheduler.
  */
@@ -27,41 +27,41 @@ class SendPushNotification implements ShouldQueue
 
     public int $timeout = 60;
 
-    public function __construct(public int $notificationId) {}
+    public function __construct(public int $announcementId) {}
 
     public function handle(OneSignalService $oneSignal): void
     {
-        $notification = Notification::find($this->notificationId);
+        $announcement = Announcement::find($this->announcementId);
 
-        if (! $notification) {
+        if (! $announcement) {
             return;
         }
 
         $result = $oneSignal->sendToAll(
-            $notification->title,
-            $notification->message,
-            ['notification_id' => $notification->id, 'type' => $notification->type->value],
-            $notification->link,
+            $announcement->title,
+            $announcement->message,
+            ['announcement_id' => $announcement->id, 'type' => $announcement->type->value],
+            $announcement->link,
         );
 
         if ($result['success']) {
-            $notification->update([
-                'push_status' => NotificationPushStatus::Sent,
+            $announcement->update([
+                'push_status' => AnnouncementPushStatus::Sent,
                 'push_sent_at' => now(),
                 'push_error' => null,
                 'onesignal_notification_id' => $result['id'] ?? null,
             ]);
 
-            ActivityLogger::log(ActivityModule::Notification, ActivityAction::Sent, $notification, [
+            ActivityLogger::log(ActivityModule::Announcement, ActivityAction::Sent, $announcement, [
                 'recipients' => $result['recipients'] ?? 0,
             ], causer: null, context: ActivityContext::Queue);
         } else {
-            $notification->update([
-                'push_status' => NotificationPushStatus::Failed,
+            $announcement->update([
+                'push_status' => AnnouncementPushStatus::Failed,
                 'push_error' => $result['error'] ?? 'Unknown error',
             ]);
 
-            ActivityLogger::log(ActivityModule::Notification, ActivityAction::Failed, $notification, [
+            ActivityLogger::log(ActivityModule::Announcement, ActivityAction::Failed, $announcement, [
                 'error' => $result['error'] ?? 'Unknown error',
             ], causer: null, context: ActivityContext::Queue);
         }

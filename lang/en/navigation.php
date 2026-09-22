@@ -21,7 +21,7 @@ return [
         'webhook_notifications' => 'Webhook Notifications',
         'languages' => 'Languages',
         'feedback' => 'Feedback',
-        'notifications' => 'Notifications',
+        'announcements' => 'Announcements',
         'tickets' => 'Tickets',
         'ticket_categories' => 'Ticket Categories',
         'staff' => 'Staff',

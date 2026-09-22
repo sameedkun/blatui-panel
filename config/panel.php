@@ -200,8 +200,8 @@ return [
             'actions' => ['view', 'manage'],
             'icon' => 'message-square-quote',
         ],
-        'notifications' => [
-            'label' => 'Notifications',
+        'announcements' => [
+            'label' => 'Announcements',
             'group' => 'app',
             'actions' => ['view', 'create', 'edit', 'delete'],
             'icon' => 'bell',

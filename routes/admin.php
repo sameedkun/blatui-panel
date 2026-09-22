@@ -6,12 +6,12 @@ use App\Livewire\Admin\Administration\Roles\Form as RolesForm;
 use App\Livewire\Admin\Administration\Roles\Index as RolesIndex;
 use App\Livewire\Admin\Administration\Staff\Form as StaffForm;
 use App\Livewire\Admin\Administration\Staff\Index as StaffIndex;
+use App\Livewire\Admin\Application\Announcement\Form as AnnouncementForm;
+use App\Livewire\Admin\Application\Announcement\Index as AnnouncementIndex;
 use App\Livewire\Admin\Application\Feedback\Index as FeedbackIndex;
 use App\Livewire\Admin\Application\Feedback\Show as FeedbackShow;
 use App\Livewire\Admin\Application\Language\Form as LanguageForm;
 use App\Livewire\Admin\Application\Language\Index as LanguageIndex;
-use App\Livewire\Admin\Application\Notification\Form as NotificationForm;
-use App\Livewire\Admin\Application\Notification\Index as NotificationIndex;
 use App\Livewire\Admin\Dashboard;
 use App\Livewire\Admin\Management\BlockedIps\Form as BlockedIpsForm;
 use App\Livewire\Admin\Management\BlockedIps\Index as BlockedIpsIndex;
@@ -107,11 +107,11 @@ Route::middleware(['auth', 'panel', AuthenticateSession::class])->name('admin.')
         Route::get('/{feedback}', FeedbackShow::class)->name('show')->middleware('permission:feedback.manage');
     });
 
-    // ── Notifications ─────────────────────────────────────────────────────
-    Route::prefix('notifications')->name('notifications.')->middleware('permission:notifications.view')->group(function () {
-        Route::get('/', NotificationIndex::class)->name('index');
-        Route::get('/create', NotificationForm::class)->name('create')->middleware('permission:notifications.create');
-        Route::get('/{notification}/edit', NotificationForm::class)->name('edit')->middleware('permission:notifications.edit');
+    // ── Announcements ─────────────────────────────────────────────────────
+    Route::prefix('announcements')->name('announcements.')->middleware('permission:announcements.view')->group(function () {
+        Route::get('/', AnnouncementIndex::class)->name('index');
+        Route::get('/create', AnnouncementForm::class)->name('create')->middleware('permission:announcements.create');
+        Route::get('/{announcement}/edit', AnnouncementForm::class)->name('edit')->middleware('permission:announcements.edit');
     });
 
     // ── Tickets ───────────────────────────────────────────────────────────

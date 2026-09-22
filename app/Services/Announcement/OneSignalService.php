@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Notification;
+namespace App\Services\Announcement;
 
 use Exception;
 use GuzzleHttp\Client;

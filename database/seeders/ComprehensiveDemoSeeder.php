@@ -10,12 +10,12 @@ use App\Enum\SubscriptionStatus;
 use App\Enum\TicketMessageAuthorType;
 use App\Enum\TicketStatus;
 use App\Enum\UserType;
+use App\Models\Announcement;
 use App\Models\BlockedIp;
 use App\Models\EmailDomain;
 use App\Models\EmailSender;
 use App\Models\Feedback;
 use App\Models\Language;
-use App\Models\Notification;
 use App\Models\Plan;
 use App\Models\PlanPrice;
 use App\Models\PlanPriceProvider;
@@ -48,7 +48,7 @@ class ComprehensiveDemoSeeder extends Seeder
 
         $this->seedPlansAndSubscriptions($appUsers);
         $this->seedFeedback($appUsers);
-        $this->seedNotifications();
+        $this->seedAnnouncements();
         $this->seedLanguages();
         $this->seedPolicies($appUsers);
         $this->seedMailSettings();
@@ -225,12 +225,12 @@ class ComprehensiveDemoSeeder extends Seeder
         Feedback::factory(8)->ignored()->create();
     }
 
-    private function seedNotifications(): void
+    private function seedAnnouncements(): void
     {
-        Notification::factory(8)->create();
-        Notification::factory(8)->pending()->create();
-        Notification::factory(8)->sent()->create();
-        Notification::factory(8)->failed()->create();
+        Announcement::factory(8)->create();
+        Announcement::factory(8)->pending()->create();
+        Announcement::factory(8)->sent()->create();
+        Announcement::factory(8)->failed()->create();
     }
 
     private function seedLanguages(): void

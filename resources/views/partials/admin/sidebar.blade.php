@@ -99,7 +99,7 @@
                 </x-ui.sidebar-menu>
             @endcanany
 
-            @canany(['languages.view', 'feedback.view', 'notifications.view'])
+            @canany(['languages.view', 'feedback.view', 'announcements.view'])
                 <x-ui.sidebar-group-label>{{ __('navigation.groups.app') }}</x-ui.sidebar-group-label>
 
                 <x-ui.sidebar-menu>
@@ -121,11 +121,11 @@
                         </x-ui.sidebar-menu-item>
                     @endcan
 
-                    @can('notifications.view')
+                    @can('announcements.view')
                         <x-ui.sidebar-menu-item>
-                            <x-ui.sidebar-menu-button href="{{ route('admin.notifications.index') }}" :isActive="request()->routeIs('admin.notifications.*')">
+                            <x-ui.sidebar-menu-button href="{{ route('admin.announcements.index') }}" :isActive="request()->routeIs('admin.announcements.*')">
                                 <x-lucide-bell />
-                                <span>{{ __('navigation.modules.notifications') }}</span>
+                                <span>{{ __('navigation.modules.announcements') }}</span>
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan

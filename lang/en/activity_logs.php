@@ -138,7 +138,7 @@ return [
         'ticket' => 'Ticket',
         'ticket_category' => 'Ticket Category',
         'language' => 'Language',
-        'notification' => 'Notification',
+        'announcement' => 'Announcement',
         'feedback' => 'Feedback',
         'role' => 'Role',
         'user_device' => 'Device',
@@ -211,7 +211,7 @@ return [
         'modules' => [
             'user' => 'User', 'guest' => 'Guest', 'staff' => 'Staff', 'role' => 'Role',
             'permission' => 'Permission', 'plan' => 'Plan', 'language' => 'Language',
-            'feedback' => 'Feedback', 'notification' => 'Notification', 'server' => 'Server',
+            'feedback' => 'Feedback', 'announcement' => 'Announcement', 'server' => 'Server',
             'ticket' => 'Ticket', 'ticket_category' => 'Ticket Category', 'setting' => 'Setting',
             'device' => 'Device', 'blocked_ip' => 'Blocked IP', 'webhook_notification' => 'Webhook Notification',
         ],

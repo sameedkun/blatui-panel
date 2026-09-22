@@ -9,9 +9,9 @@ use App\Enum\ActivityModule;
 use App\Enum\PaymentProvider;
 use App\Enum\PolicyType;
 use App\Enum\TicketPriority;
+use App\Models\Announcement;
 use App\Models\Feedback;
 use App\Models\Language;
-use App\Models\Notification;
 use App\Models\Plan;
 use App\Models\Ticket;
 use App\Models\TicketCategory;
@@ -614,7 +614,7 @@ class ActivityPresenter
             Ticket::class => fn (Ticket $ticket): ?string => auth()->user()->can('tickets.manage') ? route('admin.tickets.show', $ticket) : null,
             TicketCategory::class => fn (TicketCategory $category): ?string => auth()->user()->can('ticket_categories.edit') ? route('admin.ticket-categories.edit', $category) : null,
             Language::class => fn (Language $language): ?string => auth()->user()->can('languages.edit') ? route('admin.languages.edit', $language) : null,
-            Notification::class => fn (Notification $notification): ?string => auth()->user()->can('notifications.edit') ? route('admin.notifications.edit', $notification) : null,
+            Announcement::class => fn (Announcement $announcement): ?string => auth()->user()->can('announcements.edit') ? route('admin.announcements.edit', $announcement) : null,
             Feedback::class => fn (Feedback $feedback): ?string => auth()->user()->can('feedback.manage') ? route('admin.feedback.show', $feedback) : null,
             Role::class => fn (Role $role): ?string => auth()->user()->can('roles.edit') ? route('admin.roles.edit', $role) : null,
             UserDevice::class => fn (UserDevice $device): ?string => auth()->user()->can('users.manage')
