@@ -1,0 +1,14 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - phpstan-baseline.neon
+
+parameters:
+    paths:
+        - app
+
+    level: 5
+
+    checkModelProperties: true
+    parseModelCastsMethod: true
+
+    tmpDir: storage/framework/phpstan

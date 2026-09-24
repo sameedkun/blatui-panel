@@ -26,7 +26,7 @@ class SubscriptionResource extends JsonResource
             'is_recurring' => $this->is_recurring,
             'is_on_trial' => $this->isOnTrial(),
             'is_in_grace' => $this->isInGrace(),
-            'starts_at' => $this->starts_at?->toIso8601String(),
+            'starts_at' => $this->starts_at->toIso8601String(),
             'ends_at' => $this->ends_at?->toIso8601String(),
             'trial_ends_at' => $this->trial_ends_at?->toIso8601String(),
             'grace_ends_at' => $this->grace_ends_at?->toIso8601String(),

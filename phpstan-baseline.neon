@@ -1,0 +1,871 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Using nullsafe property access "\?\-\>email" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/Api/V1/FeedbackController.php
+
+		-
+			message: '#^Call to an undefined method Laravel\\Socialite\\Contracts\\Provider\:\:stateless\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/GuestController.php
+
+		-
+			message: '#^Call to an undefined method Laravel\\Socialite\\Contracts\\Provider\:\:userFromToken\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/GuestController.php
+
+		-
+			message: '#^Call to an undefined method Laravel\\Socialite\\Contracts\\User\:\:getRaw\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/GuestController.php
+
+		-
+			message: '#^Call to an undefined method Laravel\\Socialite\\Contracts\\Provider\:\:stateless\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/SocialController.php
+
+		-
+			message: '#^Call to an undefined method Laravel\\Socialite\\Contracts\\Provider\:\:userFromToken\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/SocialController.php
+
+		-
+			message: '#^Call to an undefined method Laravel\\Socialite\\Contracts\\User\:\:getRaw\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/SocialController.php
+
+		-
+			message: '#^Parameter \#1 \$attributes of static method Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\User\>\:\:create\(\) expects array\<model property of App\\Models\\User, mixed\>, array\<string, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Api/V1/SocialController.php
+
+		-
+			message: '#^Parameter \#1 \$column of method Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\User\>\:\:where\(\) expects array\<int\|model property of App\\Models\\User, mixed\>\|\(Closure\(Illuminate\\Database\\Query\\Builder\)\: mixed\)\|Illuminate\\Contracts\\Database\\Query\\Expression\|model property of App\\Models\\User, non\-falsy\-string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Api/V1/SocialController.php
+
+		-
+			message: '#^Parameter \#1 \$authenticatable of method Spatie\\LaravelPasskeys\\Http\\Controllers\\AuthenticateUsingPasskeyController\:\:logInAuthenticatable\(\) expects Illuminate\\Contracts\\Auth\\Authenticatable, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Auth/AuthenticateUsingPasskeyController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Jobs/Activity/ExportActivityLog.php
+
+		-
+			message: '#^Method App\\Jobs\\Activity\\ExportActivityLog\:\:row\(\) should return array\<int, string\> but returns array\<int, mixed\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Jobs/Activity/ExportActivityLog.php
+
+		-
+			message: '#^Parameter \#1 \$activity of method App\\Jobs\\Activity\\ExportActivityLog\:\:row\(\) expects Spatie\\Activitylog\\Models\\Activity, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Jobs/Activity/ExportActivityLog.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Jobs/Activity/ExportActivityLog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Account/Index.php
+
+		-
+			message: '#^Method App\\Livewire\\Admin\\Account\\Index\:\:groupedPermissions\(\) should return Illuminate\\Support\\Collection\<string, Illuminate\\Support\\Collection\<int, string\>\> but returns Illuminate\\Support\\Collection\<\(int\|string\), Illuminate\\Support\\Collection\<int, mixed\>\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/Admin/Account/Index.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Administration/ActivityLogs/Index.php
+
+		-
+			message: '#^Method App\\Livewire\\Admin\\Administration\\ActivityLogs\\Index\:\:exportRow\(\) should return array\<int, string\> but returns array\<int, mixed\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/Admin/Administration/ActivityLogs/Index.php
+
+		-
+			message: '#^Parameter \#1 \$activity of method App\\Livewire\\Admin\\Administration\\ActivityLogs\\Index\:\:exportRow\(\) expects Spatie\\Activitylog\\Models\\Activity, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Admin/Administration/ActivityLogs/Index.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/Admin/Administration/ActivityLogs/Index.php
+
+		-
+			message: '#^Ternary operator condition is always false\.$#'
+			identifier: ternary.alwaysFalse
+			count: 1
+			path: app/Livewire/Admin/Administration/ApiLogs/Requests/Show.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>slow_queries" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/Admin/Administration/ApiLogs/Requests/Show.php
+
+		-
+			message: '#^Method App\\Livewire\\Admin\\Administration\\Roles\\Form\:\:moduleGroups\(\) should return Illuminate\\Support\\Collection\<string, Illuminate\\Support\\Collection\<int, array\>\> but returns Illuminate\\Support\\Collection\<string, Illuminate\\Support\\Collection\<int, array\{key\: string, label\: string, group\: mixed, permissions\: Illuminate\\Support\\Collection\<\(int\|string\), mixed\>\}\>\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/Admin/Administration/Roles/Form.php
+
+		-
+			message: '#^Parameter \#3 \$subject of method App\\Livewire\\Admin\\Administration\\Roles\\Form\:\:logActivity\(\) expects Illuminate\\Database\\Eloquent\\Model\|null, Spatie\\Permission\\Contracts\\Role given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Admin/Administration/Roles/Form.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<\(int\|string\),mixed\>\:\:mapWithKeys\(\) expects callable\(mixed, int\|string\)\: array\<string, string\>, Closure\(Spatie\\Permission\\Models\\Role\)\: non\-empty\-array\<string, string\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Admin/Administration/Roles/Index.php
+
+		-
+			message: '#^Method App\\Livewire\\Admin\\Administration\\Staff\\Form\:\:groupedSelectedPermissions\(\) should return Illuminate\\Support\\Collection\<string, Illuminate\\Support\\Collection\<int, string\>\> but returns Illuminate\\Support\\Collection\<\(int\|string\), Illuminate\\Support\\Collection\<int, mixed\>\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/Admin/Administration/Staff/Form.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Application/Feedback/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$subject\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Application/Feedback/Show.php
+
+		-
+			message: '#^Call to function is_callable\(\) with callable\(\)\: mixed will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Livewire/Admin/Concerns/HasStats.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>email" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/Admin/Management/BlockedIps/Form.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\:\:active\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/BlockedIps/Index.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$app_version\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Devices/Index.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$country\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Devices/Index.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$device_type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Devices/Index.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ip_address\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Devices/Index.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$is_blocked\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Devices/Index.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$is_revoked\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Devices/Index.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$last_seen_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Devices/Index.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Devices/Index.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$os\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Devices/Index.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$platform\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Devices/Index.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$user\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Devices/Index.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\:\:active\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Devices/Index.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\:\:blocked\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Devices/Index.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\:\:revoked\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Devices/Index.php
+
+		-
+			message: '#^Method App\\Livewire\\Admin\\Management\\Devices\\SharedFingerprints\:\:devicesFor\(\) should return Illuminate\\Support\\Collection\<string, Illuminate\\Support\\Collection\<int, App\\Models\\UserDevice\>\> but returns Illuminate\\Database\\Eloquent\\Collection\<\(int\|string\), Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\UserDevice\>\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/Admin/Management/Devices/SharedFingerprints.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$activeSubscription\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Livewire/Admin/Management/Guests/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/Admin/Management/Guests/Show.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:subscriptions\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Livewire/Admin/Management/Guests/Show.php
+
+		-
+			message: '#^Method App\\Livewire\\Admin\\Management\\Guests\\Show\:\:recordActivityCount\(\) should return string\|null but returns int\<0, max\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/Admin/Management/Guests/Show.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Services\\Subscription\\SubscriptionService\:\:cancelActive\(\) expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Livewire/Admin/Management/Guests/Show.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Services\\Subscription\\SubscriptionService\:\:reactivate\(\) expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Admin/Management/Guests/Show.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Services\\Subscription\\SubscriptionService\:\:subscribe\(\) expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Admin/Management/Guests/Show.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Services\\Subscription\\SubscriptionService\:\:upgrade\(\) expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Admin/Management/Guests/Show.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/Admin/Management/Guests/Show.php
+
+		-
+			message: '#^Offset ''is_active'' on array\{id\: int\|null, amount\: string, compare_at_amount\: string, currency\: string, billing_period\: int, billing_interval\: string, trial_period\: int, trial_interval\: string, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Livewire/Admin/Management/Plans/Form.php
+
+		-
+			message: '#^Offset ''providers'' on array\{id\: int\|null, amount\: string, compare_at_amount\: string, currency\: string, billing_period\: int, billing_interval\: string, trial_period\: int, trial_interval\: string, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Livewire/Admin/Management/Plans/Form.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Plans/Show.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:prices\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Plans/Show.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:subscriptions\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: app/Livewire/Admin/Management/Plans/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Subscriptions/Index.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amount_paid\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Subscriptions/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$currency\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Subscriptions/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/Admin/Management/Subscriptions/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$is_recurring\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Subscriptions/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$provider\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Subscriptions/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Subscriptions/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$user\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Subscriptions/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$user_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Subscriptions/Show.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:receipts\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Livewire/Admin/Management/Subscriptions/Show.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Livewire/Admin/Management/Subscriptions/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$activeSubscription\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 5
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:devices\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:hasVerifiedEmail\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:markEmailAsVerified\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:sendEmailVerificationNotification\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:subscriptions\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:tickets\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^Method App\\Livewire\\Admin\\Management\\Users\\Show\:\:comingSoonTab\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^Parameter \#1 \$user of class Illuminate\\Auth\\Events\\Verified constructor expects Illuminate\\Contracts\\Auth\\MustVerifyEmail, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Services\\Device\\DeviceService\:\:revokeAll\(\) expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Services\\Subscription\\SubscriptionService\:\:cancelActive\(\) expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Services\\Subscription\\SubscriptionService\:\:reactivate\(\) expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Services\\Subscription\\SubscriptionService\:\:subscribe\(\) expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Services\\Subscription\\SubscriptionService\:\:upgrade\(\) expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/Admin/Management/Users/Show.php
+
+		-
+			message: '#^PHPDoc tag @var with type App\\Contracts\\ProviderNotification is not subtype of native type Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: varTag.nativeType
+			count: 1
+			path: app/Livewire/Admin/Management/WebhookNotifications/Show.php
+
+		-
+			message: '#^Offset ''auth''\|''billing''\|''default''\|''marketing''\|''notifications''\|''support'' on array\{default\: 0, auth\: 1, notifications\: 2, support\: 3, billing\: 4, marketing\: 5\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Livewire/Admin/Settings/Mail.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Support/Tickets/Index.php
+
+		-
+			message: '#^Parameter \#2 \$agent of method App\\Services\\Ticket\\TicketService\:\:reassign\(\) expects App\\Models\\User\|null, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Admin/Support/Tickets/Index.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Support/Tickets/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$subject\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Admin/Support/Tickets/Show.php
+
+		-
+			message: '#^Parameter \#2 \$agent of method App\\Services\\Ticket\\TicketService\:\:reassign\(\) expects App\\Models\\User\|null, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Admin/Support/Tickets/Show.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: app/Livewire/Auth/VerifyEmail.php
+
+		-
+			message: '#^Variable \$user in PHPDoc tag @var does not exist\.$#'
+			identifier: varTag.variableNotFound
+			count: 1
+			path: app/Livewire/Auth/VerifyEmail.php
+
+		-
+			message: '#^Property App\\Mail\\Account\\AccountDeletionScheduledMail\:\:\$purpose \(App\\Enum\\MailPurpose\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: app/Mail/Account/AccountDeletionScheduledMail.php
+
+		-
+			message: '#^Property App\\Mail\\Auth\\ResetPasswordMail\:\:\$purpose \(App\\Enum\\MailPurpose\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: app/Mail/Auth/ResetPasswordMail.php
+
+		-
+			message: '#^Property App\\Mail\\Auth\\VerifyEmailMail\:\:\$purpose \(App\\Enum\\MailPurpose\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: app/Mail/Auth/VerifyEmailMail.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: app/Mail/Concerns/HasMailPurpose.php
+
+		-
+			message: '#^Property App\\Mail\\Support\\TicketAutoClosedMail\:\:\$purpose \(App\\Enum\\MailPurpose\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: app/Mail/Support/TicketAutoClosedMail.php
+
+		-
+			message: '#^Method App\\Models\\ApiLog\\ApiRequestStat\:\:rawHistogramSelects\(\) should return list\<Illuminate\\Database\\Query\\Expression\> but returns array\{Illuminate\\Contracts\\Database\\Query\\Expression, Illuminate\\Contracts\\Database\\Query\\Expression, Illuminate\\Contracts\\Database\\Query\\Expression, Illuminate\\Contracts\\Database\\Query\\Expression, Illuminate\\Contracts\\Database\\Query\\Expression, Illuminate\\Contracts\\Database\\Query\\Expression, Illuminate\\Contracts\\Database\\Query\\Expression, Illuminate\\Contracts\\Database\\Query\\Expression, \.\.\.\}\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/ApiLog/ApiRequestStat.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\EmailSender\:\:\$fromAddress\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/EmailSender.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$plan\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$plan_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\:\:staff\(\)\.$#'
+			identifier: method.notFound
+			count: 4
+			path: app/Models/User.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:isInGrace\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:isOnTrial\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Return type \(Illuminate\\Mail\\Mailable\) of method App\\Notifications\\Auth\\ResetPasswordNotification\:\:toMail\(\) should be compatible with return type \(Illuminate\\Notifications\\Messages\\MailMessage\) of method Illuminate\\Auth\\Notifications\\ResetPassword\:\:toMail\(\)$#'
+			identifier: method.childReturnType
+			count: 1
+			path: app/Notifications/Auth/ResetPasswordNotification.php
+
+		-
+			message: '#^Return type \(Illuminate\\Mail\\Mailable\) of method App\\Notifications\\Auth\\VerifyEmailNotification\:\:toMail\(\) should be compatible with return type \(Illuminate\\Notifications\\Messages\\MailMessage\) of method Illuminate\\Auth\\Notifications\\VerifyEmail\:\:toMail\(\)$#'
+			identifier: method.childReturnType
+			count: 1
+			path: app/Notifications/Auth/VerifyEmailNotification.php
+
+		-
+			message: '#^Anonymous function never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Providers/AppServiceProvider.php
+
+		-
+			message: '#^Parameter \#1 \$column of method Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\User\>\:\:where\(\) expects array\<int\|model property of App\\Models\\User, mixed\>\|\(Closure\(Illuminate\\Database\\Query\\Builder\)\: mixed\)\|Illuminate\\Contracts\\Database\\Query\\Expression\|model property of App\\Models\\User, non\-falsy\-string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Account/GuestConversionService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Account/MergeService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$previous_subscription_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Account/MergeService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$provider\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/Account/MergeService.php
+
+		-
+			message: '#^Parameter \#1 \$sub of method App\\Services\\Subscription\\SubscriptionService\:\:cancelSubscription\(\) expects App\\Models\\Subscription, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Services/Account/MergeService.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 1
+			path: app/Services/Account/MergeService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Subscription/SubscriptionService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$plan\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/Subscription/SubscriptionService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$starts_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Subscription/SubscriptionService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$trial_ends_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Subscription/SubscriptionService.php
+
+		-
+			message: '#^Method App\\Services\\Subscription\\SubscriptionService\:\:reactivate\(\) should return App\\Models\\Subscription but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Subscription/SubscriptionService.php
+
+		-
+			message: '#^Method App\\Services\\Subscription\\SubscriptionService\:\:subscribe\(\) should return App\\Models\\Subscription but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Subscription/SubscriptionService.php
+
+		-
+			message: '#^Method App\\Services\\Subscription\\SubscriptionService\:\:upgrade\(\) should return App\\Models\\Subscription but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Subscription/SubscriptionService.php
+
+		-
+			message: '#^Parameter \#1 \$sub of method App\\Services\\Subscription\\SubscriptionService\:\:cancelSubscription\(\) expects App\\Models\\Subscription, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Subscription/SubscriptionService.php
+
+		-
+			message: '#^Parameter \#1 \$sub of method App\\Services\\Subscription\\SubscriptionService\:\:prorationCredit\(\) expects App\\Models\\Subscription, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Subscription/SubscriptionService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>starts_at" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Subscription/SubscriptionService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\|Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany\:\:permission\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/Ticket/AssignmentService.php
+
+		-
+			message: '#^Method App\\Services\\Ticket\\AssignmentService\:\:eligibleAgents\(\) should return Illuminate\\Support\\Collection\<int, App\\Models\\User\> but returns Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Ticket/AssignmentService.php
+
+		-
+			message: '#^Method App\\Services\\Ticket\\AssignmentService\:\:pickAgent\(\) should return App\\Models\\User\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Ticket/AssignmentService.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type Illuminate\\Http\\Request\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Support/ActivityLogger.php
+
+		-
+			message: '#^Method App\\Support\\ActivityPresenter\:\:subjectUrlResolvers\(\) should return array\<class\-string, Closure\(Illuminate\\Database\\Eloquent\\Model\)\: \(string\|null\)\> but returns array\{App\\Models\\User\: Closure\(App\\Models\\User\)\: \(string\|null\), App\\Models\\Plan\: Closure\(App\\Models\\Plan\)\: \(string\|null\), App\\Models\\Ticket\: Closure\(App\\Models\\Ticket\)\: \(string\|null\), App\\Models\\TicketCategory\: Closure\(App\\Models\\TicketCategory\)\: \(string\|null\), App\\Models\\Language\: Closure\(App\\Models\\Language\)\: \(string\|null\), App\\Models\\Announcement\: Closure\(App\\Models\\Announcement\)\: \(string\|null\), App\\Models\\Feedback\: Closure\(App\\Models\\Feedback\)\: \(string\|null\), Spatie\\Permission\\Models\\Role\: Closure\(Spatie\\Permission\\Models\\Role\)\: \(string\|null\), \.\.\.\}\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Support/ActivityPresenter.php
+
+		-
+			message: '#^Match expression does not handle remaining value\: string$#'
+			identifier: match.unhandled
+			count: 1
+			path: app/Support/ApiLogs/AnalyticsRange.php
+
+		-
+			message: '#^Method App\\Support\\ApiLogs\\ApiLogAnalytics\:\:aggregate\(\) should return Illuminate\\Support\\Collection\<int, array\<string, mixed\>\> but returns Illuminate\\Support\\Collection\<int, array\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Support/ApiLogs/ApiLogAnalytics.php
+
+		-
+			message: '#^Offset ''exceptions'' on array\{log\: array\<string, mixed\>, payload\: array\<string, mixed\>\|null, exceptions\: list\<array\<string, mixed\>\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Support/ApiLogs/ApiLogWriter.php
+
+		-
+			message: '#^Call to function method_exists\(\) with Illuminate\\Contracts\\Auth\\StatefulGuard and ''hasUser'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Support/ApiLogs/RecordBuilder.php
+
+		-
+			message: '#^Offset ''function'' on array\{function\: string, line\?\: int, file\?\: string, class\?\: class\-string, type\?\: ''\-\>''\|''\:\:'', args\?\: list\<mixed\>, object\?\: object\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Support/ApiLogs/RecordBuilder.php
+
+		-
+			message: '#^Using nullsafe property access on non\-nullable type App\\Enum\\UserType\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/ApiLogs/RecordBuilder.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Redis\\Connections\\Connection\:\:transaction\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Support/ApiLogs/RedisBuffer.php
+
+		-
+			message: '#^Unsafe call to private method App\\Support\\BlockedIpCache\:\:repository\(\) through static\:\:\.$#'
+			identifier: staticClassAccess.privateMethod
+			count: 1
+			path: app/Support/BlockedIpCache.php
+
+		-
+			message: '#^Unsafe call to private method App\\Support\\BlockedIpCache\:\:supportsTags\(\) through static\:\:\.$#'
+			identifier: staticClassAccess.privateMethod
+			count: 2
+			path: app/Support/BlockedIpCache.php
+
+		-
+			message: '#^Unsafe call to private method App\\Support\\BlockedIpCache\:\:tag\(\) through static\:\:\.$#'
+			identifier: staticClassAccess.privateMethod
+			count: 2
+			path: app/Support/BlockedIpCache.php
+
+		-
+			message: '#^Called ''count'' on Laravel collection, but could have been retrieved as a query\.$#'
+			identifier: larastan.noUnnecessaryCollectionCall
+			count: 1
+			path: app/Support/Dashboard/SecurityMetrics.php
+
+		-
+			message: '#^Type object in generic type Illuminate\\Database\\Eloquent\\Collection\<int, object\> in PHPDoc tag @return is not subtype of template type TModel of Illuminate\\Database\\Eloquent\\Model of class Illuminate\\Database\\Eloquent\\Collection\.$#'
+			identifier: generics.notSubtype
+			count: 1
+			path: app/Support/Dashboard/SystemMetrics.php

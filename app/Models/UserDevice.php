@@ -22,6 +22,10 @@ use Laravel\Sanctum\PersonalAccessToken;
  * device-rotation cooldown) rather than deleted, so usage patterns can be
  * measured later. All mutations go through {@see DeviceService}
  * — never write to this model directly from a controller/Livewire component.
+ *
+ * @property-read bool $is_active
+ * @property-read bool $is_blocked
+ * @property-read bool $is_revoked
  */
 class UserDevice extends Model
 {
