@@ -194,22 +194,6 @@
                                 <x-lucide-activity />
                                 <span>{{ __('navigation.modules.api_logs') }}</span>
                             </x-ui.sidebar-menu-button>
-                            <x-ui.sidebar-menu-sub>
-                                @can('api_logs.requests.view')
-                                    <x-ui.sidebar-menu-sub-item>
-                                        <x-ui.sidebar-menu-sub-button href="{{ route('admin.api-logs.requests.index') }}" :isActive="request()->routeIs('admin.api-logs.requests.*')">
-                                            <span>{{ __('navigation.modules.api_log_requests') }}</span>
-                                        </x-ui.sidebar-menu-sub-button>
-                                    </x-ui.sidebar-menu-sub-item>
-                                @endcan
-                                @can('api_logs.analytics.view')
-                                    <x-ui.sidebar-menu-sub-item>
-                                        <x-ui.sidebar-menu-sub-button href="{{ route('admin.api-logs.analytics') }}" :isActive="request()->routeIs('admin.api-logs.analytics')">
-                                            <span>{{ __('navigation.modules.api_log_analytics') }}</span>
-                                        </x-ui.sidebar-menu-sub-button>
-                                    </x-ui.sidebar-menu-sub-item>
-                                @endcan
-                            </x-ui.sidebar-menu-sub>
                         </x-ui.sidebar-menu-item>
                     @endif
 
