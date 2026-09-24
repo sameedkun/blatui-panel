@@ -51,7 +51,7 @@
         <div x-show="open" @click.outside="open = false" x-cloak
             x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
             x-transition:leave="transition ease-in duration-75" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
-            class="absolute top-full z-20 mt-1 min-w-[10rem] rounded-md border border-border bg-popover p-1 shadow-md">
+            class="absolute top-full z-20 mt-1 max-h-72 min-w-[10rem] overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
             @foreach($options as $val => $optLabel)
             <label class="flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
                 <input type="checkbox" value="{{ $val }}" wire:model.live="filters.{{ $key }}" class="blat-checkbox cursor-pointer dark:bg-input/30" />
@@ -84,7 +84,7 @@
         <div x-show="open" @click.outside="open = false" x-cloak
             x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
             x-transition:leave="transition ease-in duration-75" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
-            class="absolute top-full z-20 mt-1 min-w-[10rem] rounded-md border border-border bg-popover p-1 shadow-md">
+            class="absolute top-full z-20 mt-1 max-h-72 min-w-[10rem] overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
             @foreach($options as $val => $optLabel)
             <label class="flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
                 <input type="radio" name="{{ $key }}_filter" value="{{ $val }}" wire:model.live="filters.{{ $key }}" class="blat-radio cursor-pointer dark:bg-input/30" />

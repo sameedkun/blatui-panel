@@ -82,6 +82,8 @@ return [
             'general' => 'General',
             'mail' => 'Mail',
             'policies' => 'Policies',
+            'requests' => 'Requests',
+            'analytics' => 'Analytics',
         ],
         'actions' => [
             'view' => 'View',

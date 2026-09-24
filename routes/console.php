@@ -1,6 +1,9 @@
 <?php
 
 use App\Jobs\Account\PurgeExpiredAccounts;
+use App\Jobs\ApiLog\AggregateApiRequestStats;
+use App\Jobs\ApiLog\FlushApiRequestLogs;
+use App\Jobs\ApiLog\PruneApiRequestLogs;
 use App\Jobs\Auth\PruneExpiredBlockedIps;
 use App\Jobs\Device\PruneRevokedDevices;
 use App\Jobs\Subscription\SyncSubscriptionStatuses;
@@ -8,7 +11,21 @@ use App\Jobs\Ticket\CloseInactiveTickets;
 use App\Jobs\Ticket\PurgeClosedTickets;
 use Illuminate\Support\Facades\Schedule;
 
+// Every minute
+// Drains the Redis API-log buffer in bulk; a no-op under the sync buffer.
+// Not sub-minute on purpose — that would keep every schedule:run alive for the whole minute.
+Schedule::job(new FlushApiRequestLogs)
+    ->everyMinute()
+    ->name('api-logs-flush')
+    ->withoutOverlapping();
+
 // Hourly
+// At :05, so the previous hour's buffered logs have been flushed first.
+Schedule::job(new AggregateApiRequestStats)
+    ->hourlyAt(5)
+    ->name('api-logs-aggregate')
+    ->withoutOverlapping();
+
 Schedule::job(new PurgeExpiredAccounts)
     ->hourly()
     ->name('account-deletion-purge')
@@ -30,6 +47,11 @@ Schedule::job(new CloseInactiveTickets)
 Schedule::job(new PurgeClosedTickets)
     ->daily()
     ->name('ticket-purge-closed')
+    ->withoutOverlapping();
+
+Schedule::job(new PruneApiRequestLogs)
+    ->dailyAt('03:30')
+    ->name('api-logs-prune')
     ->withoutOverlapping();
 
 Schedule::job(new PruneExpiredBlockedIps)

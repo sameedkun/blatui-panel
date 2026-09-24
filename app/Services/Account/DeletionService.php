@@ -281,6 +281,14 @@ class DeletionService
             DB::table('sessions')->where('user_id', $user->id)->delete();
         }
 
+        // API logs are kept (their retention is short anyway) but no longer
+        // point at a purged account.
+        foreach (['api_request_logs', 'api_request_exceptions'] as $table) {
+            if (Schema::hasTable($table)) {
+                DB::table($table)->where('user_id', $user->id)->update(['user_id' => null]);
+            }
+        }
+
         if ($user->avatar) {
             Storage::delete($user->avatar);
         }

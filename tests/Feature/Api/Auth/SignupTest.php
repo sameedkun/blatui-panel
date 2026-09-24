@@ -6,6 +6,7 @@ use App\Enum\UserType;
 use App\Models\User;
 use App\Notifications\Auth\VerifyEmailNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Spatie\Activitylog\Models\Activity;
@@ -95,9 +96,11 @@ class SignupTest extends TestCase
         $trashed->delete();
         $trashedResponse = $this->postJson('/api/v1/signup', $this->payload(['email' => $trashed->email]));
 
+        // request_id is unique per request by design, so it's the one key excluded.
         foreach ([$staffResponse, $guestResponse, $trashedResponse] as $response) {
             $response->assertStatus($duplicateResponse->status());
-            $response->assertExactJson($duplicateResponse->json());
+            $response->assertJsonStructure(['request_id']);
+            $this->assertSame(Arr::except($duplicateResponse->json(), 'request_id'), Arr::except($response->json(), 'request_id'));
         }
 
         // No new row was created for any of them — the collision was refused, not merged.

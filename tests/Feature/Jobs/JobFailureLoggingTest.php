@@ -5,6 +5,9 @@ namespace Tests\Feature\Jobs;
 use App\Jobs\Account\PurgeExpiredAccounts;
 use App\Jobs\Activity\ExportActivityLog;
 use App\Jobs\Announcement\SendPushNotification;
+use App\Jobs\ApiLog\AggregateApiRequestStats;
+use App\Jobs\ApiLog\FlushApiRequestLogs;
+use App\Jobs\ApiLog\PruneApiRequestLogs;
 use App\Jobs\Auth\PruneExpiredBlockedIps;
 use App\Jobs\Auth\RecordBlockedIpHit;
 use App\Jobs\Device\PruneRevokedDevices;
@@ -46,6 +49,9 @@ class JobFailureLoggingTest extends TestCase
     public static function jobs(): array
     {
         return [
+            'aggregate API request stats' => [new AggregateApiRequestStats, 'AggregateApiRequestStats'],
+            'flush API request logs' => [new FlushApiRequestLogs, 'FlushApiRequestLogs'],
+            'prune API request logs' => [new PruneApiRequestLogs, 'PruneApiRequestLogs'],
             'auto close inactive tickets' => [new CloseInactiveTickets, 'CloseInactiveTickets'],
             'export activity log' => [new ExportActivityLog([]), 'ExportActivityLog'],
             'prune expired blocked IPs' => [new PruneExpiredBlockedIps, 'PruneExpiredBlockedIps'],

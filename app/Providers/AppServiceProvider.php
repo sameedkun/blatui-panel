@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Support\ApiLogs\ApiLogBuffer;
+use App\Support\ApiLogs\RedisBuffer;
+use App\Support\ApiLogs\RequestRecorder;
+use App\Support\ApiLogs\SyncBuffer;
 use Carbon\CarbonImmutable;
 use Dedoc\Scramble\Scramble;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -26,6 +30,21 @@ class AppServiceProvider extends ServiceProvider
         // configureApiDocs() — must be called from register(), before
         // ScrambleServiceProvider::boot() checks the flag.
         Scramble::ignoreDefaultRoutes();
+
+        $this->registerApiLogging();
+    }
+
+    /**
+     * The API request log's per-request state (scoped, so it resets between
+     * requests under Octane) and its buffer driver — see config/api_logs.php.
+     */
+    protected function registerApiLogging(): void
+    {
+        $this->app->scoped(RequestRecorder::class);
+
+        $this->app->singleton(ApiLogBuffer::class, fn ($app) => config('api_logs.buffer') === 'sync'
+            ? $app->make(SyncBuffer::class)
+            : $app->make(RedisBuffer::class));
     }
 
     /**

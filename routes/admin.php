@@ -2,6 +2,9 @@
 
 use App\Livewire\Admin\Account\Index as AccountIndex;
 use App\Livewire\Admin\Administration\ActivityLogs\Index as ActivityLogsIndex;
+use App\Livewire\Admin\Administration\ApiLogs\Analytics as ApiLogsAnalytics;
+use App\Livewire\Admin\Administration\ApiLogs\Requests\Index as ApiLogRequestsIndex;
+use App\Livewire\Admin\Administration\ApiLogs\Requests\Show as ApiLogRequestsShow;
 use App\Livewire\Admin\Administration\Roles\Form as RolesForm;
 use App\Livewire\Admin\Administration\Roles\Index as RolesIndex;
 use App\Livewire\Admin\Administration\Staff\Form as StaffForm;
@@ -145,6 +148,26 @@ Route::middleware(['auth', 'panel', AuthenticateSession::class])->name('admin.')
     // ── Activity Logs (read-only audit trail) ──────────────────────────────
     Route::prefix('activity-logs')->name('activity-logs.')->middleware('permission:activity_logs.view')->group(function () {
         Route::get('/', ActivityLogsIndex::class)->name('index');
+    });
+
+    // ── API Logs (request log + analytics) ─────────────────────────────────
+    // `api_logs.view` grants both children's view permissions via the Gate::before
+    // module-view inheritance, so these check the child permissions directly.
+    Route::prefix('api-logs')->name('api-logs.')->group(function () {
+        Route::get('/', function () {
+            foreach (['requests' => 'admin.api-logs.requests.index', 'analytics' => 'admin.api-logs.analytics'] as $child => $route) {
+                if (request()->user()->can("api_logs.{$child}.view")) {
+                    return redirect()->route($route);
+                }
+            }
+            abort(403);
+        })->name('index');
+
+        Route::get('/requests', ApiLogRequestsIndex::class)->name('requests.index')->middleware('permission:api_logs.requests.view');
+        Route::get('/requests/{requestId}', ApiLogRequestsShow::class)->name('requests.show')
+            ->middleware('permission:api_logs.requests.view')
+            ->where('requestId', 'req_[0-9A-Za-z]{26}');
+        Route::get('/analytics', ApiLogsAnalytics::class)->name('analytics')->middleware('permission:api_logs.analytics.view');
     });
 
     // ── Settings ──────────────────────────────────────────────────────────

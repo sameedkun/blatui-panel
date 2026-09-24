@@ -82,6 +82,8 @@ return [
             'general' => 'Genel',
             'mail' => 'E-posta',
             'policies' => 'Politikalar',
+            'requests' => 'İstekler',
+            'analytics' => 'Analitik',
         ],
         'actions' => [
             'view' => 'Görüntüle',

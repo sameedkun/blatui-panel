@@ -156,7 +156,7 @@
                 </x-ui.sidebar-menu>
             @endcanany
 
-            @if (auth()->user()->canAny(['staff.view', 'roles.view', 'activity_logs.view']) || auth()->user()->canAccessModule('settings'))
+            @if (auth()->user()->canAny(['staff.view', 'roles.view', 'activity_logs.view']) || auth()->user()->canAccessModule('settings') || auth()->user()->canAccessModule('api_logs'))
                 <x-ui.sidebar-group-label>{{ __('navigation.groups.administration') }}</x-ui.sidebar-group-label>
 
                 <x-ui.sidebar-menu>
@@ -187,6 +187,31 @@
                             </x-ui.sidebar-menu-button>
                         </x-ui.sidebar-menu-item>
                     @endcan
+
+                    @if (auth()->user()->canAccessModule('api_logs'))
+                        <x-ui.sidebar-menu-item>
+                            <x-ui.sidebar-menu-button href="{{ route('admin.api-logs.index') }}" :isActive="request()->routeIs('admin.api-logs.*')">
+                                <x-lucide-activity />
+                                <span>{{ __('navigation.modules.api_logs') }}</span>
+                            </x-ui.sidebar-menu-button>
+                            <x-ui.sidebar-menu-sub>
+                                @can('api_logs.requests.view')
+                                    <x-ui.sidebar-menu-sub-item>
+                                        <x-ui.sidebar-menu-sub-button href="{{ route('admin.api-logs.requests.index') }}" :isActive="request()->routeIs('admin.api-logs.requests.*')">
+                                            <span>{{ __('navigation.modules.api_log_requests') }}</span>
+                                        </x-ui.sidebar-menu-sub-button>
+                                    </x-ui.sidebar-menu-sub-item>
+                                @endcan
+                                @can('api_logs.analytics.view')
+                                    <x-ui.sidebar-menu-sub-item>
+                                        <x-ui.sidebar-menu-sub-button href="{{ route('admin.api-logs.analytics') }}" :isActive="request()->routeIs('admin.api-logs.analytics')">
+                                            <span>{{ __('navigation.modules.api_log_analytics') }}</span>
+                                        </x-ui.sidebar-menu-sub-button>
+                                    </x-ui.sidebar-menu-sub-item>
+                                @endcan
+                            </x-ui.sidebar-menu-sub>
+                        </x-ui.sidebar-menu-item>
+                    @endif
 
                     @if (auth()->user()->canAccessModule('settings'))
                         <x-ui.sidebar-menu-item>

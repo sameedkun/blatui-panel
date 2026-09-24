@@ -59,6 +59,12 @@ return [
         'Alert' => 'Uyarı',
     ],
 
+    'api_stats_period' => [
+        'Hour' => 'Saatlik',
+        'Day' => 'Günlük',
+        'Month' => 'Aylık',
+    ],
+
     'device_type' => [
         'Mobile' => 'Mobil',
         'Tablet' => 'Tablet',

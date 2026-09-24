@@ -64,7 +64,7 @@ Key state, all first-class on the model:
 `config/panel.php` is the single source of truth for the whole RBAC surface:
 - `modules` — each entry (`users`, `guests`, `plans`, `subscriptions`, `tickets`, `ticket_categories`,
   `devices`, `blocked-ips`, `webhook_notifications`, `languages`, `feedback`, `announcements`,
-  `staff`, `roles`, `activity_logs`, `dashboard`, `settings`, `logs`, `api_docs`)
+  `staff`, `roles`, `activity_logs`, `api_logs`, `dashboard`, `settings`, `logs`, `api_docs`)
   declares its allowed `actions` from a fixed `action_vocabulary` (`view`, `create`, `edit`,
   `delete`, `restore`, `force-delete`, `ban`, `unban`, `export`, `import`, `manage`, `access`,
   `reply`, `assign`, `convert`, `merge`), plus optional `children` sub-modules (`general`, `mail`, `policies`, `storage`, `authentication`). Permissions are generated as `{module}.{action}` or `{module}.{child}.{action}`.
@@ -1300,6 +1300,113 @@ group in `bootstrap/app.php` rather than being route-scoped.
   trusted, same spirit as `TicketPriority` never being client-settable on ticket creation). `type`
   is optional and validated against `App\Enum\FeedbackType`, defaulting to `general`.
 
+## API request logging
+
+Every request targeting the API surface (`ApiRequest::targets()`) is identified, recorded and
+rolled up in-house — the bilfeldt request-logger/route-statistics/correlation-id packages were
+evaluated and rejected (synchronous per-request INSERT, key-name-only masking, no duration in
+stats, single aggregation granularity, no retention tiers). Configured entirely by
+`config/api_logs.php`.
+
+- **IDs** — `App\Http\Middleware\AssignRequestIds` is **global** (prepended first in
+  `bootstrap/app.php`, not in the `api` group) so unmatched routes, `CheckBlockedIp` rejections and
+  laravel-apiroute version errors still get them; a no-op outside the API. Request id `req_`+ULID is
+  always server-generated (a client `X-Request-Id` is ignored); correlation id is the client's
+  `X-Correlation-Id` when it matches `^[A-Za-z0-9_-]{8,64}$`, else `cor_`+ULID. Both are echoed as
+  response headers and put in Laravel `Context` (`App\Support\ApiLogs\RequestIds` holds the
+  keys/headers) — so they're on every log line and carried into queued jobs. The same middleware
+  stamps a top-level `request_id` onto **every** error envelope (`{"status": false, ...}` with
+  status ≥ 400), covering `ApiController::error()`, `ApiExceptionRenderer`, and the hand-built
+  responses in `CheckBlockedIp`/`EnsureDeviceIsValid` in one place. `ActivityLogger::log()` adds
+  `request_id`/`correlation_id` to `properties` whenever Context has them.
+- **Capture** — `App\Http\Middleware\LogApiRequest` (global, right after `AssignRequestIds`) only
+  starts `App\Support\ApiLogs\RequestRecorder` (a `scoped` singleton: timings, DB query
+  count/time, slow-query SQL without bindings, reported exceptions) in `handle()`. All work happens
+  in `terminate()` — after FPM has sent the response — via `RecordBuilder` (sampling, sanitizing,
+  payload decision, exception serialization), then one `ApiLogBuffer::push()`. Every step is in a
+  try/catch: a logging failure is dropped with a rate-limited warning, never surfaced.
+  `RequestRecorder` registers its `DB::listen`/`RouteMatched` listeners lazily, once per event
+  dispatcher, so queue workers/console never pay for them. Exceptions arrive via a
+  `$exceptions->report()` hook in `bootstrap/app.php` (no-op outside an API request).
+  `EnsureDeviceIsValid` stashes the resolved device on `$request->attributes` (`user_device`) so the
+  log needs no second lookup; the user/token are read only from guards that already resolved one.
+- **Buffer** — `ApiLogBuffer` bound in `AppServiceProvider::registerApiLogging()` from
+  `api_logs.buffer`: `RedisBuffer` (default — one RPUSH per request; `FlushApiRequestLogs` pops
+  batches atomically via MULTI LRANGE+LTRIM and bulk-inserts through `ApiLogWriter`) or
+  `SyncBuffer` (writes straight from terminate — **`phpunit.xml` sets `API_LOG_BUFFER=sync`**).
+- **Sanitizing** — `App\Support\ApiLogs\Sanitizer`, rules in `api_logs.sanitizer`. Secrets are
+  fully `[REDACTED]` (headers by name; body/query keys by normalized substring or exact match;
+  JWT/bearer/Sanctum-token/Luhn-card-shaped values under any key). `Authorization` keeps the Sanctum
+  token id (`Bearer 42|[REDACTED]`). Personal data is **partially** masked (`j***@gmail.com`,
+  `+92******4567`, `S***** C***`, `1990-**-**`), and any email-shaped value is masked under any key.
+  Route parameters named like a secret (the verify link's `{hash}`) are redacted out of the stored
+  `path`. Uploaded files are described (name/size/mime), never stored. Bodies over
+  `max_body_kb` are stored as a truncated JSON *string* with a `*_truncated` flag.
+- **Sampling** — `SamplingPolicy`: `API_LOG_SAMPLE_RATE` (default 100) with optional per-status-class
+  overrides (`API_LOG_SAMPLE_RATE_2XX` …). Requests with an exception, an error code, or slower than
+  `slow_request_ms` are always kept. Kept rows carry `sample_weight = 100/rate`, and aggregation
+  sums weights, so stats stay accurate once sampling is turned on.
+- **Tables** (one migration; **every table keyed by `request_id`**, no FKs):
+  `api_request_logs` (narrow, filterable row; 7 days), `api_request_payloads` (0..1 per request,
+  PK `request_id`, only written when there's a body/query, status ≥ 400, slow queries, a non-GET/HEAD
+  method, or `capture.successful_reads`/`capture.always` says so; 7 days), `api_request_exceptions`
+  (0..n, denormalized request identity + `fingerprint` = sha1(class|file|line), trace frames without
+  args; 30 days), `api_request_stats` (`period` hour/day/month via `App\Enum\ApiStatsPeriod`,
+  unique `(period, bucket, method, route_uri, status_code)` with `status_class` stored alongside and
+  indexed; latency histogram columns `h_le_{10…10000}`/`h_inf` — non-cumulative, so rollups are plain
+  `SUM()` and `ApiRequestStat::percentileFromHistogram()` reads p50/p95/p99 off them). Models live in
+  `App\Models\ApiLog\`. `DeletionService::deleteRelatedData()` nulls `user_id` on logs/exceptions.
+- **Aggregation** — `App\Services\ApiLog\AggregationService`: raw → hour → day → month. Each bucket is
+  rebuilt wholesale (delete+insert) from its source, so reruns are idempotent; the walk jumps between
+  buckets that actually have source rows, and each scheduled run re-walks a 3-bucket trailing window
+  (catches late-flushed rows) or further back when behind (capped at 336 buckets/run). Bucket bounds
+  are bound parameters — no driver-specific date SQL. `api-logs:aggregate --from= --to=` backfills.
+- **Retention** — `RetentionService` (`api_logs.retention`): raw+payloads 7d, exceptions 30d, hour
+  stats 90d, day stats 365d, month forever. A tier is never pruned past the last bucket the next tier
+  has built (and not at all, with a warning, if that tier is empty), with cutoffs aligned to that
+  tier's bucket boundary — a stalled aggregator delays pruning, never loses data. Deletes are chunked.
+
+### Admin UI (`app/Livewire/Admin/Administration/ApiLogs/`)
+
+Module `api_logs` (group `administration`) with base action `view` plus children
+`requests: [view, manage]` and `analytics: [view]` — `api_logs.view` grants both children's `view`
+via the `Gate::before` module-view inheritance; **`api_logs.requests.manage` (stored headers/bodies,
+"Copy as cURL") is in `admin_excluded_permissions`**. Routes `admin.api-logs.{index,requests.index,
+requests.show,analytics}` — `index` redirects to the first child the viewer can open; `requests.show`
+takes `{requestId}` (constrained to `req_` + 26 chars), **not** route-model binding. Sidebar: an
+"API Logs" item with a Requests/Analytics sub-menu (`x-ui.sidebar-menu-sub`) under Administration,
+shown via `canAccessModule('api_logs')`. Translations in `lang/{en,tr}/api_logs.php`.
+- **`Requests\Index`** (`BaseIndex`, 25/page) — defaults to the last 24h (`period` filter; reset
+  restores it, not "everything"), 15 filters (period, date range, method, status class/code, endpoint
+  and version pick-lists cached 5 min, user email/type, IP, correlation, error code, min duration,
+  client, has-exception). Search matches request/correlation id or IP exactly, path by `LIKE`; an
+  exact `req_…` id **redirects straight to the detail page**. Deep links `?correlation=`/`?ip=`/
+  `?user_id=`/`?route=` pre-fill filters and widen the window to 7d. Sort is whitelisted
+  (`created_at`/`duration_ms`/`status_code`). Optional 5s auto-refresh. Stat cards read
+  `ApiLogAnalytics::kpis('24h')`.
+- **`Requests\Show`** (`BaseShow` + `HasShowTabs`) — tabs Overview (summary, identifiers, the
+  correlation's other requests as a timeline), Request/Response (`manage` only; headers, query,
+  bodies, truncated bodies shown as raw text, a sanitized "Copy as cURL"), User (account + profile
+  link by type/permission, token id, device, parsed User-Agent), Timeline (lifecycle waterfall from
+  `timings`, DB time, slow queries, audit entries matched on `activity_log.properties->request_id`
+  within the request's window), Exceptions (only when present; app vs vendor frames, previous chain,
+  other requests with the same fingerprint). When the raw row has been pruned but its exception
+  rows (30-day retention) remain, the page opens in an **expired** mode built from the exception.
+- **`Analytics`** — `#[Url] range` over `App\Support\ApiLogs\AnalyticsRange` (1h live with 15s
+  poll, 6h, 24h, 7d, 30d, 90d, 1y, all). Every number comes from **`ApiLogAnalytics`**, which answers
+  a range from its rollup tier for already-built buckets and **stitches the finer tiers down to raw
+  for the tail** (so "30 days" is current to the minute, and a tier nobody has aggregated yet just
+  falls back to finer data); raw rows are bucketed per minute with the one driver-specific SQL
+  expression here. KPIs, requests-over-time by status class, latency over time (avg/p50/p95),
+  status-code donut, methods/versions/clients, slowest / most-erroring / busiest endpoints, top
+  exceptions by fingerprint, and raw-only breakdowns (error codes, top IPs, top users, clients,
+  unique users) that return `null` — "available up to N days" — once a range passes raw retention.
+  Results are cached 10s–5min by range. Charts are wrapped in a `wire:key` hashing their data so
+  Alpine re-initialises them when a range change or live poll changes the series.
+- Shared Blade: `x-admin.copy-button`, `x-admin.api-logs.{status-badge,method-badge,json-block,
+  headers-table}`. `status-badge` is a plain span, not `x-ui.badge` — an attribute bag can't be
+  echoed inside another component's tag (Blade compile error).
+
 ## Routes
 
 - `routes/web.php` requires `auth.php` then `admin.php`.
@@ -1336,7 +1443,7 @@ group in `bootstrap/app.php` rather than being route-scoped.
   (index/create/edit/show), `subscriptions.*` (index/show only — `Subscription` rows are never
   created/edited/deleted via the panel, only through `SubscriptionService`), `staff.*`
   (index/create/edit — no show page, no delete route defined yet), `roles.*` (index/create/edit),
-  `activity-logs.*` (index only, read-only), `tickets.*` (index/create/show — no edit route; a
+  `activity-logs.*` (index only, read-only), `api-logs.*` (requests index/show + analytics, see "API request logging"), `tickets.*` (index/create/show — no edit route; a
   ticket's mutable fields all change via `Show` page actions, not a form), `ticket-categories.*`
   (index/create/edit), `devices.*` (index only, plus `shared-fingerprints` gated
   `devices.investigate`), `blocked-ips.*` (index only — create/edit/delete are drawer actions on
@@ -1397,6 +1504,14 @@ group in `bootstrap/app.php` rather than being route-scoped.
 - `PruneRevokedDevices` job — monthly, `withoutOverlapping()`, 1 retry, 300s timeout; delegates to
   `DeviceService::pruneRevoked()` — see "Device Management & IP Blocking" above.
 - `activitylog:clean` Artisan command (Spatie's built-in pruning) — weekly.
+- `FlushApiRequestLogs` job — every minute, `withoutOverlapping()`; drains the Redis API-log buffer
+  and re-dispatches itself when it stops at its batch cap with a backlog left. Deliberately **not**
+  sub-minute: any `everyTenSeconds()`-style task keeps every `schedule:run` alive for the whole
+  minute app-wide, and hangs forever under a frozen test clock (`travelTo()` + `schedule:run` in
+  `PurgeExpiredAccountsTest`). Also `php artisan api-logs:flush`.
+- `AggregateApiRequestStats` job — hourly at :05, `withoutOverlapping()`, 600s timeout.
+- `PruneApiRequestLogs` job — daily at 03:30, `withoutOverlapping()`, 600s timeout. See "API
+  request logging" above for both.
 
 All jobs log terminal failures to the daily `jobs` channel (`storage/logs/jobs-*.log`) with their
 class name and exception. Scheduled jobs read their own operational configuration at execution
@@ -1411,7 +1526,9 @@ app/
                    BillingInterval, PaymentProvider, SubscriptionStatus, CancelledBy, ReceiptType,
                    TicketStatus, TicketPriority, TicketMessageAuthorType, DeviceType,
                    AppleNotificationType, AppleNotificationSubtype,
-                   FeedbackType, FeedbackStatus, AnnouncementType, AnnouncementPushStatus
+                   FeedbackType, FeedbackStatus, AnnouncementType, AnnouncementPushStatus,
+                   ApiStatsPeriod (hour/day/month rollup granularity)
+  Console/Commands/ApiLogs/{FlushApiLogs,AggregateApiLogs}.php  api-logs:flush / api-logs:aggregate
   Exceptions/      DeviceLimitExceededException, DeviceBlockedException, TicketClosedException,
                    ProviderTokenInvalidException (thrown by Http/Controllers/Api/V1/Concerns/ResolvesSocialiteUser),
                    ProviderEmailUnverifiedException (thrown by GuestConversionService::convertWithProvider()
@@ -1436,7 +1553,8 @@ app/
                    parsing, used by both GuestController and SocialController
   Http/Middleware/ EnsurePanelAccess (alias: panel), EnsureDeviceIsValid (alias: device.valid),
                    EnsureUserType (alias: user.type — which UserTypes may reach a route, see "Guest self-service API" above)
-                   CheckBlockedIp (prepended to the global `api` middleware group)
+                   CheckBlockedIp (prepended to the global `api` middleware group),
+                   AssignRequestIds + LogApiRequest (global, prepended first — see "API request logging")
   Http/Requests/V1/Concerns/DetectsBrowserClient.php  X-Client-Type: web header check, shared by
                    LoginRequest and SocialLoginRequest
   Http/Requests/V1/Auth/{SignupRequest,LoginRequest,SocialLoginRequest,ResendVerificationRequest,ForgotPasswordRequest,ResetPasswordRequest}.php
@@ -1453,7 +1571,8 @@ app/
                    Auth/{PruneExpiredBlockedIps, RecordBlockedIpHit},
                    Device/{PruneRevokedDevices, ResolveDeviceLocation},
                    Announcement/SendPushNotification, Subscription/SyncSubscriptionStatuses,
-                   Ticket/{CloseInactiveTickets, PurgeClosedTickets}
+                   Ticket/{CloseInactiveTickets, PurgeClosedTickets},
+                   ApiLog/{FlushApiRequestLogs, AggregateApiRequestStats, PruneApiRequestLogs}
   Listeners/       AuthActivityListener
   Livewire/
     Auth/          Login, Logout, VerifyEmail, PasswordReset (reset-with-token form only)
@@ -1476,6 +1595,7 @@ app/
       Administration/Staff/                         Index, Form (staff CRUD + role assignment)
       Administration/Roles/                         Index, Form (role/permission-matrix CRUD)
       Administration/ActivityLogs/Index.php         read-only audit viewer
+      Administration/ApiLogs/                       Requests/{Index,Show}, Analytics — see "API request logging"
       Settings/                             BaseSettings, Index, General, Mail, Policies
   Mail/            Concerns/HasMailPurpose.php (trait for purpose-based mailables),
                    Auth/VerifyEmailMail.php, Auth/ResetPasswordMail.php, Support/TicketAutoClosedMail.php
@@ -1485,6 +1605,7 @@ app/
                    Language.php, Feedback.php, Announcement.php
     Webhooks/      AppleNotification.php (implements ProviderNotification; RevenueCat/Google/Stripe
                    are future additions in the same subnamespace, not yet built)
+    ApiLog/        ApiRequestLog, ApiRequestPayload, ApiRequestException, ApiRequestStat
   Notifications/   Auth/VerifyEmailNotification.php, Auth/ResetPasswordNotification.php,
                    Support/TicketAutoClosedNotification.php
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
@@ -1498,7 +1619,10 @@ app/
                    Auth/{UrlResolver, FindPasskeyToAuthenticateAction},
                    Device/{DeviceService, BrowserDeviceResolver, LocationService}, Mail/Configurator, Announcement/OneSignalService,
                    Subscription/{LifecycleService, SubscriptionService},
-                   Ticket/{AssignmentService, LifecycleService, TicketService}
+                   Ticket/{AssignmentService, LifecycleService, TicketService},
+                   ApiLog/{AggregationService, RetentionService}
+  Support/ApiLogs/ RequestIds, RequestRecorder, RecordBuilder, Sanitizer, SamplingPolicy,
+                   ApiLogBuffer (+ RedisBuffer, SyncBuffer), ApiLogWriter
   Support/Dashboard/ DateRange, DashboardMetrics, {Audience,Revenue,Support,Security,System}Metrics,
                    Concerns/BuildsTimeSeries (see "Dashboard" above)
   Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter, DeviceData,
@@ -1507,6 +1631,7 @@ app/
   Traits/          HasSubscriptions (mixed into User), HasFeatures (mixed into Plan)
 config/panel.php    RBAC modules/actions/children, grace period, export threshold, seeded admin creds
 config/apiroute.php grazulex/laravel-apiroute — API version registry (see "REST API" above)
+config/api_logs.php API request logging — buffer, sampling, capture, sanitizer rules, retention
 config/passkeys.php spatie/laravel-passkeys — only `actions.find_passkey` edited (see "Passkey
                     (WebAuthn) login" above), everything else vendor-default
 database/
@@ -1522,12 +1647,13 @@ database/
                      create_passkeys_table (vendor-published, unmodified),
                      languages_table, feedback_table, notifications_table (renamed to `announcements`
                      by a later migration — the `App\Models\Announcement` push-broadcast table,
-                     unrelated to Laravel's own notifications table, which this app doesn't use)
+                     unrelated to Laravel's own notifications table, which this app doesn't use),
+                     create_api_request_logs_tables (api_request_logs/_payloads/_exceptions/_stats)
   seeders/          DatabaseSeeder, RolesAndPermissionsSeeder (idempotent), UserSeeder,
                      EmailSendersSeeder (idempotent)
   factories/         one per model, incl. Plan/PlanPrice/PlanPriceProvider/Subscription/SubscriptionReceipt,
                      TicketCategory/Ticket/TicketMessage, UserDevice, BlockedIp, Webhooks/AppleNotification,
-                     Language, Feedback, Announcement
+                     Language, Feedback, Announcement, ApiLog/{ApiRequestLog,ApiRequestException,ApiRequestStat}
 resources/
   views/components/ui/       BlatUI copy-paste components (x-ui.*) — see CLAUDE.md BlatUI section;
                               `drawer` extended with the same id-driven open/close prop `dialog` has
@@ -1540,14 +1666,14 @@ resources/
 tests/
   Feature/           organized by delivery boundary:
     Api/              Authentication, Devices, Exceptions, Profile, Security, Subscriptions, Tickets,
-                      Feedback, Plans, Policies, Languages, Account, Guests
+                      Feedback, Plans, Policies, Languages, Account, Guests, Logging
     Admin/            Activity, Accounts/{Guests,Users}, Dashboard{,QueryCount}Test, Devices, Feedback,
                      Languages, Announcements, Plans, Settings, Staff, Support, Webhooks
     Auth/             panel authentication flows
     Jobs/             scheduled and queued job behavior
     Localization/     locale and translation coverage
     Models/           model behavior and relationships
-    Services/         Account, Auth, Devices, Mail
+    Services/         Account, ApiLog, Auth, Devices, Mail
   Unit/Support/       isolated support-class tests
   TestCase.php        shared Laravel test base
 ```

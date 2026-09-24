@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Services\Account;
 
+use App\Models\ApiLog\ApiRequestException;
+use App\Models\ApiLog\ApiRequestLog;
 use App\Models\User;
 use App\Notifications\Account\AccountDeletionScheduledNotification;
 use App\Services\Account\DeletionService;
@@ -152,6 +154,18 @@ class AccountDeletionTest extends TestCase
         $this->service()->instantPurgeByAdmin($user, 'Immediate removal');
 
         Storage::assertMissing($path);
+    }
+
+    public function test_purge_detaches_the_users_api_logs_without_deleting_them(): void
+    {
+        $user = User::factory()->app()->create();
+        $log = ApiRequestLog::factory()->forUser($user)->create();
+        $exception = ApiRequestException::factory()->create(['request_id' => $log->request_id, 'user_id' => $user->id]);
+
+        $this->service()->instantPurgeByAdmin($user, 'Immediate removal');
+
+        $this->assertNull($log->fresh()->user_id);
+        $this->assertNull($exception->fresh()->user_id);
     }
 
     public function test_purge_does_not_fail_for_a_user_without_an_avatar(): void

@@ -59,6 +59,12 @@ return [
         'Alert' => 'Alert',
     ],
 
+    'api_stats_period' => [
+        'Hour' => 'Hourly',
+        'Day' => 'Daily',
+        'Month' => 'Monthly',
+    ],
+
     'device_type' => [
         'Mobile' => 'Mobile',
         'Tablet' => 'Tablet',

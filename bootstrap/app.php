@@ -1,11 +1,14 @@
 <?php
 
 use App\Exceptions\Api\ApiExceptionRenderer;
+use App\Http\Middleware\AssignRequestIds;
 use App\Http\Middleware\CheckBlockedIp;
 use App\Http\Middleware\EnsureDeviceIsValid;
 use App\Http\Middleware\EnsurePanelAccess;
 use App\Http\Middleware\EnsureUserType;
+use App\Http\Middleware\LogApiRequest;
 use App\Http\Middleware\SetLocale;
+use App\Support\ApiLogs\RequestRecorder;
 use App\Support\ApiRequest;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -36,6 +39,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'user.type' => EnsureUserType::class,
         ]);
 
+        // Global, and first: gives every API request its request/correlation
+        // ids and API-log recording — including ones that never reach the
+        // `api` group (unmatched routes). Both no-op outside the API surface.
+        $middleware->prepend([AssignRequestIds::class, LogApiRequest::class]);
+
         // Runs before every API route's own middleware (e.g. auth:sanctum),
         // since it needs to reject a blocked IP before authentication even runs.
         $middleware->api(prepend: [CheckBlockedIp::class]);
@@ -43,6 +51,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [SetLocale::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Attaches reported exceptions to the current API request's log entry
+        // (a no-op outside one). Returns nothing, so default reporting continues.
+        $exceptions->report(function (Throwable $e): void {
+            app(RequestRecorder::class)->recordException($e);
+        });
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => ApiRequest::targets($request),
         );

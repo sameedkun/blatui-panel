@@ -45,6 +45,9 @@ class EnsureDeviceIsValid
 
         $this->devices->touch($device, $request->ip());
 
+        // Lets the API request log record the device without a second lookup.
+        $request->attributes->set('user_device', $device);
+
         return $next($request);
     }
 }

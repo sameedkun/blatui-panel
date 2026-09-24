@@ -240,6 +240,17 @@ return [
             'actions' => ['view', 'export'],
             'icon' => 'clipboard-list',
         ],
+        'api_logs' => [
+            'label' => 'API Logs',
+            'group' => 'administration',
+            'actions' => ['view'],
+            // requests.manage reveals stored (sanitized) headers and bodies.
+            'children' => [
+                'requests' => ['view', 'manage'],
+                'analytics' => ['view'],
+            ],
+            'icon' => 'activity',
+        ],
 
         'settings' => [
             'label' => 'Settings',
@@ -310,6 +321,9 @@ return [
         // A global IP block can lock out thousands of legitimate users at once
         // (carrier-NAT), so creating one is reserved for senior staff only.
         'blocked-ips.create-global',
+        // Stored request/response headers and bodies — sanitized, but still the
+        // most sensitive thing the API log holds.
+        'api_logs.requests.manage',
     ],
 
     /*

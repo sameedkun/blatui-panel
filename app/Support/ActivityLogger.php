@@ -6,6 +6,7 @@ use App\Enum\ActivityAction;
 use App\Enum\ActivityContext;
 use App\Enum\ActivityLogName;
 use App\Enum\ActivityModule;
+use App\Support\ApiLogs\RequestIds;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -66,6 +67,10 @@ class ActivityLogger
             'module' => $module->value,
             'context' => $context->value,
             ...self::requestMeta($context),
+            // Links the audit row back to the API request that caused it — or the
+            // request that dispatched this job, since Context is carried into jobs.
+            'request_id' => RequestIds::requestId(),
+            'correlation_id' => RequestIds::correlationId(),
         ]);
 
         $activity
