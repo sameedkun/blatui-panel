@@ -1,58 +1,148 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Admin Panel
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+[![Tests](https://github.com/sameedkun/blatui-panel/actions/workflows/tests.yml/badge.svg)](https://github.com/sameedkun/blatui-panel/actions/workflows/tests.yml)
 
-## About Laravel
+A Laravel admin panel for managing accounts, subscriptions, support tickets, and platform
+operations — built to be a solid, reusable starting point rather than a single-purpose app.
+It ships with permission-based RBAC, audit logging, device/session management, IP blocking,
+billing/subscription plumbing, a support-ticket system, and a tabbed analytics dashboard, all
+wired together so a new project can drop in its own product-specific modules on top.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+> New to this codebase? Read [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md) first — it's the fast
+> path to understanding what's actually built here. [`CLAUDE.md`](CLAUDE.md) documents the
+> coding conventions (audit logging, testing, code style) this project follows.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Stack
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- **PHP 8.4**, **Laravel 13**
+- **Livewire 4** + **Alpine.js v3** + **Tailwind CSS v4**
+- [`anousss007/blatui`](https://blatui.remix-it.com) — shadcn/ui-style, copy-paste Blade
+  components (owned in `resources/views/components/ui/`, not a runtime dependency)
+- `spatie/laravel-permission` (RBAC), `spatie/laravel-activitylog` (audit trail),
+  `spatie/laravel-passkeys` (WebAuthn login), `laravel/sanctum` (API auth),
+  `laravel/socialite` (Google/Apple sign-in)
+- `grazulex/laravel-apiroute` for versioned REST API routes, `dedoc/scramble` for
+  auto-generated OpenAPI docs, `opcodesio/log-viewer` for in-app log browsing
+
+## What's included
+
+- **Three account types, one table** — app users, guests, and staff, with ban/soft-delete/
+  grace-period-deletion lifecycles and full audit trails.
+- **Permission-driven RBAC** — every module, action, and route is gated by a generated
+  `{module}.{action}` permission (see `config/panel.php`), not by role name checks.
+- **Plans, subscriptions & billing lifecycle** — plan/price management, subscription
+  assignment/upgrade/cancellation, and a scheduled job that drives trial → active → grace →
+  expired transitions.
+- **Support tickets** — categories with agent pools, load-balanced auto-assignment, file
+  attachments, and inactivity/auto-close sweeps.
+- **Device management & IP blocking** — per-device session tracking, device limits, and
+  global/per-user IP blocks enforced at the middleware layer.
+- **Tabbed analytics dashboard** — audience, revenue, support, security, and system metrics,
+  each gated by permission and loaded lazily per tab.
+- **Versioned REST API** (`/api/v1/...`) — signup/login, self-service profile, devices,
+  subscriptions, tickets, feedback, and a public content catalog, with auto-generated OpenAPI
+  docs.
+- **Request logging & analytics** — every API request sampled, sanitized, and rolled up into
+  hourly/daily/monthly stats with its own admin viewer.
+
+## Requirements
+
+- PHP 8.4+ with the extensions Laravel 13 expects (`mbstring`, `pdo`, `bcmath`, `intl`, `gd`, `zip`, ...)
+- Composer 2
+- Node.js 22+ and npm
+- MySQL (or another Laravel-supported database) for local development — the test suite runs
+  against an in-memory SQLite database, so no database server is required just to run tests
+- Redis (used for caching, queues, and the API request-log buffer in production-like setups)
+
+## Getting started
+
+Clone the repo, then either use the one-shot setup script or the manual steps below.
+
+```bash
+composer run setup
+```
+
+This copies `.env.example` to `.env`, generates an app key, runs migrations, and builds
+frontend assets. Or, step by step:
+
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
+
+# configure DB_* and other services in .env, then:
+php artisan migrate
+
+npm install
+npm run build
+```
+
+Seed roles/permissions and a starter admin account:
+
+```bash
+php artisan db:seed
+```
+
+### Running the app
+
+```bash
+composer run dev
+```
+
+This starts the PHP dev server, a queue listener, `pail` (log tailing), and Vite concurrently.
+If you're using [Laravel Herd](https://herd.laravel.com), the site is already served at your
+configured `.test` domain and you don't need `php artisan serve` — just run `npm run dev` (or
+`composer run dev` minus the server process) for asset watching.
+
+## Testing
+
+The full suite runs against an in-memory SQLite database with array/sync drivers, so it needs
+no external services:
+
+```bash
+composer test
+# or, to run a single file / filter:
+php artisan test --compact tests/Feature/Admin/Accounts/Users/UserFormTest.php
+php artisan test --compact --filter=testName
+```
+
+Code style is enforced with [Laravel Pint](https://laravel.com/docs/pint):
+
+```bash
+vendor/bin/pint
+```
+
+Static analysis is enforced with [Larastan](https://github.com/larastan/larastan) (PHPStan,
+level 5). Pre-existing findings are tracked in `phpstan-baseline.neon` so CI only fails on
+*new* issues — run it locally with:
+
+```bash
+composer analyse
+```
+
+When you fix a baselined issue, regenerate the baseline so it isn't silently reintroduced:
+
+```bash
+vendor/bin/phpstan analyse --generate-baseline
+```
+
+### Continuous integration
+
+Every pull request runs the full test suite, a Pint style check, and Larastan static analysis
+automatically via GitHub Actions — see
+[`.github/workflows/tests.yml`](.github/workflows/tests.yml). This keeps local runs fast for
+day-to-day development while still catching regressions before merge; you don't need to run
+the entire suite locally before opening a PR.
+
+## Agentic development
+
+This project ships [Laravel Boost](https://laravel.com/docs/ai) plus project-specific rules in
+[`CLAUDE.md`](CLAUDE.md), [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md), and `.ai/rules/`, so AI
+coding agents (Claude Code, Cursor, GitHub Copilot, etc.) have accurate, up-to-date context on
+this codebase's architecture and conventions out of the box.
 
 ## Learning Laravel
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
-```
-
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Laravel has extensive [documentation](https://laravel.com/docs) and a large ecosystem of
+learning resources — see [laravel.com/docs](https://laravel.com/docs) and
+[Laracasts](https://laracasts.com) if you're new to the framework itself.
