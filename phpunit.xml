@@ -31,6 +31,11 @@
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
+        <!-- Resend's transport requires a key just to construct, even when a test never
+             sends mail — MailConfiguratorTest deliberately switches mail.default to
+             "resend" to cover that driver, so a well-formed fake key keeps that path
+             testable without a real secret in version control. -->
+        <env name="RESEND_API_KEY" value="re_test_00000000000000000000000000"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
