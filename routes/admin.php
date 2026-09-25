@@ -15,7 +15,7 @@ use App\Livewire\Admin\Application\Feedback\Index as FeedbackIndex;
 use App\Livewire\Admin\Application\Feedback\Show as FeedbackShow;
 use App\Livewire\Admin\Application\Language\Form as LanguageForm;
 use App\Livewire\Admin\Application\Language\Index as LanguageIndex;
-use App\Livewire\Admin\Dashboard;
+use App\Livewire\Admin\Dashboard\Index as DashboardIndex;
 use App\Livewire\Admin\Management\BlockedIps\Form as BlockedIpsForm;
 use App\Livewire\Admin\Management\BlockedIps\Index as BlockedIpsIndex;
 use App\Livewire\Admin\Management\Devices\Index as DevicesIndex;
@@ -48,7 +48,7 @@ use Illuminate\Support\Facades\Route;
 // session and logs a session out when that hash no longer matches — so rotating
 // the hash (Auth::logoutOtherDevices) kills every other session on its next request.
 Route::middleware(['auth', 'panel', AuthenticateSession::class])->name('admin.')->group(function () {
-    Route::get('/dashboard', Dashboard::class)->name('dashboard');
+    Route::get('/dashboard', DashboardIndex::class)->name('dashboard');
 
     // ── Users ─────────────────────────────────────────────────────────────
     Route::prefix('users')->name('users.')->middleware('permission:users.view')->group(function () {

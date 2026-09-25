@@ -282,44 +282,10 @@ guests later is a one-line middleware-array edit, not a restructure.
 
 ## Dashboard
 
-`admin.dashboard` is a **tabbed** analytics page: a thin shell plus one Livewire component per
-tab, each with a single Blade view holding all of that tab's markup. Tabs exist for load, not
-just for tidiness — only the active tab runs queries, so opening the dashboard costs one tab
-(~15–24 queries) instead of every chart at once (~58).
-
-- **`App\Livewire\Admin\Dashboard`** — the shell. Owns the horizontal tab bar, the `#[Url]`-bound
-  `tab` and `range`, and cache invalidation. `tabs()` is the extension point: adding an area is one
-  entry there plus its component and view.
-- **Tabs** live in `app/Livewire/Admin/Dashboard/`, each with a matching view in
-  `resources/views/livewire/admin/dashboard/`:
-  - `Overview` — KPI cards, signup trend, audience split, platform health glance and the recent-activity feed.
-  - `Analytics` — trends over the range: revenue, churn, ticket volume, device registrations,
-    device types, platforms, top countries, activity by origin.
-  - `Reports` — current-state breakdowns and record listings: plan distribution, subscription
-    statuses, trial conversion, agent workload, oldest tickets, blocked IPs, device risk, recent
-    subscriptions.
-  - `System` — application runtime telemetry, database table row counts, queue worker status, failed jobs monitor, and scheduler heartbeat.
-  - `Infrastructure` — white-label external target node fleet console (regional edge nodes, egress bandwidth, latency stats, and cluster capacity gauges). Reserved for external estate (VPN node fleets, inference workers, regional capacity) when deployed for infrastructure management.
-- Each tab carries `#[Lazy]` and a `placeholder()` returning the shared skeleton, so the shell
-  paints immediately. **In tests, `Livewire::test()` on these renders only the placeholder** —
-  `Livewire::withoutLazyLoading()` must be called immediately before *each* `test()` call (it
-  applies to the next call only), or assertions silently measure an empty skeleton.
-- **Permission gating happens before the query, not after.** Each tab resolves a payload to `null`
-  when the viewer lacks its permission, and the view skips the whole card — a staff member cleared
-  for nothing runs 0 metric queries (asserted in `DashboardQueryCountTest`). Note the `/dashboard`
-  route itself carries **no** `permission:dashboard.view` middleware, unlike every other admin
-  group, so panel access alone reaches the page; it degrades to just the ungated cards.
-- **Metrics** live in five domain classes under `App\Support\Dashboard\` (`Audience`, `Revenue`,
-  `Support`, `Security`, `System`), composed by `DashboardMetrics`, which also owns caching
-  (`panel.dashboard_cache_seconds`, default 300; `0` disables). Cache keys are namespaced per tab
-  (`overview.*`, `analytics.*`, `reports.*`) and include the locale, since payloads embed translated
-  axis labels. Payloads carrying Eloquent models are never cached.
-- **`Concerns\BuildsTimeSeries`** pre-seeds every bucket in a range at zero before overlaying query
-  rows, so a quiet day never silently vanishes from a chart's x-axis. Its
-  `dateBucketExpression()`/`minutesBetweenExpression()` emit **driver-specific SQL** — `DATE_FORMAT`
-  and `TIMESTAMPDIFF` are MySQL-only and the suite runs on SQLite, so any new date aggregation must
-  go through these helpers. Same reason `SystemMetrics::activityByContext()` counts per enum case
-  via the portable `properties->context` operator instead of one `JSON_UNQUOTE` GROUP BY.
+`admin.dashboard` (`App\Livewire\Admin\Dashboard\Index`) is currently a bare placeholder page —
+title and description only, no tabs, no metrics. The prior tabbed analytics dashboard (shell +
+Overview/Analytics/Reports/System/Infrastructure tabs, `App\Support\Dashboard\*` metric classes,
+`DashboardQueryCountTest`) was torn out; rebuilding real dashboard content is future work.
 
 ### Charting gotchas (all three cost real debugging time)
 
@@ -1577,8 +1543,7 @@ app/
   Livewire/
     Auth/          Login, Logout, VerifyEmail, PasswordReset (reset-with-token form only)
     Admin/         BaseIndex, BaseForm, BaseShow + Concerns/ (shared traits)
-      Dashboard.php                         tabbed dashboard shell (tab bar + range + cache flush)
-      Dashboard/                            Overview, Analytics, Reports, Infrastructure (lazy tabs)
+      Dashboard/Index.php                    placeholder dashboard page (title + description only)
       Account/Index.php                     self-service account page (incl. passkey management)
       Management/Users/                     Index, Show, Form + Concerns/HandlesUserRowActions
       Management/Guests/                    Index, Show + Concerns/HandlesGuestRowActions
@@ -1623,8 +1588,6 @@ app/
                    ApiLog/{AggregationService, RetentionService}
   Support/ApiLogs/ RequestIds, RequestRecorder, RecordBuilder, Sanitizer, SamplingPolicy,
                    ApiLogBuffer (+ RedisBuffer, SyncBuffer), ApiLogWriter
-  Support/Dashboard/ DateRange, DashboardMetrics, {Audience,Revenue,Support,Security,System}Metrics,
-                   Concerns/BuildsTimeSeries (see "Dashboard" above)
   Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter, DeviceData,
                    WebhookNotificationRegistry (provider → notification-model registry),
                    ApiRequest (decides whether a request targets the API surface — see "REST API")
@@ -1667,7 +1630,7 @@ tests/
   Feature/           organized by delivery boundary:
     Api/              Authentication, Devices, Exceptions, Profile, Security, Subscriptions, Tickets,
                       Feedback, Plans, Policies, Languages, Account, Guests, Logging
-    Admin/            Activity, Accounts/{Guests,Users}, Dashboard{,QueryCount}Test, Devices, Feedback,
+    Admin/            Activity, Accounts/{Guests,Users}, Devices, Feedback,
                      Languages, Announcements, Plans, Settings, Staff, Support, Webhooks
     Auth/             panel authentication flows
     Jobs/             scheduled and queued job behavior
