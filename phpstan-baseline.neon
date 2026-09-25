@@ -857,15 +857,3 @@ parameters:
 			identifier: staticClassAccess.privateMethod
 			count: 2
 			path: app/Support/BlockedIpCache.php
-
-		-
-			message: '#^Called ''count'' on Laravel collection, but could have been retrieved as a query\.$#'
-			identifier: larastan.noUnnecessaryCollectionCall
-			count: 1
-			path: app/Support/Dashboard/SecurityMetrics.php
-
-		-
-			message: '#^Type object in generic type Illuminate\\Database\\Eloquent\\Collection\<int, object\> in PHPDoc tag @return is not subtype of template type TModel of Illuminate\\Database\\Eloquent\\Model of class Illuminate\\Database\\Eloquent\\Collection\.$#'
-			identifier: generics.notSubtype
-			count: 1
-			path: app/Support/Dashboard/SystemMetrics.php
