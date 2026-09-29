@@ -149,4 +149,28 @@ return [
         'Refund' => 'İade',
         'Cancellation' => 'İptal',
     ],
+
+    'report_format' => [
+        'Csv' => 'CSV',
+        'Xlsx' => 'Excel',
+        'Pdf' => 'PDF',
+    ],
+
+    'report_status' => [
+        'Pending' => 'Sırada',
+        'Processing' => 'Oluşturuluyor',
+        'Completed' => 'Hazır',
+        'Failed' => 'Başarısız',
+    ],
+
+    'report_frequency' => [
+        'Daily' => 'Günlük',
+        'Weekly' => 'Haftalık',
+        'Monthly' => 'Aylık',
+    ],
+
+    'report_source' => [
+        'Manual' => 'İsteğe bağlı',
+        'Scheduled' => 'Zamanlanmış',
+    ],
 ];

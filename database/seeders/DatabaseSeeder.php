@@ -26,6 +26,8 @@ class DatabaseSeeder extends Seeder
         if (app()->isLocal()) {
             User::factory(20)->create();
             $this->call(DeviceManagementDemoSeeder::class);
+            // A year of users, billing, support, security and API traffic for the dashboard.
+            $this->call(DashboardDemoSeeder::class);
         }
     }
 }

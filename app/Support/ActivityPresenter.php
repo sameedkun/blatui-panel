@@ -145,6 +145,26 @@ class ActivityPresenter
     }
 
     /**
+     * An activity's headline — icon, tone and title — without the detail rows
+     * (which may resolve the subject/causer), for compact feeds such as the
+     * dashboard's recent-activity list.
+     *
+     * @return array{icon: string, tone: string, title: string}
+     */
+    public static function headline(Activity $activity): array
+    {
+        /** @var array<string, mixed> $properties */
+        $properties = $activity->properties->toArray();
+        $kind = self::kind((string) $activity->event, $properties);
+
+        return [
+            'icon' => self::icon($kind),
+            'tone' => self::tone($kind),
+            'title' => self::title($kind, $properties),
+        ];
+    }
+
+    /**
      * A single 'updated' activity may represent a profile edit, a password
      * change, or both at once (see HandlesUserRowActions / Form::save()) — this
      * collapses that into a distinct display "kind" so a password-only update
@@ -218,6 +238,12 @@ class ActivityPresenter
 
         if (($properties['module'] ?? null) === 'webhook_notification') {
             return 'webhook_notification_redispatched';
+        }
+
+        // Dashboard reports always carry their specific kind in `type`
+        // (report_generated, report_sent, report_scheduled, …).
+        if (($properties['module'] ?? null) === 'report' && is_string($type) && str_starts_with($type, 'report_')) {
+            return $type;
         }
 
         if (($properties['module'] ?? null) === 'setting') {
@@ -300,6 +326,10 @@ class ActivityPresenter
             'blocked_ip_updated' => 'pencil',
             'blocked_ip_deleted' => 'shield-check',
             'webhook_notification_redispatched' => 'refresh-cw',
+            'report_generated' => 'file-chart-column',
+            'report_deleted', 'report_schedule_deleted' => 'file-x',
+            'report_sent' => 'send',
+            'report_scheduled', 'report_schedule_updated' => 'calendar-clock',
             default => 'activity',
         };
     }
@@ -331,6 +361,9 @@ class ActivityPresenter
             'device_blocked', 'blocked_ip_created' => 'danger',
             'logout', 'device_unblocked', 'device_revoked', 'blocked_ip_deleted' => 'warning',
             'blocked_ip_updated', 'webhook_notification_redispatched' => 'info',
+            'report_generated', 'report_scheduled', 'report_sent' => 'success',
+            'report_schedule_updated' => 'info',
+            'report_deleted', 'report_schedule_deleted' => 'danger',
             default => 'muted',
         };
     }

@@ -15,7 +15,9 @@ use App\Livewire\Admin\Application\Feedback\Index as FeedbackIndex;
 use App\Livewire\Admin\Application\Feedback\Show as FeedbackShow;
 use App\Livewire\Admin\Application\Language\Form as LanguageForm;
 use App\Livewire\Admin\Application\Language\Index as LanguageIndex;
+use App\Livewire\Admin\Dashboard\Analytics as DashboardAnalytics;
 use App\Livewire\Admin\Dashboard\Index as DashboardIndex;
+use App\Livewire\Admin\Dashboard\Reports as DashboardReports;
 use App\Livewire\Admin\Management\BlockedIps\Form as BlockedIpsForm;
 use App\Livewire\Admin\Management\BlockedIps\Index as BlockedIpsIndex;
 use App\Livewire\Admin\Management\Devices\Index as DevicesIndex;
@@ -48,7 +50,15 @@ use Illuminate\Support\Facades\Route;
 // session and logs a session out when that hash no longer matches — so rotating
 // the hash (Auth::logoutOtherDevices) kills every other session on its next request.
 Route::middleware(['auth', 'panel', AuthenticateSession::class])->name('admin.')->group(function () {
+    // ── Dashboard ─────────────────────────────────────────────────────────
+    // The Overview is every staff member's landing page, so it carries no
+    // permission of its own — each widget is gated on its data instead.
+    // `dashboard.view` grants both children's view via Gate::before inheritance.
     Route::get('/dashboard', DashboardIndex::class)->name('dashboard');
+    Route::prefix('dashboard')->name('dashboard.')->group(function () {
+        Route::get('/analytics', DashboardAnalytics::class)->name('analytics')->middleware('permission:dashboard.analytics.view');
+        Route::get('/reports', DashboardReports::class)->name('reports')->middleware('permission:dashboard.reports.view');
+    });
 
     // ── Users ─────────────────────────────────────────────────────────────
     Route::prefix('users')->name('users.')->middleware('permission:users.view')->group(function () {

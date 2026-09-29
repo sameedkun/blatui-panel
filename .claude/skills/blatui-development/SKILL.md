@@ -26,7 +26,6 @@ component package — editing a component file is the supported way to customize
    ```shell
    php artisan blatui:add <name> [<name> ...]
    php artisan blatui:list          # all available families
-
    ```
 3. **Use them** in Blade:
    ```blade
@@ -58,9 +57,7 @@ Full-page **blocks** (dashboards, auth, marketing, pricing, sidebars, calendars)
 **charts** (ApexCharts) are not bundled with the CLI but are installable from the registry:
 
 ```shell
-
 # Read a block/chart and write each files[].content to its files[].target:
-
 curl https://blatui.remix-it.com/r/blocks/dashboard-01.json
 curl https://blatui.remix-it.com/r/charts/chart-area-default.json
 ```

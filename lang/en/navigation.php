@@ -12,6 +12,9 @@ return [
     ],
     'modules' => [
         'dashboard' => 'Dashboard',
+        'dashboard_overview' => 'Overview',
+        'dashboard_analytics' => 'Analytics',
+        'dashboard_reports' => 'Reports',
         'users' => 'Users',
         'guests' => 'Guests',
         'plans' => 'Plans',

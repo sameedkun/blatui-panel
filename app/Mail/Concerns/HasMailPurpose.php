@@ -28,9 +28,9 @@ trait HasMailPurpose
      */
     public function configurePurposeSender(?MailPurpose $purpose = null): static
     {
-        $targetPurpose = $purpose
-            ?? ($this->purpose ?? null)
-            ?? MailPurpose::Default;
+        // Every mailable using this trait declares `protected MailPurpose $purpose`
+        // (see the usage example above), so it is always set.
+        $targetPurpose = $purpose ?? $this->purpose;
         $sender = app(Configurator::class)->getSender($targetPurpose);
 
         if (! empty($sender['address'])) {

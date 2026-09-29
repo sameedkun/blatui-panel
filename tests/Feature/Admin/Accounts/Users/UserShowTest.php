@@ -11,7 +11,6 @@ use App\Models\BlockedIp;
 use App\Models\User;
 use App\Notifications\Auth\ResetPasswordNotification;
 use App\Notifications\Auth\VerifyEmailNotification;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\App;
@@ -192,10 +191,9 @@ class UserShowTest extends TestCase
         $this->actingAsSuperAdmin();
         $staffMember = User::factory()->create(['type' => 'staff', 'banned_at' => null]);
 
-        $this->expectException(ModelNotFoundException::class);
-
         Livewire::test(UsersIndex::class)
-            ->call('openBanDialog', $staffMember->id);
+            ->call('openBanDialog', $staffMember->id)
+            ->assertNotFound();
     }
 
     public function test_force_delete_row_action_rejects_a_staff_account_even_if_forged(): void
@@ -204,10 +202,9 @@ class UserShowTest extends TestCase
         $staffMember = User::factory()->create(['type' => 'staff', 'banned_at' => null]);
         $staffMember->delete();
 
-        $this->expectException(ModelNotFoundException::class);
-
         Livewire::test(UsersIndex::class)
-            ->call('confirmForceDelete', $staffMember->id);
+            ->call('confirmForceDelete', $staffMember->id)
+            ->assertNotFound();
     }
 
     public function test_bulk_ban_only_affects_app_users_even_if_a_staff_id_is_selected(): void

@@ -32,6 +32,8 @@ this repo — just the admin panel itself (`/*`) plus login/logout.
 - `dedoc/scramble` — auto-generated OpenAPI docs for the `v1` API, registered at `/docs/v1/api` /
   `/docs/v1/openapi.json` in `AppServiceProvider::configureApiDocs()`, gated by a `viewApiDocs`
   Gate (staff + not banned + `api_docs.access`; module `api_docs`, same group/exclusion as `logs`)
+- `openspout/openspout` (XLSX) and `spatie/laravel-pdf` + `dompdf/dompdf` (PDF) — dashboard report
+  writers; see "Dashboard" below (`config/laravel-pdf.php` published, default driver `dompdf`)
 - Laravel Boost (MCP dev-tooling), Pint, PHPUnit 12
 
 Dev loop: `composer run dev` runs server + queue listener + pail (log viewer) + vite concurrently.
@@ -282,10 +284,99 @@ guests later is a one-line middleware-array edit, not a restructure.
 
 ## Dashboard
 
-`admin.dashboard` (`App\Livewire\Admin\Dashboard\Index`) is currently a bare placeholder page —
-title and description only, no tabs, no metrics. The prior tabbed analytics dashboard (shell +
-Overview/Analytics/Reports/System/Infrastructure tabs, `App\Support\Dashboard\*` metric classes,
-`DashboardQueryCountTest`) was torn out; rebuilding real dashboard content is future work.
+Three sub-pages under one collapsible sidebar group (`x-admin.sidebar-collapsible` — a reusable
+expand/collapse sidebar item built from BlatUI's sidebar-menu parts; remembers its state in
+localStorage, expands the sidebar when clicked in icon mode). Tabs exist **only** inside Analytics,
+never across the three pages. Every page shares `x-admin.dashboard.header`.
+
+- **Overview** — `admin.dashboard` (`Livewire\Admin\Dashboard\Index`), every staff member's landing
+  page, so the route has no permission of its own; each widget is gated on its own data instead.
+  Fixed visual hierarchy: greeting header (client-clock greeting) + range picker + Refresh → KPI row
+  (4–5) → two trend charts (with previous-period overlay) → business status panels → recent activity
+  + quick actions → health snapshot (last 24h: API 5xx rate, p95, failed sign-ins, blocked IPs,
+  failed jobs). **The view variable is `$overview`, not `$slots`** — `$slots` is reserved by
+  Livewire 4's slot support and breaks the view.
+- **Analytics** — `admin.dashboard.analytics` (`dashboard.analytics.view`), `?tab=` + `?range=`
+  (`7d`/`30d`/`90d`/`12m`). One tab per section: Audience, Revenue, Subscriptions, Support, Security,
+  API (the API tab summarises `ApiLogAnalytics` and links to the full API Logs analytics page). Only
+  the active tab is built.
+- **Reports** — `admin.dashboard.reports` (`dashboard.reports.view`), tabs Generated (source filter
+  All/On-demand/Scheduled, polls while anything is queued) / Scheduled / Library. Generate dialog
+  (report, date presets + range, per-report filters, CSV/XLSX/PDF) and Schedule dialog (daily/weekly/
+  monthly at an hour, recipients). `?generate=1` opens the Generate dialog (Overview quick action).
+
+**Architecture — `app/Support/Dashboard/`, driven by `config/dashboard.php`.** The core is
+product-agnostic; an app adds its own analytics by appending classes to config — no Livewire/Blade:
+- `DashboardRegistry` (scoped) resolves config lists and filters each entry by the permission the
+  class declares: Overview widgets per slot (`Contracts\Widget`, base `Overview\OverviewWidget` —
+  `kpis`/`trends`/`status`/`activity`/`actions`/`health`), Analytics sections
+  (`Analytics\AnalyticsSection` — `build(DateRange): list<Blocks\Row>`), Report definitions
+  (`Reports\ReportDefinition` — columns, lazily-yielded rows, filters, summary). Quick actions are
+  plain config (`dashboard.overview_actions`: label key, route, icon, permission).
+- `Blocks\*` — plain, cacheable value objects each rendering through its own partial
+  (`livewire/admin/dashboard/blocks/*`): `Metric`, `Chart`, `BarList`, `Table`, `KeyFigures`, `Funnel`,
+  `Feed`, `StatusPanel`, `ActionList`, `HealthIndicator`; `Row` lays them out (`x-admin.dashboard.row`).
+  Links on blocks carry a permission checked at render time, so one cached payload serves every viewer.
+- `Metrics\{Audience,Revenue,Subscription,Support,Security}Metrics` — every query, shared by widgets,
+  sections and reports. Definitions worth knowing: "active user" = signed in during the window, read
+  from the auth audit trail (not `last_login`, which only holds the latest login); revenue =
+  `amount_paid` attributed to `starts_at`; MRR = list prices of subscriptions in a paid period at a
+  moment, normalised to a month (time-based, so it answers historical moments); cancellations =
+  `cancelled_by` set, **excluding `system`** (a plan replacement, not churn), dated by `updated_at`;
+  first response = first *staff* ticket message (system notes excluded).
+- `DateRange` (presets end now; `previous()` is the equally long window before; day buckets ≤92 days,
+  else month), `TimeSeries` (gap-free, driver-aware SQL bucketing; `alignPrevious()`), `Format`.
+- `DashboardCache` — per widget/section payloads, TTL `dashboard.cache_seconds` (300), locale in the
+  key, generation-counter invalidation (Refresh). **It serializes payloads itself**: the app keeps
+  `cache.serializable_classes = false`, so a store-serialized block would come back as
+  `__PHP_Incomplete_Class`; `DashboardCache` unserializes with an allow-list of only `Row`/`Block`
+  subclasses found in the payload.
+- Livewire: `Dashboard\{Index,Analytics,Reports}` + `Dashboard\Concerns\HasDashboardRange` (range
+  picker + Refresh shared by Overview/Analytics).
+
+**Reports backend.** `App\Models\Report\{GeneratedReport,ScheduledReport}` (tables
+`generated_reports` — ulid, report key, title, format, status, source, range, filters, file path/size,
+row count, error, requester, schedule, expires_at — and `scheduled_reports`). Enums `ReportFormat`,
+`ReportStatus`, `ReportFrequency` (each run covers the last *complete* day/Mon–Sun week/calendar month;
+`nextRunAfter()`), `ReportSource`. **`App\Services\Report\ReportService`** is the only place report
+state changes (request → queued `Jobs\Report\GenerateReport` → `generate()` writes via
+`Reports\Writers\{Csv,Xlsx,Pdf}Writer` to the **default disk** through plain `Storage` → retry/delete/
+prune; schedules save/toggle/delete/run; scheduled runs email `Mail\Report\ReportReadyMail`, attached
+up to `max_attachment_kb`, else linked). Writers (`ReportWriter::for()`): CSV native (UTF-8 BOM; cells
+starting with `= + - @` prefixed against formula injection); XLSX via **`openspout/openspout`** (streamed
+to disk, flat memory, bold/frozen/filterable heading, numeric cells, Summary sheet); PDF via
+**`spatie/laravel-pdf`** rendering the `reports.pdf` Blade view with whatever engine
+`config('laravel-pdf.driver')` names — published config defaults it to **`dompdf`** (pure PHP; the
+package's own default is browsershot), switchable to gotenberg/cloudflare/browsershot/chrome with
+`LARAVEL_PDF_DRIVER`, no code change. **DOMPDF memory gotcha**: it keeps the whole document's frame tree
+in memory (~0.15 MB and ~20 ms per 8-column row, measured) and one huge table blew a 128 MB queue
+worker inside `Cellmap.php`. So `PdfWriter` renders one page-sized `<table>` per page (page break
+between; one heading row per page), caps PDFs at `dashboard.reports.pdf_max_rows` (1000, the PDF
+notes when it's cut short — CSV/XLSX are unbounded), and raises `memory_limit` to
+`dashboard.reports.pdf_memory_limit` (512M) while rendering. PHP won't lower the limit below memory
+it still holds, so after a big PDF the raise can persist for that worker — `queue:work --memory`
+recycles it. Generation failures mark the row
+Failed (never throw); a worker timeout is caught by the job's `failed()`. Audited under
+`ActivityModule::Report` (`type`: `report_generated`/`report_deleted`/`report_sent`/
+`report_scheduled`/`report_schedule_updated`/`report_schedule_deleted`).
+
+**Demo data.** `Database\Seeders\DashboardDemoSeeder` (`php artisan db:seed --class=DashboardDemoSeeder`,
+also called by `DatabaseSeeder` locally) seeds a deterministic year of data for every page: ~450 app
+users with month-on-month growth, guests + conversions, sign-in/failed sign-in history with one spike,
+subscriptions in every state with renewal/refund receipts, support agents/categories/tickets with
+staff replies, devices, blocked IPs, suspensions, 30 days of API request logs rolled up through
+`AggregationService`, two report schedules and sample reports. Refuses production; skips itself when
+`@dashboard-demo.test` accounts exist; re-enables model events (it runs under `WithoutModelEvents`
+from `DatabaseSeeder`, but ULIDs come from `creating` hooks). History rows are bulk-inserted with
+explicit timestamps.
+
+**Permissions.** `dashboard` module: `view` + children `analytics: [view]`, `reports: [view, create,
+delete, manage]` (`dashboard.view` grants both children's view via `Gate::before`).
+`dashboard.reports.manage` (schedules email data outside the panel) is in
+`admin_excluded_permissions`. Sections/reports additionally require their data permission
+(`users.view`, `subscriptions.view`, `tickets.view`, `activity_logs.view`,
+`api_logs.analytics.view`); generated reports are only listed/downloadable for viewers holding
+their definition's permission.
 
 ### Charting gotchas (all three cost real debugging time)
 
@@ -308,7 +399,7 @@ Fully documented in `CLAUDE.md` under "Audit Logging" — read that section for 
 Quick orientation: everything funnels through `App\Support\ActivityLogger::log()` (or the
 `LogsAdminActivity` trait's `logActivity()`/`auditDiff()` convenience wrappers from Livewire).
 Four orthogonal axes, all enums in `app/Enum/`: `ActivityLogName` (category — Audit/Authentication/
-System), `ActivityModule` (feature — User/Guest/Staff/Role/Permission/Plan/Server/Ticket),
+System), `ActivityModule` (feature — User/Guest/Staff/Role/Permission/Plan/Server/Ticket/Report/…),
 `ActivityAction` (reusable verb — Created/Updated/Deleted/Banned/Converted/Merged/…),
 `ActivityContext` (originating runtime — Admin/Api/Scheduler/Queue/Console/Webhook, mostly
 auto-detected). The viewer + CSV export share one query builder, `App\Support\ActivityLogQuery`,
@@ -1404,7 +1495,8 @@ shown via `canAccessModule('api_logs')`. Translations in `lang/{en,tr}/api_logs.
   must do the same. Neither notification (`VerifyEmailNotification`/`ResetPasswordNotification`)
   makes the panel-vs-frontend choice itself — that logic lives solely in `UrlResolver`.
 - `routes/admin.php` — everything under `auth + panel + AuthenticateSession` middleware, name
-  prefix `admin.`: `dashboard`, `users.*` (index/create/edit/show, `withTrashed()` on show),
+  prefix `admin.`: `dashboard` (Overview, no permission) + `dashboard.analytics` /
+  `dashboard.reports` (see "Dashboard"), `users.*` (index/create/edit/show, `withTrashed()` on show),
   `guests.*` (index/show only — no create/edit, guests aren't created via the panel), `plans.*`
   (index/create/edit/show), `subscriptions.*` (index/show only — `Subscription` rows are never
   created/edited/deleted via the panel, only through `SubscriptionService`), `staff.*`
@@ -1476,6 +1568,9 @@ shown via `canAccessModule('api_logs')`. Translations in `lang/{en,tr}/api_logs.
   minute app-wide, and hangs forever under a frozen test clock (`travelTo()` + `schedule:run` in
   `PurgeExpiredAccountsTest`). Also `php artisan api-logs:flush`.
 - `AggregateApiRequestStats` job — hourly at :05, `withoutOverlapping()`, 600s timeout.
+- `RunScheduledReports` job — hourly (schedules fire on the hour), `withoutOverlapping()`; queues a
+  `GenerateReport` per due schedule and advances its `next_run_at`. `PruneGeneratedReports` — daily
+  at 04:00; deletes reports (file + row) past `dashboard.reports.retention_days` (30). See "Dashboard".
 - `PruneApiRequestLogs` job — daily at 03:30, `withoutOverlapping()`, 600s timeout. See "API
   request logging" above for both.
 
@@ -1493,7 +1588,8 @@ app/
                    TicketStatus, TicketPriority, TicketMessageAuthorType, DeviceType,
                    AppleNotificationType, AppleNotificationSubtype,
                    FeedbackType, FeedbackStatus, AnnouncementType, AnnouncementPushStatus,
-                   ApiStatsPeriod (hour/day/month rollup granularity)
+                   ApiStatsPeriod (hour/day/month rollup granularity),
+                   Report{Format,Status,Frequency,Source} (dashboard reports)
   Console/Commands/ApiLogs/{FlushApiLogs,AggregateApiLogs}.php  api-logs:flush / api-logs:aggregate
   Exceptions/      DeviceLimitExceededException, DeviceBlockedException, TicketClosedException,
                    ProviderTokenInvalidException (thrown by Http/Controllers/Api/V1/Concerns/ResolvesSocialiteUser),
@@ -1538,12 +1634,14 @@ app/
                    Device/{PruneRevokedDevices, ResolveDeviceLocation},
                    Announcement/SendPushNotification, Subscription/SyncSubscriptionStatuses,
                    Ticket/{CloseInactiveTickets, PurgeClosedTickets},
-                   ApiLog/{FlushApiRequestLogs, AggregateApiRequestStats, PruneApiRequestLogs}
+                   ApiLog/{FlushApiRequestLogs, AggregateApiRequestStats, PruneApiRequestLogs},
+                   Report/{GenerateReport, RunScheduledReports, PruneGeneratedReports}
   Listeners/       AuthActivityListener
   Livewire/
     Auth/          Login, Logout, VerifyEmail, PasswordReset (reset-with-token form only)
     Admin/         BaseIndex, BaseForm, BaseShow + Concerns/ (shared traits)
-      Dashboard/Index.php                    placeholder dashboard page (title + description only)
+      Dashboard/                            Index (Overview), Analytics, Reports + Concerns/HasDashboardRange
+                                            — see "Dashboard"
       Account/Index.php                     self-service account page (incl. passkey management)
       Management/Users/                     Index, Show, Form + Concerns/HandlesUserRowActions
       Management/Guests/                    Index, Show + Concerns/HandlesGuestRowActions
@@ -1563,7 +1661,8 @@ app/
       Administration/ApiLogs/                       Requests/{Index,Show}, Analytics — see "API request logging"
       Settings/                             BaseSettings, Index, General, Mail, Policies
   Mail/            Concerns/HasMailPurpose.php (trait for purpose-based mailables),
-                   Auth/VerifyEmailMail.php, Auth/ResetPasswordMail.php, Support/TicketAutoClosedMail.php
+                   Auth/VerifyEmailMail.php, Auth/ResetPasswordMail.php, Support/TicketAutoClosedMail.php,
+                   Report/ReportReadyMail.php (scheduled report delivery)
   Models/          User.php (canAccessModule helper; implements passkeys' HasPasskeys), EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php,
                    Plan.php, PlanPrice.php, PlanPriceProvider.php, Subscription.php, SubscriptionReceipt.php,
                    Ticket.php, TicketCategory.php, TicketMessage.php, UserDevice.php, BlockedIp.php,
@@ -1571,6 +1670,7 @@ app/
     Webhooks/      AppleNotification.php (implements ProviderNotification; RevenueCat/Google/Stripe
                    are future additions in the same subnamespace, not yet built)
     ApiLog/        ApiRequestLog, ApiRequestPayload, ApiRequestException, ApiRequestStat
+    Report/        GeneratedReport, ScheduledReport
   Notifications/   Auth/VerifyEmailNotification.php, Auth/ResetPasswordNotification.php,
                    Support/TicketAutoClosedNotification.php
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
@@ -1585,7 +1685,12 @@ app/
                    Device/{DeviceService, BrowserDeviceResolver, LocationService}, Mail/Configurator, Announcement/OneSignalService,
                    Subscription/{LifecycleService, SubscriptionService},
                    Ticket/{AssignmentService, LifecycleService, TicketService},
-                   ApiLog/{AggregationService, RetentionService}
+                   ApiLog/{AggregationService, RetentionService},
+                   Report/ReportService
+  Support/Dashboard/ DashboardRegistry, DashboardCache, DateRange, TimeSeries, Format,
+                   Contracts/Widget, Blocks/*, Metrics/*, Overview/{Kpis,Trends,Status,Health}/*,
+                   Analytics/*Section, Reports/{ReportDefinition,ReportFilter,ReportDocument,
+                   Definitions/*, Writers/*} — see "Dashboard"
   Support/ApiLogs/ RequestIds, RequestRecorder, RecordBuilder, Sanitizer, SamplingPolicy,
                    ApiLogBuffer (+ RedisBuffer, SyncBuffer), ApiLogWriter
   Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter, DeviceData,
@@ -1595,6 +1700,9 @@ app/
 config/panel.php    RBAC modules/actions/children, grace period, export threshold, seeded admin creds
 config/apiroute.php grazulex/laravel-apiroute — API version registry (see "REST API" above)
 config/api_logs.php API request logging — buffer, sampling, capture, sanitizer rules, retention
+config/dashboard.php Dashboard — Overview widgets per slot, quick actions, Analytics sections,
+                    report definitions/retention/PDF limits, currency, cache TTL (the extension point)
+config/laravel-pdf.php spatie/laravel-pdf — only `driver` default changed (browsershot → dompdf)
 config/passkeys.php spatie/laravel-passkeys — only `actions.find_passkey` edited (see "Passkey
                     (WebAuthn) login" above), everything else vendor-default
 database/
@@ -1613,7 +1721,7 @@ database/
                      unrelated to Laravel's own notifications table, which this app doesn't use),
                      create_api_request_logs_tables (api_request_logs/_payloads/_exceptions/_stats)
   seeders/          DatabaseSeeder, RolesAndPermissionsSeeder (idempotent), UserSeeder,
-                     EmailSendersSeeder (idempotent)
+                     EmailSendersSeeder (idempotent), DashboardDemoSeeder (local demo data — see "Dashboard")
   factories/         one per model, incl. Plan/PlanPrice/PlanPriceProvider/Subscription/SubscriptionReceipt,
                      TicketCategory/Ticket/TicketMessage, UserDevice, BlockedIp, Webhooks/AppleNotification,
                      Language, Feedback, Announcement, ApiLog/{ApiRequestLog,ApiRequestException,ApiRequestStat}
@@ -1622,7 +1730,8 @@ resources/
                               `drawer` extended with the same id-driven open/close prop `dialog` has
   views/components/admin/    panel-specific composites: filter-bar (now also a `text` filter type),
                               page-header, pagination, confirm-dialog, reason-dialog, confirm-drawer,
-                              reason-drawer, device-status-badge, show-tabs, stat-card, dropdown, tooltip
+                              reason-drawer, device-status-badge, show-tabs, stat-card, dropdown, tooltip,
+                              sidebar-collapsible, dashboard/{header,card,row}
   views/layouts/admin/       app.blade.php (sidebar shell), guest.blade.php (login)
   views/livewire/admin/      one folder per Livewire component, mirroring app/Livewire/Admin
   css/blatui.css             design tokens (CSS vars on :root/.dark/[data-*])

@@ -6,6 +6,8 @@ use App\Jobs\ApiLog\FlushApiRequestLogs;
 use App\Jobs\ApiLog\PruneApiRequestLogs;
 use App\Jobs\Auth\PruneExpiredBlockedIps;
 use App\Jobs\Device\PruneRevokedDevices;
+use App\Jobs\Report\PruneGeneratedReports;
+use App\Jobs\Report\RunScheduledReports;
 use App\Jobs\Subscription\SyncSubscriptionStatuses;
 use App\Jobs\Ticket\CloseInactiveTickets;
 use App\Jobs\Ticket\PurgeClosedTickets;
@@ -37,7 +39,18 @@ Schedule::job(new SyncSubscriptionStatuses)
     ->name('subscription-status-sync')
     ->withoutOverlapping();
 
+// Report schedules fire on the hour, so an hourly sweep never misses one.
+Schedule::job(new RunScheduledReports)
+    ->hourly()
+    ->name('reports-run-scheduled')
+    ->withoutOverlapping();
+
 // Daily
+Schedule::job(new PruneGeneratedReports)
+    ->dailyAt('04:00')
+    ->name('reports-prune-expired')
+    ->withoutOverlapping();
+
 // Day-granularity thresholds, so daily is frequent enough for both sweeps.
 Schedule::job(new CloseInactiveTickets)
     ->daily()

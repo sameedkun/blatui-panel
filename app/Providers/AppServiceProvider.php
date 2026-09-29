@@ -6,6 +6,7 @@ use App\Support\ApiLogs\ApiLogBuffer;
 use App\Support\ApiLogs\RedisBuffer;
 use App\Support\ApiLogs\RequestRecorder;
 use App\Support\ApiLogs\SyncBuffer;
+use App\Support\Dashboard\DashboardRegistry;
 use Carbon\CarbonImmutable;
 use Dedoc\Scramble\Scramble;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -32,6 +33,10 @@ class AppServiceProvider extends ServiceProvider
         Scramble::ignoreDefaultRoutes();
 
         $this->registerApiLogging();
+
+        // Resolved widgets/sections/reports are memoized per request (scoped, so
+        // they reset between requests under Octane) — config/dashboard.php.
+        $this->app->scoped(DashboardRegistry::class);
     }
 
     /**
