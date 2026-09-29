@@ -61,7 +61,10 @@
                 </x-ui.button>
             </x-authenticate-passkey>
 
-            <p id="passkey-login-error" class="mt-2 hidden text-xs text-destructive"></p>
+            <x-ui.alert id="passkey-login-error" tone="danger" class="mt-4 hidden">
+                <x-lucide-circle-alert />
+                <x-ui.alert-description id="passkey-login-error-text"></x-ui.alert-description>
+            </x-ui.alert>
         </x-ui.card-content>
     </x-ui.card>
 
@@ -77,15 +80,20 @@
 
             const original = window.authenticateWithPasskey;
 
-            const wrapped = async function (...args) {
+            const showError = (message) => {
                 const errorEl = document.getElementById('passkey-login-error');
-                errorEl?.classList.add('hidden');
+                const textEl = document.getElementById('passkey-login-error-text');
+                if (textEl) {
+                    textEl.textContent = message;
+                }
+                errorEl?.classList.remove('hidden');
+            };
+
+            const wrapped = async function (...args) {
+                document.getElementById('passkey-login-error')?.classList.add('hidden');
 
                 if (!window.browserSupportsWebAuthn || !browserSupportsWebAuthn()) {
-                    if (errorEl) {
-                        errorEl.textContent = @js(__('auth.passkey_unsupported_browser'));
-                        errorEl.classList.remove('hidden');
-                    }
+                    showError(@js(__('auth.passkey_unsupported_browser')));
 
                     return;
                 }
@@ -97,10 +105,7 @@
                         return; // user cancelled the browser/password-manager prompt
                     }
 
-                    if (errorEl) {
-                        errorEl.textContent = @js(__('auth.passkey_failed'));
-                        errorEl.classList.remove('hidden');
-                    }
+                    showError(@js(__('auth.passkey_failed')));
                 }
             };
 

@@ -1257,9 +1257,13 @@ auth.
   dispatches them to a `@script` block that calls `startRegistration()`, which calls back into
   `storePasskey()` with the signed credential. `deletePasskey()` is scoped to `$user->passkeys()`
   — never any other account's row.
-- Migration/config are vendor-published as-is (`database/migrations/*_create_passkeys_table.php`,
-  `config/passkeys.php`), the latter only edited to point `actions.find_passkey` at the app's
-  override.
+- Migration is vendor-published as-is (`database/migrations/*_create_passkeys_table.php`);
+  `config/passkeys.php` is only edited to point `actions.find_passkey` at the app's override.
+  Views are also vendor-published (`resources/views/vendor/passkeys/`, tag `passkeys-views`) —
+  the only edit is `components/authenticate.blade.php`'s server-rejected-passkey message, swapped
+  from the package's raw red `<div>` for `<x-ui.alert tone="danger">` to match the rest of the
+  panel (the login page's own client-side WebAuthn error, e.g. unsupported browser, uses the same
+  alert markup, toggled via JS — see `resources/views/livewire/auth/login.blade.php`).
 
 ## REST API
 
