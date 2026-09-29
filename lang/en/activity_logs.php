@@ -188,6 +188,12 @@ return [
             'blocked_ip_updated' => 'IP Block Updated',
             'blocked_ip_deleted' => 'IP Block Removed',
             'webhook_notification_redispatched' => 'Notification Redispatched',
+            'report_generated' => 'Report Requested',
+            'report_deleted' => 'Report Deleted',
+            'report_sent' => 'Report Emailed',
+            'report_scheduled' => 'Report Scheduled',
+            'report_schedule_updated' => 'Report Schedule Updated',
+            'report_schedule_deleted' => 'Report Schedule Deleted',
         ],
     ],
     'enums' => [
@@ -213,7 +219,7 @@ return [
             'permission' => 'Permission', 'plan' => 'Plan', 'language' => 'Language',
             'feedback' => 'Feedback', 'announcement' => 'Announcement', 'server' => 'Server',
             'ticket' => 'Ticket', 'ticket_category' => 'Ticket Category', 'setting' => 'Setting',
-            'device' => 'Device', 'blocked_ip' => 'Blocked IP', 'webhook_notification' => 'Webhook Notification',
+            'device' => 'Device', 'blocked_ip' => 'Blocked IP', 'webhook_notification' => 'Webhook Notification', 'report' => 'Report',
         ],
     ],
     'export' => [

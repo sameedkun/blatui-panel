@@ -19,14 +19,32 @@
 
         {{-- General --}}
         <x-ui.sidebar-group>
-            @can('dashboard.view')
-                <x-ui.sidebar-menu-item>
-                    <x-ui.sidebar-menu-button href="{{ route('admin.dashboard') }}" :isActive="request()->routeIs('admin.dashboard')">
-                        <x-lucide-layout-dashboard />
-                        <span>{{ __('navigation.modules.dashboard') }}</span>
-                    </x-ui.sidebar-menu-button>
-                </x-ui.sidebar-menu-item>
-            @endcan
+            @canany(['dashboard.view', 'dashboard.analytics.view', 'dashboard.reports.view'])
+                <x-ui.sidebar-menu>
+                    <x-admin.sidebar-collapsible key="dashboard" icon="layout-dashboard" :label="__('navigation.modules.dashboard')"
+                        :active="request()->routeIs('admin.dashboard', 'admin.dashboard.*')">
+                        <x-ui.sidebar-menu-sub-item>
+                            <x-ui.sidebar-menu-sub-button href="{{ route('admin.dashboard') }}" :isActive="request()->routeIs('admin.dashboard')">
+                                <span>{{ __('navigation.modules.dashboard_overview') }}</span>
+                            </x-ui.sidebar-menu-sub-button>
+                        </x-ui.sidebar-menu-sub-item>
+                        @can('dashboard.analytics.view')
+                            <x-ui.sidebar-menu-sub-item>
+                                <x-ui.sidebar-menu-sub-button href="{{ route('admin.dashboard.analytics') }}" :isActive="request()->routeIs('admin.dashboard.analytics')">
+                                    <span>{{ __('navigation.modules.dashboard_analytics') }}</span>
+                                </x-ui.sidebar-menu-sub-button>
+                            </x-ui.sidebar-menu-sub-item>
+                        @endcan
+                        @can('dashboard.reports.view')
+                            <x-ui.sidebar-menu-sub-item>
+                                <x-ui.sidebar-menu-sub-button href="{{ route('admin.dashboard.reports') }}" :isActive="request()->routeIs('admin.dashboard.reports')">
+                                    <span>{{ __('navigation.modules.dashboard_reports') }}</span>
+                                </x-ui.sidebar-menu-sub-button>
+                            </x-ui.sidebar-menu-sub-item>
+                        @endcan
+                    </x-admin.sidebar-collapsible>
+                </x-ui.sidebar-menu>
+            @endcanany
 
             @canany(['users.view', 'guests.view', 'plans.view', 'subscriptions.view', 'devices.view', 'blocked-ips.view', 'webhook_notifications.view'])
                 <x-ui.sidebar-group-label>{{ __('navigation.groups.management') }}</x-ui.sidebar-group-label>

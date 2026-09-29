@@ -112,6 +112,12 @@ return [
             'blocked_ip_created' => 'IP Engeli Oluşturuldu', 'blocked_ip_updated' => 'IP Engeli Güncellendi',
             'blocked_ip_deleted' => 'IP Engeli Kaldırıldı',
             'webhook_notification_redispatched' => 'Bildirim Yeniden Gönderildi',
+            'report_generated' => 'Rapor İstendi',
+            'report_deleted' => 'Rapor Silindi',
+            'report_sent' => 'Rapor E-postayla Gönderildi',
+            'report_scheduled' => 'Rapor Zamanlandı',
+            'report_schedule_updated' => 'Rapor Zamanlaması Güncellendi',
+            'report_schedule_deleted' => 'Rapor Zamanlaması Silindi',
         ],
     ],
     'enums' => [
@@ -135,7 +141,7 @@ return [
             'permission' => 'İzin', 'plan' => 'Plan', 'language' => 'Dil', 'feedback' => 'Geri Bildirim',
             'announcement' => 'Duyuru', 'server' => 'Sunucu', 'ticket' => 'Destek Talebi',
             'ticket_category' => 'Destek Talebi Kategorisi', 'setting' => 'Ayar',
-            'device' => 'Cihaz', 'blocked_ip' => 'Engellenen IP', 'webhook_notification' => 'Webhook Bildirimi',
+            'device' => 'Cihaz', 'blocked_ip' => 'Engellenen IP', 'webhook_notification' => 'Webhook Bildirimi', 'report' => 'Rapor',
         ],
     ],
     'export' => [

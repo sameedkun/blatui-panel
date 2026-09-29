@@ -84,6 +84,7 @@ return [
             'policies' => 'Policies',
             'requests' => 'Requests',
             'analytics' => 'Analytics',
+            'reports' => 'Reports',
         ],
         'actions' => [
             'view' => 'View',

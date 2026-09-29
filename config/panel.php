@@ -138,6 +138,15 @@ return [
             'label' => 'Dashboard',
             'group' => 'core',
             'actions' => ['view'],
+            // dashboard.view grants both children's `view` via the Gate::before
+            // module-view inheritance. Every analytics section / report is further
+            // gated on its own data permission (users.view, subscriptions.view, …).
+            // reports.create = generate on demand, reports.delete = remove files,
+            // reports.manage = create/edit/run schedules that email reports out.
+            'children' => [
+                'analytics' => ['view'],
+                'reports' => ['view', 'create', 'delete', 'manage'],
+            ],
             'icon' => 'layout-dashboard',
         ],
 
@@ -324,6 +333,8 @@ return [
         // Stored request/response headers and bodies — sanitized, but still the
         // most sensitive thing the API log holds.
         'api_logs.requests.manage',
+        // Schedules email datasets to arbitrary addresses outside the panel.
+        'dashboard.reports.manage',
     ],
 
     /*

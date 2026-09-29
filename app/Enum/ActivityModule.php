@@ -25,6 +25,7 @@ enum ActivityModule: string
     case Device = 'device';
     case BlockedIp = 'blocked_ip';
     case WebhookNotification = 'webhook_notification';
+    case Report = 'report';
 
     public function label(): string
     {

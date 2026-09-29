@@ -12,6 +12,8 @@ use App\Jobs\Auth\PruneExpiredBlockedIps;
 use App\Jobs\Auth\RecordBlockedIpHit;
 use App\Jobs\Device\PruneRevokedDevices;
 use App\Jobs\Device\ResolveDeviceLocation;
+use App\Jobs\Report\PruneGeneratedReports;
+use App\Jobs\Report\RunScheduledReports;
 use App\Jobs\Subscription\SyncSubscriptionStatuses;
 use App\Jobs\Ticket\CloseInactiveTickets;
 use App\Jobs\Ticket\PurgeClosedTickets;
@@ -62,6 +64,8 @@ class JobFailureLoggingTest extends TestCase
             'resolve device location' => [new ResolveDeviceLocation(1, '203.0.113.1'), 'ResolveDeviceLocation'],
             'send push notification' => [new SendPushNotification(1), 'SendPushNotification'],
             'sync subscription statuses' => [new SyncSubscriptionStatuses, 'SyncSubscriptionStatuses'],
+            'run scheduled reports' => [new RunScheduledReports, 'RunScheduledReports'],
+            'prune generated reports' => [new PruneGeneratedReports, 'PruneGeneratedReports'],
         ];
     }
 }

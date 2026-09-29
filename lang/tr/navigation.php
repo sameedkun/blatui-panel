@@ -12,6 +12,9 @@ return [
     ],
     'modules' => [
         'dashboard' => 'Kontrol Paneli',
+        'dashboard_overview' => 'Genel Bakış',
+        'dashboard_analytics' => 'Analitik',
+        'dashboard_reports' => 'Raporlar',
         'users' => 'Kullanıcılar',
         'guests' => 'Ziyaretçiler',
         'plans' => 'Planlar',

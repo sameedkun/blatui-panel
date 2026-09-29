@@ -149,4 +149,28 @@ return [
         'Refund' => 'Refund',
         'Cancellation' => 'Cancellation',
     ],
+
+    'report_format' => [
+        'Csv' => 'CSV',
+        'Xlsx' => 'Excel',
+        'Pdf' => 'PDF',
+    ],
+
+    'report_status' => [
+        'Pending' => 'Queued',
+        'Processing' => 'Generating',
+        'Completed' => 'Ready',
+        'Failed' => 'Failed',
+    ],
+
+    'report_frequency' => [
+        'Daily' => 'Daily',
+        'Weekly' => 'Weekly',
+        'Monthly' => 'Monthly',
+    ],
+
+    'report_source' => [
+        'Manual' => 'On demand',
+        'Scheduled' => 'Scheduled',
+    ],
 ];

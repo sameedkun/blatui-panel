@@ -583,36 +583,6 @@ parameters:
 			path: app/Livewire/Auth/VerifyEmail.php
 
 		-
-			message: '#^Property App\\Mail\\Account\\AccountDeletionScheduledMail\:\:\$purpose \(App\\Enum\\MailPurpose\) on left side of \?\? is not nullable\.$#'
-			identifier: nullCoalesce.property
-			count: 1
-			path: app/Mail/Account/AccountDeletionScheduledMail.php
-
-		-
-			message: '#^Property App\\Mail\\Auth\\ResetPasswordMail\:\:\$purpose \(App\\Enum\\MailPurpose\) on left side of \?\? is not nullable\.$#'
-			identifier: nullCoalesce.property
-			count: 1
-			path: app/Mail/Auth/ResetPasswordMail.php
-
-		-
-			message: '#^Property App\\Mail\\Auth\\VerifyEmailMail\:\:\$purpose \(App\\Enum\\MailPurpose\) on left side of \?\? is not nullable\.$#'
-			identifier: nullCoalesce.property
-			count: 1
-			path: app/Mail/Auth/VerifyEmailMail.php
-
-		-
-			message: '#^Expression on left side of \?\? is not nullable\.$#'
-			identifier: nullCoalesce.expr
-			count: 1
-			path: app/Mail/Concerns/HasMailPurpose.php
-
-		-
-			message: '#^Property App\\Mail\\Support\\TicketAutoClosedMail\:\:\$purpose \(App\\Enum\\MailPurpose\) on left side of \?\? is not nullable\.$#'
-			identifier: nullCoalesce.property
-			count: 1
-			path: app/Mail/Support/TicketAutoClosedMail.php
-
-		-
 			message: '#^Method App\\Models\\ApiLog\\ApiRequestStat\:\:rawHistogramSelects\(\) should return list\<Illuminate\\Database\\Query\\Expression\> but returns array\{Illuminate\\Contracts\\Database\\Query\\Expression, Illuminate\\Contracts\\Database\\Query\\Expression, Illuminate\\Contracts\\Database\\Query\\Expression, Illuminate\\Contracts\\Database\\Query\\Expression, Illuminate\\Contracts\\Database\\Query\\Expression, Illuminate\\Contracts\\Database\\Query\\Expression, Illuminate\\Contracts\\Database\\Query\\Expression, Illuminate\\Contracts\\Database\\Query\\Expression, \.\.\.\}\.$#'
 			identifier: return.type
 			count: 1

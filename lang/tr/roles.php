@@ -84,6 +84,7 @@ return [
             'policies' => 'Politikalar',
             'requests' => 'İstekler',
             'analytics' => 'Analitik',
+            'reports' => 'Raporlar',
         ],
         'actions' => [
             'view' => 'Görüntüle',

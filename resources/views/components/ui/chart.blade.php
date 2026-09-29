@@ -42,5 +42,9 @@
     x-data="shadcnChart({{ \Illuminate\Support\Js::from($payload) }})"
     {{ $attributes->twMerge('flex aspect-video justify-center text-xs w-full [&_.apexcharts-tooltip]:!rounded-lg [&_.apexcharts-tooltip]:!border [&_.apexcharts-tooltip]:!border-border [&_.apexcharts-tooltip]:!bg-popover [&_.apexcharts-tooltip]:!text-popover-foreground [&_.apexcharts-tooltip]:!shadow-xl') }}
 >
-    <div x-ref="canvas" class="w-full" style="min-height: {{ (int) $height }}px"></div>
+    {{-- wire:ignore: ApexCharts draws its SVG into this div client-side. Without it a
+         Livewire re-render morphs the div back to its empty server markup and the
+         chart vanishes until a resize redraws it. New data re-initialises the chart
+         through a changed wire:key on a parent instead. --}}
+    <div x-ref="canvas" wire:ignore class="w-full" style="min-height: {{ (int) $height }}px"></div>
 </div>
