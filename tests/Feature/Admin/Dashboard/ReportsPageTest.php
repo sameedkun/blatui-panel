@@ -10,7 +10,6 @@ use App\Livewire\Admin\Dashboard\Reports;
 use App\Models\Report\GeneratedReport;
 use App\Models\Report\ScheduledReport;
 use App\Models\User;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Queue;
@@ -129,11 +128,9 @@ class ReportsPageTest extends TestCase
             ->assertFileDownloaded('user-growth_2026-08-30_2026-09-28.csv');
 
         // A report whose definition the viewer lacks permission for is out of scope, not just hidden.
-        // The exception handler would otherwise render it as a 404, so assert the lookup itself fails.
-        $this->withoutExceptionHandling();
-        $this->expectException(ModelNotFoundException::class);
-
-        Livewire::test(Reports::class)->call('download', $hidden->id);
+        Livewire::test(Reports::class)
+            ->call('download', $hidden->id)
+            ->assertNotFound();
     }
 
     public function test_a_report_whose_file_vanished_reports_an_error_instead_of_crashing(): void

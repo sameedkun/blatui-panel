@@ -4,7 +4,6 @@ namespace Tests\Feature\Admin\Staff;
 
 use App\Livewire\Admin\Administration\Staff\Index;
 use App\Models\User;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -33,10 +32,9 @@ class StaffIndexTest extends TestCase
         $this->actingAsSuperAdmin();
         $appUser = User::factory()->app()->create();
 
-        $this->expectException(ModelNotFoundException::class);
-
         Livewire::test(Index::class)
-            ->call('openBanDialog', $appUser->id);
+            ->call('openBanDialog', $appUser->id)
+            ->assertNotFound();
     }
 
     public function test_force_delete_row_action_rejects_an_app_user_even_if_forged(): void
@@ -45,10 +43,9 @@ class StaffIndexTest extends TestCase
         $appUser = User::factory()->app()->create();
         $appUser->delete();
 
-        $this->expectException(ModelNotFoundException::class);
-
         Livewire::test(Index::class)
-            ->call('confirmForceDelete', $appUser->id);
+            ->call('confirmForceDelete', $appUser->id)
+            ->assertNotFound();
     }
 
     public function test_bulk_ban_only_affects_staff_even_if_an_app_user_id_is_selected(): void

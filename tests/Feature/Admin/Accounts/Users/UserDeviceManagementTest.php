@@ -5,7 +5,6 @@ namespace Tests\Feature\Admin\Accounts\Users;
 use App\Livewire\Admin\Management\Users\Show;
 use App\Models\User;
 use App\Models\UserDevice;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
@@ -131,10 +130,9 @@ class UserDeviceManagementTest extends TestCase
         $user = User::factory()->app()->create();
         $otherUsersDevice = UserDevice::factory()->for(User::factory()->app())->create();
 
-        $this->expectException(ModelNotFoundException::class);
-
         Livewire::test(Show::class, ['user' => $user])
-            ->call('confirmRevokeDevice', $otherUsersDevice->ulid);
+            ->call('confirmRevokeDevice', $otherUsersDevice->ulid)
+            ->assertNotFound();
     }
 
     public function test_device_actions_require_their_own_devices_permission(): void
