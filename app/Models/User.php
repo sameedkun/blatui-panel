@@ -26,6 +26,7 @@ use Spatie\LaravelPasskeys\Models\Concerns\HasPasskeys;
 use Spatie\LaravelPasskeys\Models\Concerns\InteractsWithPasskeys;
 use Spatie\Permission\Traits\HasRoles;
 use Spatie\Sluggable\Attributes\Sluggable;
+use Symfony\Component\Uid\Ulid;
 
 #[Sluggable(from: 'name', to: 'slug')]
 #[Fillable([
@@ -225,6 +226,36 @@ class User extends Authenticatable implements HasPasskeys, MustVerifyEmail
         }
 
         return Storage::exists($this->avatar) ? Storage::url($this->avatar) : null;
+    }
+
+    // -------------------------------------------------------------------------
+    // App Store account token (StoreKit `appAccountToken`)
+    // -------------------------------------------------------------------------
+
+    /**
+     * The UUID a client passes to StoreKit as `appAccountToken`, which Apple then
+     * echoes back on every server notification for that purchase. It is simply
+     * `external_id` (a ULID — also 128 bits) rendered in RFC 4122 form, so it
+     * needs no column of its own and is stable for the life of the account.
+     */
+    public function appAccountToken(): ?string
+    {
+        return $this->external_id ? Ulid::fromString($this->external_id)->toRfc4122() : null;
+    }
+
+    /**
+     * Reverse of {@see appAccountToken()}. Includes soft-deleted accounts so a
+     * provider event for a trashed user is still recorded against them.
+     */
+    public static function findByAppAccountToken(?string $token): ?self
+    {
+        if (! $token || ! Str::isUuid($token)) {
+            return null;
+        }
+
+        return static::withTrashed()
+            ->where('external_id', (string) Ulid::fromString($token))
+            ->first();
     }
 
     // -------------------------------------------------------------------------

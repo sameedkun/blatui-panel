@@ -14,7 +14,10 @@
 
         @include('partials.admin.sidebar')
 
-        <x-ui.sidebar-inset>
+        {{-- min-w-0: a flex child defaults to min-width:auto and would stretch to its widest
+             content (a long JWS, a wide table), scrolling the whole page sideways. With it, wide
+             content scrolls inside its own overflow container instead. --}}
+        <x-ui.sidebar-inset class="min-w-0">
 
             <header class="flex h-16 shrink-0 items-center gap-2 border-b border-border px-4">
                 <x-ui.sidebar-trigger class="-ml-1" />
@@ -67,7 +70,7 @@
                 </div>
             </header>
 
-            <div class="flex flex-1 flex-col gap-4 p-4 pt-4">
+            <div class="flex min-w-0 flex-1 flex-col gap-4 p-4 pt-4">
                 {{ $slot }}
             </div>
 

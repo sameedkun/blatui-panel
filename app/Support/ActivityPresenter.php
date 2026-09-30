@@ -22,6 +22,7 @@ use Carbon\CarbonInterface;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
@@ -319,6 +320,10 @@ class ActivityPresenter
             'subscription_trial_converted' => 'badge-check',
             'subscription_entered_grace' => 'triangle-alert',
             'subscription_expired' => 'circle-x',
+            'subscription_renewed' => 'repeat',
+            'subscription_payment_failed' => 'credit-card',
+            'subscription_refunded' => 'undo-2',
+            'subscription_extended' => 'calendar-plus',
             'device_blocked' => 'shield-ban',
             'device_unblocked' => 'shield-check',
             'device_revoked' => 'shield-off',
@@ -350,14 +355,15 @@ class ActivityPresenter
         return match ($kind) {
             'created', 'login', 'login_via_passkey', 'verified', 'unbanned', 'restored', 'deletion_cancelled', 'setting_domain_created', 'plan_created',
             'subscription_assigned', 'subscription_reactivated', 'subscription_trial_converted',
+            'subscription_renewed', 'subscription_extended',
             'ticket_created', 'ticket_category_created' => 'success',
             'updated', 'password_changed', 'password_reset', 'assigned', 'converted', 'merged',
             'setting_smtp', 'setting_domain_updated', 'setting_sender_updated', 'setting_test_email',
             'setting_policy_updated', 'plan_updated', 'subscription_upgraded',
             'ticket_updated', 'ticket_assigned', 'ticket_replied', 'ticket_category_updated' => 'info',
-            'failed', 'deletion_requested', 'subscription_entered_grace' => 'warning',
+            'failed', 'deletion_requested', 'subscription_entered_grace', 'subscription_payment_failed' => 'warning',
             'deleted', 'force_deleted', 'purged', 'banned', 'setting_domain_deleted', 'plan_deleted',
-            'subscription_cancelled', 'subscription_expired', 'ticket_category_deleted',
+            'subscription_cancelled', 'subscription_expired', 'subscription_refunded', 'ticket_category_deleted',
             'device_blocked', 'blocked_ip_created' => 'danger',
             'logout', 'device_unblocked', 'device_revoked', 'blocked_ip_deleted' => 'warning',
             'blocked_ip_updated', 'webhook_notification_redispatched' => 'info',
@@ -406,6 +412,12 @@ class ActivityPresenter
         $value = Str::after($area, 'policy_');
 
         return PolicyType::tryFrom($value)?->label() ?? Str::headline($value);
+    }
+
+    /** A stored ISO 8601 property rendered as a plain date ("Oct 29, 2026"). */
+    protected static function formatDate(?string $iso): ?string
+    {
+        return $iso ? Date::parse($iso)->toFormattedDateString() : null;
     }
 
     /** Raw ISO 8601 string representing the datetime, converted client-side. */
@@ -508,13 +520,31 @@ class ActivityPresenter
             ],
             'subscription_reactivated' => [
                 self::row(__('activity_logs.fields.plan'), $properties['plan'] ?? null),
+                self::row(__('activity_logs.fields.reason'), isset($properties['reason']) ? Str::headline((string) $properties['reason']) : null),
             ],
-            'subscription_trial_converted', 'subscription_entered_grace' => [
+            'subscription_trial_converted', 'subscription_entered_grace', 'subscription_payment_failed' => [
                 self::row(__('activity_logs.fields.plan'), $properties['plan'] ?? null),
             ],
             'subscription_expired' => [
                 self::row(__('activity_logs.fields.plan'), $properties['plan'] ?? null),
                 self::row(__('activity_logs.fields.reason'), isset($properties['reason']) ? Str::headline((string) $properties['reason']) : null),
+            ],
+            'subscription_renewed' => [
+                self::row(__('activity_logs.fields.plan'), $properties['plan'] ?? null),
+                self::row(__('activity_logs.fields.amount'), self::formatAmount($properties)),
+                self::row(__('activity_logs.fields.access_until'), self::formatDate($properties['access_until'] ?? null)),
+                self::row(__('activity_logs.fields.billing_recovered'), ($properties['recovered'] ?? false) ? __('activity_logs.values.yes') : null),
+            ],
+            'subscription_refunded' => [
+                self::row(__('activity_logs.fields.plan'), $properties['plan'] ?? null),
+                self::row(__('activity_logs.fields.amount'), self::formatAmount($properties)),
+                self::row(__('activity_logs.fields.reason'), $properties['reason'] ?? null),
+                self::row(__('activity_logs.fields.access'), ($properties['access_revoked'] ?? false) ? __('activity_logs.values.revoked') : __('activity_logs.values.kept_until_period_end')),
+            ],
+            'subscription_extended' => [
+                self::row(__('activity_logs.fields.plan'), $properties['plan'] ?? null),
+                self::row(__('activity_logs.fields.from'), self::formatDate($properties['from'] ?? null)),
+                self::row(__('activity_logs.fields.access_until'), self::formatDate($properties['access_until'] ?? null)),
             ],
             'device_blocked' => [
                 self::row(__('activity_logs.fields.device'), $properties['device_name'] ?? null),

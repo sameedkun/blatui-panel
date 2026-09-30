@@ -84,6 +84,6 @@
 
     <div>
         <p class="mb-1.5 text-xs font-semibold text-muted-foreground">{{ __('webhook_notifications.detail.raw_payload') }}</p>
-        <pre class="max-h-96 overflow-auto rounded-md border border-border bg-muted/20 p-3 text-xs">{{ json_encode($notification->rawPayload(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) }}</pre>
+        <x-admin.api-logs.json-block :value="$notification->rawPayload()" class="max-h-96" />
     </div>
 </div>

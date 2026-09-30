@@ -26,6 +26,8 @@ this repo — just the admin panel itself (`/*`) plus login/logout.
 - `grazulex/laravel-apiroute` — URI-path API versioning (`/api/v1/...`); see "REST API" below
 - `ua-parser/uap-php` — User-Agent parsing for browser logins (display metadata only — see
   "Device Management & IP Blocking" below)
+- `readdle/app-store-server-api` — verifies/decodes App Store Server Notifications V2 JWS; only
+  ever touched by `App\Services\Webhooks\AppStore\NotificationDecoder` (see "Provider webhooks")
 - `opcodesio/log-viewer` — package's own `/logs` UI, gated in `AppServiceProvider::configureLogViewer()`
   via `LogViewer::auth()` (staff + not banned + `logs.access`; module `logs`, group `settings`,
   excluded from the seeded admin role — reserved for super-admins)
@@ -447,9 +449,13 @@ via `is_active = false`; `Subscription` rows themselves are permanent records, n
   `App\Enum\CancelledBy` (`User`/`Admin`/`System`), `provider` to `PaymentProvider`.
   `isActive(): bool` checks status is one of Trialing/Active/Grace and `ends_at` hasn't passed.
   Has many `receipts()`.
-- **`SubscriptionReceipt`** — belongs to `Subscription`; one row per provider webhook/event
-  (`type` cast to `App\Enum\ReceiptType`: Initial/Renewal/Restore/Refund/Cancellation). Not yet
-  surfaced anywhere in the admin UI.
+- **`SubscriptionReceipt`** — belongs to `Subscription`; the provider-agnostic **ledger**: one row
+  per provider event that touched a subscription (`type` cast to `App\Enum\ReceiptType`:
+  Initial/Renewal/Restore/Refund/Cancellation/PlanChange/BillingFailure/Expiration/Reactivation/
+  RefundReversed/Extension/Revocation), carrying `provider_transaction_id`/`provider_original_id`,
+  the raw transaction in `payload` (`{amount, currency, expires_at, transaction}`) and a loose link
+  to the raw webhook row. Written only by `ProviderSubscriptionService` (see "Provider webhooks");
+  surfaced on the Subscriptions/Show Receipts tab.
 
 Per this codebase's hard convention, none of the "enum-like" columns above are native DB `enum()`
 columns — they're all `string` + a PHP backed-enum cast.
@@ -540,19 +546,141 @@ branches on provider name:
 - **Reprocessing**: `App\Contracts\RedispatchableNotification` (a second, optional capability
   interface separate from `ProviderNotification`, discovered via `instanceof` rather than the
   registry — not every provider needs it) exposes `redispatch(): void`. `AppleNotification`
-  implements it by re-firing `App\Events\Webhooks\AppStoreWebhookReceived` (a plain event using
-  `Illuminate\Foundation\Events\Dispatchable` for `::dispatch()` sugar) with the row's already-stored
-  `notification_type`/`subtype`/`transaction_info`/`renewal_info`/`payload`/itself — the same event
-  shape a real inbound webhook controller would dispatch. **No listener exists yet** — this is
-  deliberately just the redispatch mechanism; the actual subscription-processing logic is future
-  work. Index and Show both expose a permission-gated ("Process"/"Reprocess", label depends on
-  `isProcessed()`) action via the shared `Concerns/HandlesWebhookNotificationRowActions` trait
-  (mirrors `HandlesPlanRowActions`'s reuse pattern) — gated on `webhook_notifications.manage`
-  specifically (not `.view`), since it's a real mutating action. Logs through `ActivityLogger`
-  (module `ActivityModule::WebhookNotification`, reusing the `Updated` verb with a
-  `type: notification_redispatched` property, per the "reusable verbs" convention) — `ActivityPresenter`
-  has a matching `webhook_notification` module branch. Deliberately never touches
-  `processed`/`processed_at` itself — that stays owned by whatever listener eventually gets wired up.
+  implements it by firing `App\Events\Webhooks\AppStoreWebhookReceived` with the row's stored
+  `notification_type`/`subtype`/`transaction_info`/`renewal_info`/`payload`/itself. **The webhook
+  controller uses this same method for a live delivery**, so a live delivery and an admin replay
+  are byte-for-byte the same path into the queued listener (see "Provider webhooks" below). Index
+  and Show both expose a permission-gated ("Process"/"Reprocess", label depends on `isProcessed()`)
+  action via the shared `Concerns/HandlesWebhookNotificationRowActions` trait — gated on
+  `webhook_notifications.manage` (not `.view`), since it's a real mutating action. Logs through
+  `ActivityLogger` (module `ActivityModule::WebhookNotification`, `Updated` verb, `type:
+  notification_redispatched`). The trait never touches `processed`/`processed_at` itself — the
+  provider's listener owns those. Processing is idempotent, so reprocessing an applied row is a no-op.
+
+### Provider webhooks (App Store today) — ingestion → processing → subscriptions
+
+Three layers, and only the first two are provider-specific:
+
+1. **Ingest** — `POST /webhooks/appstore` (`webhooks.appstore`, `routes/webhooks.php`, loaded from
+   `bootstrap/app.php`'s `then:` with **no middleware group**: no session/CSRF like `web`, and not
+   part of the versioned `api` surface). `App\Http\Controllers\Webhooks\AppStoreWebhookController`
+   only verifies, stores, hands off — Apple gets its 200 immediately:
+   - Optional signed URL (`services.app_store.verify_url_signature`, default on) checked with
+     `hasValidRelativeSignature()` (survives proxies rewriting host/scheme). `php artisan
+     app-store:webhook-url` prints the URL to paste into App Store Connect; it's derived from
+     `APP_KEY`, so rotating the key means re-running it and updating Apple.
+   - `App\Services\Webhooks\AppStore\NotificationDecoder` — the only class touching
+     `readdle/app-store-server-api`. Verifies the JWS chain against **Apple Root CA - G3**
+     (`APP_STORE_ROOT_CERTIFICATE`, DER or PEM; default `storage/app/private/certificates/
+     AppleRootCA-G3.cer`), loaded via `App\Services\Webhooks\AppStore\RootCertificate`.
+     **Fail-closed**: the package silently skips the root check when given no root cert, so a
+     missing file throws (→ 500, Apple retries) instead. **`php artisan app-store:refresh-certificate`**
+     downloads it from apple.com, checks it is a valid, unexpired, self-signed cert with subject
+     `CN=Apple Root CA - G3, O=Apple Inc.`, and only then replaces the file atomically (a failed or
+     wrong download never clobbers a good one; failures log to the `webhooks` channel). **Run it once
+     on first deploy** — it's then scheduled monthly (1st, 05:00). Also rejects a bundle id
+     other than `APP_STORE_BUNDLE_ID` — any App Store app's notifications verify against Apple's
+     root, so without this another developer's signed notifications could be replayed at us. Stores
+     `payload` as `{notificationType, subtype, notificationUUID, version, signedDate, data:{environment,
+     bundleId,...}, signedPayload}` (the original JWS, so a row can always be re-verified). Gotcha:
+     the package casts an explicit `"subtype": null` to `''` — normalised back to null.
+   - Status codes matter (Apple retries any non-2xx up to 5× over 3 days): unverifiable → 400
+     (`App\Exceptions\InvalidWebhookPayloadException`), config/server problem → 5xx, duplicate
+     `notification_uuid` → 200 (`createOrFirst`; an *unprocessed* duplicate is handed off again),
+     an Apple type/subtype our enums don't know yet → 200 `ignored` + logged with the JWS (the
+     model's enum casts can't store it — add the case to `AppleNotificationType`/`Subtype` + `lang/*/enums.php`).
+   - `apple_notifications.original_transaction_id` is nullable (TEST/SUMMARY carry no transaction).
+2. **Translate** — queued listener `App\Listeners\Webhooks\ProcessAppStoreNotification` (event
+   discovery; `tries` 3; `failed()` logs to the `jobs` channel) → `App\Services\Webhooks\AppStore\
+   NotificationProcessor`: Apple types/subtypes + JWS field names in, `ProviderSubscriptionService`
+   calls out; writes no subscription state itself. Holds a per-contract `Cache::lock`
+   (`app-store-notification:{originalTransactionId}`) so concurrent workers can't race.
+   - **Account**: `appAccountToken` → `User::findByAppAccountToken()`. The token is **not a column** —
+     it's `external_id` (ULID, 128 bits) rendered as an RFC 4122 UUID (`User::appAccountToken()`,
+     exposed as `app_account_token` on the API `UserResource`; the mobile client passes it to StoreKit's
+     `appAccountToken` purchase option). Falls back to whoever owns the contract already (covers a
+     missing token and guests merged into another account). Includes soft-deleted users.
+   - **Plan**: `transactionInfo.productId` → `plan_price_providers.external_id` (provider `appstore`).
+   - **Money**: Apple's `price` is in **milliunits** (9990 = 9.99) — `/1000`, not `/1_000_000`.
+   - **Environments**: only `services.app_store.environments` are applied (default `Production` when
+     `APP_ENV=production`, otherwise also Sandbox/Xcode/LocalTesting); others are stored and marked
+     processed without touching subscriptions — keeps free Sandbox/TestFlight purchases off production.
+   - **Out-of-order deliveries**: state-only types (DID_CHANGE_RENEWAL_STATUS, DID_FAIL_TO_RENEW,
+     GRACE_PERIOD_EXPIRED, EXPIRED) are skipped when a newer (`signed_date`) state-changing
+     notification for the same contract was already applied.
+   - **`processed` semantics**: true = applied, or informational (TEST, CONSUMPTION_REQUEST,
+     REFUND_DECLINED, PRICE_INCREASE, ONE_TIME_CHARGE, …), or ignored environment. **Left false** —
+     logged to the `webhooks` channel (`storage/logs/webhooks-*.log`) — when it can't be applied yet:
+     no matching account, product not mapped to a price, or no contract seen for that original
+     transaction. Fix the cause (e.g. add the `PlanPriceProvider` mapping) and hit **Reprocess**.
+   - Mapping: SUBSCRIBED/OFFER_REDEEMED(INITIAL_BUY|RESUBSCRIBE) → `start`; DID_RENEW → `renew`
+     (BILLING_RECOVERY flagged; a different product = downgrade/crossgrade taking effect → `changePlan`;
+     no known contract → treated as a start); DID_CHANGE_RENEWAL_PREF UPGRADE / OFFER_REDEEMED UPGRADE →
+     `changePlan` (DOWNGRADE waits for DID_RENEW); DID_CHANGE_RENEWAL_STATUS → `disable/enableAutoRenew`;
+     DID_FAIL_TO_RENEW (GRACE_PERIOD → grace until `gracePeriodExpiresDate`, else failed) and
+     GRACE_PERIOD_EXPIRED → `paymentFailed`; EXPIRED → `expire` (VOLUNTARY/PRICE_INCREASE = user);
+     REFUND → `refund`; REFUND_REVERSED → `reverseRefund`; RENEWAL_EXTENDED → `extend`; REVOKE → `revoke`.
+3. **Apply** — `App\Services\Subscription\ProviderSubscriptionService`, **provider-agnostic**: the
+   only place provider-driven subscription state changes (third sibling of `SubscriptionService` =
+   user/admin actions and `LifecycleService` = calendar sweep). Input is a normalised
+   `App\Support\Subscription\ProviderTransaction` DTO (provider, originalTransactionId,
+   transactionId, productId, purchasedAt, expiresAt, amount, currency, isTrial, autoRenews, raw
+   payload, source notification). Methods: `start`, `renew`, `changePlan`, `disableAutoRenew`,
+   `enableAutoRenew`, `paymentFailed`, `expire`, `refund`, `reverseRefund`, `extend`, `revoke`, plus
+   lookups `resolvePrice(provider, productId)` / `findSubscription(provider, originalTransactionId)`.
+   - **Data shape**: one `subscriptions` row per contract (provider dates, not computed from the plan
+     price — the store owns the billing calendar); renewals extend it; a plan change closes it and
+     chains a new row via `previous_subscription_id` (same as `SubscriptionService::upgrade()`).
+     Every event is a `SubscriptionReceipt`, and the contract is found again through its receipts'
+     `provider_original_id` — so **`subscriptions` never gets provider-specific columns**.
+     **`amount_paid` is the row's running net total** — opening charge + each renewal − refunds
+     (+ reversed refunds), which is what "Total amount paid" (Subscriptions/Show), "Revenue
+     Collected" (Subscriptions/Index) and plan "Total revenue" (Plans/Show) already read. A refund
+     nets against the row whose receipt holds that charge (it may be an earlier row in a plan-change
+     chain). A charge in a different currency than the row isn't summed (stays on its receipt only).
+     Each individual charge is also on its receipt (`payload.amount`/`currency`).
+   - **Idempotent**: charges (Initial/Renewal/PlanChange, Refund, RefundReversed) are keyed on the
+     provider transaction id; state changes no-op when already in the target state. A renewal never
+     un-cancels a *user*-cancelled contract (out-of-order delivery), and `ends_at` only moves forward.
+   - State rules: auto-renew off = `cancelled` + `cancelled_by: user`, access continues to period
+     end (same as `cancelActive(immediately: false)`); failed payment without grace = `failed` (no
+     access — `activeSubscription()` excludes it) and billing recovery flips it back to `active`;
+     refunds only cut access when the refunded charge paid for the current period.
+   - `paymentFailed()` emails the subscriber (`App\Notifications\Billing\PaymentFailedNotification` →
+     `App\Mail\Billing\PaymentFailedMail`, `MailPurpose::Billing`, markdown view
+     `emails/billing/payment-failed`) once per state change — "access continues until {grace end}"
+     when in grace, "paused" when not — with an "Update Payment Method" button from
+     `PaymentProvider::manageSubscriptionUrl()` (App Store / Play Store subscription pages; no button
+     for others). App users only (a guest's email is a generated placeholder; soft-deleted accounts
+     are skipped); queued `afterCommit()`.
+   - `start()` cancels any other live subscription first via `SubscriptionService::cancelSubscription()`
+     (which now takes optional `$causer`/`$context`, like `DeletionService::purge()`).
+   - Audit: module `User`, subject the user, `causer: null`, `context: Webhook`; reuses
+     `subscription_assigned/upgraded/cancelled/reactivated/trial_converted/entered_grace/expired` and
+     adds `subscription_renewed/payment_failed/refunded/extended` (all rendered by `ActivityPresenter`).
+   - `LifecycleService`'s calendar sweep still only runs for `local` — App Store contracts are moved
+     exclusively by Apple's notifications.
+
+**Adding another provider (Play Store, Stripe, RevenueCat, …)** — nothing in layer 3, the admin UI,
+or `subscriptions`/`subscription_receipts` changes:
+1. Raw table + model under `App\Models\Webhooks\` implementing `ProviderNotification` (and
+   `RedispatchableNotification`), with a unique provider event id column, `processed`/`processed_at`,
+   and the soft-convention columns `transaction_id`/`original_transaction_id`/`product_id`; factory.
+2. One line in `WebhookNotificationRegistry::providers()` (`PaymentProvider` case → model); add a
+   `PaymentProvider` case + `lang/*/enums.php` label only if the provider is new.
+3. Event `App\Events\Webhooks\{Provider}WebhookReceived` (with `SerializesModels`) fired from the
+   model's `redispatch()`.
+4. Verification/decoding service + controller under `Services/Webhooks/{Provider}/` and
+   `Http/Controllers/Webhooks/`, route in `routes/webhooks.php`, config under `services.{provider}`.
+   Same contract: verify the provider signature fail-closed, dedupe on the provider's event id,
+   store, `redispatch()`, answer fast.
+5. A queued listener in `app/Listeners/Webhooks/` + a processor that builds `ProviderTransaction`s
+   and calls `ProviderSubscriptionService` — map product ids through `plan_price_providers`
+   (admins add those per price), and resolve the account from whatever the provider echoes back
+   (Google `obfuscatedExternalAccountId` / Stripe `client_reference_id`/metadata → pass
+   `User::external_id` or `appAccountToken()`), falling back to `findSubscription()`'s owner.
+6. Tests: an HTTP test with real provider signatures (see `tests/Concerns/SignsAppStoreNotifications`,
+   which builds Apple-shaped JWS rooted in a throwaway CA) and a processor lifecycle test.
 
 ### User-facing subscription management
 
@@ -594,9 +722,10 @@ already-agreed access period ran out). Two transitions from the full state graph
 **not** handled here since they aren't calendar-driven: `active`→`cancelled` is always the explicit
 `cancelActive()` action, and `grace`→`active` needs a real "payment received" signal `local` can't
 produce from dates alone (a future provider integration or an admin "mark paid" action would supply
-it). Only `local`-provider subscriptions are swept today — a real provider must confirm its own
-renewal charges via webhook/reconciliation before this same transition set is safe to run against
-it; adding one later is just appending to the `$providers` array passed to the job, no code change
+it). Only `local`-provider subscriptions are swept — App Store contracts are driven entirely by
+Apple's notifications through `ProviderSubscriptionService` (see "Provider webhooks") and must
+**not** be added here, since the sweep would expire them on dates Apple has already renewed past.
+A provider without reliable webhooks could be added later by appending to the `$providers` array passed to the job, no code change
 needed here. Each transition category runs as a **single bulk `UPDATE ... WHERE id IN (...)`** per
 chunk of up to 500 matching rows (snapshotting IDs first, since the update mutates the very
 `status` column the scope filters on) rather than one query per subscription — the only per-row
@@ -1471,6 +1600,8 @@ shown via `canAccessModule('api_logs')`. Translations in `lang/{en,tr}/api_logs.
 ## Routes
 
 - `routes/web.php` requires `auth.php` then `admin.php`.
+- `routes/webhooks.php` — provider webhooks (`POST /webhooks/appstore`), loaded by
+  `bootstrap/app.php`'s `then:` outside every middleware group; see "Provider webhooks".
 - `routes/auth.php` — `GET /login` (guest-only), `GET /logout`; plus two self-service pages:
   `GET /verify-email/{id}/{hash}` (`verification.verify`, `auth+signed+throttle:6,1` — staff clicking
   the emailed link verifies in place; `{id}` is `User::external_id`, not the raw PK, matching the
@@ -1566,6 +1697,8 @@ shown via `canAccessModule('api_logs')`. Translations in `lang/{en,tr}/api_logs.
 - `PruneRevokedDevices` job — monthly, `withoutOverlapping()`, 1 retry, 300s timeout; delegates to
   `DeviceService::pruneRevoked()` — see "Device Management & IP Blocking" above.
 - `activitylog:clean` Artisan command (Spatie's built-in pruning) — weekly.
+- `app-store:refresh-certificate` — monthly (1st, 05:00); re-downloads Apple Root CA - G3. Run it
+  by hand once on first deploy — see "Provider webhooks".
 - `FlushApiRequestLogs` job — every minute, `withoutOverlapping()`; drains the Redis API-log buffer
   and re-dispatches itself when it stops at its batch cap with a backlog left. Deliberately **not**
   sub-minute: any `everyTenSeconds()`-style task keeps every `schedule:run` alive for the whole
@@ -1577,6 +1710,10 @@ shown via `canAccessModule('api_logs')`. Translations in `lang/{en,tr}/api_logs.
   at 04:00; deletes reports (file + row) past `dashboard.reports.retention_days` (30). See "Dashboard".
 - `PruneApiRequestLogs` job — daily at 03:30, `withoutOverlapping()`, 600s timeout. See "API
   request logging" above for both.
+
+Not scheduled, but queued: `App\Listeners\Webhooks\ProcessAppStoreNotification` (queued listener
+on `AppStoreWebhookReceived`, 3 tries, backoff 10s/60s) — **a queue worker must be running** for
+App Store notifications to be applied; see "Provider webhooks".
 
 All jobs log terminal failures to the daily `jobs` channel (`storage/logs/jobs-*.log`) with their
 class name and exception. Scheduled jobs read their own operational configuration at execution
@@ -1595,13 +1732,18 @@ app/
                    ApiStatsPeriod (hour/day/month rollup granularity),
                    Report{Format,Status,Frequency,Source} (dashboard reports)
   Console/Commands/ApiLogs/{FlushApiLogs,AggregateApiLogs}.php  api-logs:flush / api-logs:aggregate
+  Console/Commands/Webhooks/AppStoreWebhookUrl.php  app-store:webhook-url (signed URL for App Store Connect)
+  Console/Commands/Webhooks/RefreshAppStoreCertificate.php  app-store:refresh-certificate (Apple Root CA - G3)
+  Events/Webhooks/ AppStoreWebhookReceived (fired by AppleNotification::redispatch())
   Exceptions/      DeviceLimitExceededException, DeviceBlockedException, TicketClosedException,
                    ProviderTokenInvalidException (thrown by Http/Controllers/Api/V1/Concerns/ResolvesSocialiteUser),
                    ProviderEmailUnverifiedException (thrown by GuestConversionService::convertWithProvider()
-                   when an unverified provider email would otherwise auto-link/merge into an existing account)
+                   when an unverified provider email would otherwise auto-link/merge into an existing account),
+                   InvalidWebhookPayloadException (unverifiable provider webhook body → 400)
                    Api/ApiExceptionRenderer (unifies framework exceptions into ApiController's envelope)
   Http/Controllers/Auth/{PasskeyAuthenticationOptionsController,AuthenticateUsingPasskeyController}.php
                    replace spatie/laravel-passkeys' own routes — see "Passkey (WebAuthn) login"
+  Http/Controllers/Webhooks/AppStoreWebhookController.php  verify → store → hand off (see "Provider webhooks")
   Http/Controllers/Api/ApiController.php        unversioned base (success/error/etc. helpers)
                    Api/V1/DeviceController.php  self-service list/revoke own devices, revoke-all-except-current
                    Api/V1/AuthController.php    signup + login + logout (rate limiting, ban/trashed/device checks — see "Device Management & IP Blocking")
@@ -1640,7 +1782,8 @@ app/
                    Ticket/{CloseInactiveTickets, PurgeClosedTickets},
                    ApiLog/{FlushApiRequestLogs, AggregateApiRequestStats, PruneApiRequestLogs},
                    Report/{GenerateReport, RunScheduledReports, PruneGeneratedReports}
-  Listeners/       AuthActivityListener
+  Listeners/       AuthActivityListener, TouchPasswordChangedAt,
+                   Webhooks/ProcessAppStoreNotification (queued; see "Provider webhooks")
   Livewire/
     Auth/          Login, Logout, VerifyEmail, PasswordReset (reset-with-token form only)
     Admin/         BaseIndex, BaseForm, BaseShow + Concerns/ (shared traits)
@@ -1666,7 +1809,8 @@ app/
       Settings/                             BaseSettings, Index, General, Mail, Policies
   Mail/            Concerns/HasMailPurpose.php (trait for purpose-based mailables),
                    Auth/VerifyEmailMail.php, Auth/ResetPasswordMail.php, Support/TicketAutoClosedMail.php,
-                   Report/ReportReadyMail.php (scheduled report delivery)
+                   Report/ReportReadyMail.php (scheduled report delivery),
+                   Billing/PaymentFailedMail.php (renewal charge failed — grace or paused)
   Models/          User.php (canAccessModule helper; implements passkeys' HasPasskeys), EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php,
                    Plan.php, PlanPrice.php, PlanPriceProvider.php, Subscription.php, SubscriptionReceipt.php,
                    Ticket.php, TicketCategory.php, TicketMessage.php, UserDevice.php, BlockedIp.php,
@@ -1676,7 +1820,7 @@ app/
     ApiLog/        ApiRequestLog, ApiRequestPayload, ApiRequestException, ApiRequestStat
     Report/        GeneratedReport, ScheduledReport
   Notifications/   Auth/VerifyEmailNotification.php, Auth/ResetPasswordNotification.php,
-                   Support/TicketAutoClosedNotification.php
+                   Support/TicketAutoClosedNotification.php, Billing/PaymentFailedNotification.php
   Providers/AppServiceProvider.php          CarbonImmutable default, super-admin Gate::before,
                                              module view permission inheritance policy,
                                              registers socialiteproviders/apple's Provider via
@@ -1687,7 +1831,8 @@ app/
   Services/        Account/{DeletionService, MergeService, GuestConversionService},
                    Auth/{UrlResolver, FindPasskeyToAuthenticateAction},
                    Device/{DeviceService, BrowserDeviceResolver, LocationService}, Mail/Configurator, Announcement/OneSignalService,
-                   Subscription/{LifecycleService, SubscriptionService},
+                   Subscription/{LifecycleService, SubscriptionService, ProviderSubscriptionService},
+                   Webhooks/AppStore/{NotificationDecoder, NotificationProcessor, RootCertificate},
                    Ticket/{AssignmentService, LifecycleService, TicketService},
                    ApiLog/{AggregationService, RetentionService},
                    Report/ReportService
@@ -1695,6 +1840,7 @@ app/
                    Contracts/Widget, Blocks/*, Metrics/*, Overview/{Kpis,Trends,Status,Health}/*,
                    Analytics/*Section, Reports/{ReportDefinition,ReportFilter,ReportDocument,
                    Definitions/*, Writers/*} — see "Dashboard"
+  Support/Subscription/ProviderTransaction.php  normalised provider transaction DTO (webhooks → ProviderSubscriptionService)
   Support/ApiLogs/ RequestIds, RequestRecorder, RecordBuilder, Sanitizer, SamplingPolicy,
                    ApiLogBuffer (+ RedisBuffer, SyncBuffer), ApiLogWriter
   Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter, DeviceData,
@@ -1704,6 +1850,9 @@ app/
 config/panel.php    RBAC modules/actions/children, grace period, export threshold, seeded admin creds
 config/apiroute.php grazulex/laravel-apiroute — API version registry (see "REST API" above)
 config/api_logs.php API request logging — buffer, sampling, capture, sanitizer rules, retention
+config/services.php `app_store` — root certificate, bundle id, applied environments, signed-URL toggle
+config/logging.php  adds daily `jobs` and `webhooks` channels
+routes/webhooks.php provider webhook endpoints (no middleware group)
 config/dashboard.php Dashboard — Overview widgets per slot, quick actions, Analytics sections,
                     report definitions/retention/PDF limits, currency, cache TTL (the extension point)
 config/laravel-pdf.php spatie/laravel-pdf — only `driver` default changed (browsershot → dompdf)
@@ -1750,7 +1899,9 @@ tests/
     Localization/     locale and translation coverage
     Models/           model behavior and relationships
     Services/         Account, ApiLog, Auth, Devices, Mail
+    Webhooks/         provider webhook endpoints (real signatures, end to end)
   Unit/Support/       isolated support-class tests
+  Concerns/           shared test traits — SignsAppStoreNotifications (Apple-shaped JWS from a throwaway CA)
   TestCase.php        shared Laravel test base
 ```
 
@@ -1761,12 +1912,15 @@ tests/
   inbound-email parsing per "What this is" above), so this is aspirational copy matching a
   future capability, not a working link/flow today. Reopening currently only happens via the
   admin panel (`TicketService::changeStatus()`).
-- No listener is wired up to `App\Events\Webhooks\AppStoreWebhookReceived` yet — the admin
-  "Reprocess"/"Process" action on a webhook notification (see "Webhook Notifications" above) fires
-  the event but nothing currently handles it, so `processed`/`processed_at` never actually change
-  from that button today. There's also no inbound webhook controller yet that would dispatch this
-  event from a real Apple delivery — `apple_notifications` rows currently only get created by tests
-  and manual seeding.
+- App Store webhooks (see "Provider webhooks"): CONSUMPTION_REQUEST is only acknowledged — no
+  consumption data is sent back through the App Store Server API (deliberately, not used); and
+  RENEWAL_EXTENSION/SUMMARY bodies (sent only if you use Apple's mass-extension API) carry `summary`
+  instead of `data`, which `readdle/app-store-server-api` can't decode, so they 400. Dashboard
+  **period** revenue (charts/"revenue this month") reads `amount_paid` at `starts_at`; since
+  provider rows accumulate renewals into `amount_paid`, all-time totals are right but a renewal's
+  money is dated to the contract's start, not the renewal. Dating each charge correctly would need
+  revenue to read a charges ledger (receipt amounts, with `SubscriptionService` also writing
+  receipts for local subscriptions) — not done.
 - `UserSeeder` assigns `config('panel.app_user_role')` to the local test user, but `panel.php`
   only defines `super_admin_role` — app users/guests are distinguished by `type`, not roles, so
   this key doesn't exist. Local-only seeding path; harmless but dead config lookup.

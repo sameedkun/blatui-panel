@@ -15,10 +15,10 @@ use Illuminate\Database\Eloquent\Model;
  * {@see HandlesIpActivityPanel}
  * and friends. Requires the using component to also use LogsAdminActivity and
  * HasToast. Only re-fires the provider's own webhook-received event with the
- * row's already-stored data ({@see RedispatchableNotification::redispatch()})
- * — there's no processing pipeline listening yet, so this doesn't (and
- * shouldn't) touch `processed`/`processed_at` itself; that stays owned by
- * whatever listener is wired up later.
+ * row's already-stored data ({@see RedispatchableNotification::redispatch()});
+ * the provider's queued listener (e.g. ProcessAppStoreNotification) does the
+ * work and owns `processed`/`processed_at` — this never touches them itself.
+ * Processing is idempotent, so reprocessing an applied row changes nothing.
  */
 trait HandlesWebhookNotificationRowActions
 {

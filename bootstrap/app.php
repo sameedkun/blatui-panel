@@ -15,6 +15,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
@@ -27,6 +28,8 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         api: __DIR__.'/../routes/api.php',
         health: '/up',
+        // Provider webhooks: no middleware group — see routes/webhooks.php.
+        then: fn () => Route::group([], __DIR__.'/../routes/webhooks.php'),
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([

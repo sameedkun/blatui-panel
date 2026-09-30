@@ -134,6 +134,7 @@ return [
         'ProductNotForSale' => 'Product Not For Sale',
         'Unreported' => 'Unreported',
         'Failure' => 'Failure',
+        'Summary' => 'Summary',
     ],
 
     'cancelled_by' => [
@@ -148,6 +149,13 @@ return [
         'Restore' => 'Restore',
         'Refund' => 'Refund',
         'Cancellation' => 'Cancellation',
+        'PlanChange' => 'Plan Change',
+        'BillingFailure' => 'Billing Failure',
+        'Expiration' => 'Expiration',
+        'Reactivation' => 'Reactivation',
+        'RefundReversed' => 'Refund Reversed',
+        'Extension' => 'Extension',
+        'Revocation' => 'Revocation',
     ],
 
     'report_format' => [

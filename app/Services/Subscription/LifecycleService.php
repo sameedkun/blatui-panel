@@ -29,12 +29,10 @@ class LifecycleService
      * straight to expired even if several boundaries have since passed); a
      * subsequent run catches anything still overdue after that step.
      *
-     * Only `local` subscriptions (no real payment gateway wired in yet) can
-     * have their status inferred from dates alone today — a real provider
-     * (Stripe, …) must confirm the renewal charge itself via its own
-     * webhook/reconciliation before it's safe to run this same transition set
-     * against it. Once that exists, just add it to the provider list passed in
-     * (see routes/console.php) — nothing here needs to change per-provider.
+     * Only `local` subscriptions (no payment gateway) can have their status
+     * inferred from dates alone. Webhook-driven providers (App Store) are moved
+     * by {@see ProviderSubscriptionService} instead and must not be swept here —
+     * the sweep would expire contracts the provider has already renewed.
      *
      * Two transitions from the full state graph are deliberately NOT handled
      * here because they aren't calendar-driven:

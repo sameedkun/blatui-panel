@@ -18,6 +18,8 @@ class UserResource extends JsonResource
     {
         return [
             'external_id' => $this->external_id,
+            // Pass to StoreKit as `appAccountToken` so App Store notifications map back to this account.
+            'app_account_token' => $this->appAccountToken(),
             'name' => $this->name,
             'email' => $this->email,
             'avatar' => $this->avatarUrl(),

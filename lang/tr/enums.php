@@ -134,6 +134,7 @@ return [
         'ProductNotForSale' => 'Ürün Satışta Değil',
         'Unreported' => 'Raporlanmadı',
         'Failure' => 'Başarısız',
+        'Summary' => 'Özet',
     ],
 
     'cancelled_by' => [
@@ -148,6 +149,13 @@ return [
         'Restore' => 'Geri Yükleme',
         'Refund' => 'İade',
         'Cancellation' => 'İptal',
+        'PlanChange' => 'Plan Değişikliği',
+        'BillingFailure' => 'Ödeme Hatası',
+        'Expiration' => 'Sona Erme',
+        'Reactivation' => 'Yeniden Etkinleştirme',
+        'RefundReversed' => 'İade Geri Alındı',
+        'Extension' => 'Uzatma',
+        'Revocation' => 'Erişim İptali',
     ],
 
     'report_format' => [

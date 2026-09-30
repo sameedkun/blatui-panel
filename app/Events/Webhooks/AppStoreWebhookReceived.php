@@ -4,20 +4,23 @@ namespace App\Events\Webhooks;
 
 use App\Enum\AppleNotificationSubtype;
 use App\Enum\AppleNotificationType;
+use App\Http\Controllers\Webhooks\AppStoreWebhookController;
+use App\Listeners\Webhooks\ProcessAppStoreNotification;
 use App\Models\Webhooks\AppleNotification;
 use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
 
 /**
- * Fired once a raw Apple Server Notification V2 has been decoded and stored
- * as an {@see AppleNotification} row. No listener is wired up yet — the
- * actual subscription-state processing logic hangs off this event once it
- * exists. The admin "Reprocess" action ({@see AppleNotification::redispatch()})
- * re-fires this same event from the stored row, so a listener added later
- * handles the original webhook and an admin-triggered replay identically.
+ * Fired once a raw Apple Server Notification V2 has been verified and stored
+ * as an {@see AppleNotification} row — by {@see AppStoreWebhookController} for
+ * a live delivery, and by the admin "Reprocess" action
+ * ({@see AppleNotification::redispatch()}) for a replay. Both go through
+ * {@see AppleNotification::redispatch()}, so the queued
+ * {@see ProcessAppStoreNotification} listener handles them identically.
  */
 class AppStoreWebhookReceived
 {
-    use Dispatchable;
+    use Dispatchable, SerializesModels;
 
     /**
      * @param  array<string, mixed>|null  $transactionInfo  Decoded signedTransactionInfo.

@@ -84,3 +84,10 @@ Schedule::job(new PruneRevokedDevices)
     ->monthly()
     ->name('devices-prune-revoked')
     ->withoutOverlapping();
+
+// Keeps the Apple root certificate current; a failed download leaves the existing one in place.
+// Run it by hand once on first deploy — App Store notifications are rejected until it exists.
+Schedule::command('app-store:refresh-certificate')
+    ->monthlyOn(1, '05:00')
+    ->name('app-store-refresh-certificate')
+    ->withoutOverlapping();

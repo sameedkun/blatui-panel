@@ -361,12 +361,6 @@ parameters:
 			path: app/Livewire/Admin/Management/Plans/Show.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/Admin/Management/Subscriptions/Index.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amount_paid\.$#'
 			identifier: property.notFound
 			count: 1
@@ -381,7 +375,7 @@ parameters:
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
 			identifier: property.notFound
-			count: 2
+			count: 1
 			path: app/Livewire/Admin/Management/Subscriptions/Show.php
 
 		-
@@ -595,33 +589,9 @@ parameters:
 			path: app/Models/EmailSender.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$plan\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/User.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$plan_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/User.php
-
-		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\:\:staff\(\)\.$#'
 			identifier: method.notFound
 			count: 4
-			path: app/Models/User.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:isInGrace\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Models/User.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:isOnTrial\(\)\.$#'
-			identifier: method.notFound
-			count: 1
 			path: app/Models/User.php
 
 		-
@@ -649,88 +619,10 @@ parameters:
 			path: app/Services/Account/GuestConversionService.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Account/MergeService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$previous_subscription_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Account/MergeService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$provider\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Services/Account/MergeService.php
-
-		-
-			message: '#^Parameter \#1 \$sub of method App\\Services\\Subscription\\SubscriptionService\:\:cancelSubscription\(\) expects App\\Models\\Subscription, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 2
-			path: app/Services/Account/MergeService.php
-
-		-
 			message: '#^Right side of && is always true\.$#'
 			identifier: booleanAnd.rightAlwaysTrue
 			count: 1
 			path: app/Services/Account/MergeService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Subscription/SubscriptionService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$plan\.$#'
-			identifier: property.notFound
-			count: 3
-			path: app/Services/Subscription/SubscriptionService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$starts_at\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Subscription/SubscriptionService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$trial_ends_at\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Subscription/SubscriptionService.php
-
-		-
-			message: '#^Method App\\Services\\Subscription\\SubscriptionService\:\:reactivate\(\) should return App\\Models\\Subscription but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Services/Subscription/SubscriptionService.php
-
-		-
-			message: '#^Method App\\Services\\Subscription\\SubscriptionService\:\:subscribe\(\) should return App\\Models\\Subscription but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Services/Subscription/SubscriptionService.php
-
-		-
-			message: '#^Method App\\Services\\Subscription\\SubscriptionService\:\:upgrade\(\) should return App\\Models\\Subscription but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Services/Subscription/SubscriptionService.php
-
-		-
-			message: '#^Parameter \#1 \$sub of method App\\Services\\Subscription\\SubscriptionService\:\:cancelSubscription\(\) expects App\\Models\\Subscription, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/Subscription/SubscriptionService.php
-
-		-
-			message: '#^Parameter \#1 \$sub of method App\\Services\\Subscription\\SubscriptionService\:\:prorationCredit\(\) expects App\\Models\\Subscription, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/Subscription/SubscriptionService.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>starts_at" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'

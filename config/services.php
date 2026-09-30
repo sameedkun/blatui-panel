@@ -56,4 +56,29 @@ return [
         'token' => env('IPINFO_TOKEN'),
     ],
 
+    /*
+    | App Store Server Notifications V2 (POST /webhooks/appstore).
+    |
+    | root_certificate      Apple Root CA - G3 (DER or PEM) — required; every
+    |                       notification is rejected without it. Written by
+    |                       `php artisan app-store:refresh-certificate` (run once
+    |                       on deploy, then monthly by the scheduler).
+    | bundle_id             Your app's bundle id. Anything signed for another app
+    |                       is rejected; strongly recommended in production.
+    | environments          Which environments are applied to subscriptions. Others
+    |                       are stored (visible in the panel) but change nothing —
+    |                       keeps free Sandbox/TestFlight purchases off production.
+    | verify_url_signature  Also require the signed URL printed by
+    |                       `php artisan app-store:webhook-url`.
+    */
+    'app_store' => [
+        'root_certificate' => env('APP_STORE_ROOT_CERTIFICATE', storage_path('app/private/certificates/AppleRootCA-G3.cer')),
+        'bundle_id' => env('APP_STORE_BUNDLE_ID'),
+        'environments' => explode(',', (string) env(
+            'APP_STORE_ENVIRONMENTS',
+            env('APP_ENV') === 'production' ? 'Production' : 'Production,Sandbox,Xcode,LocalTesting',
+        )),
+        'verify_url_signature' => (bool) env('APP_STORE_WEBHOOK_SIGNED_URL', false),
+    ],
+
 ];

@@ -60,6 +60,8 @@ return [
         'changed' => 'Değiştirildi', 'unassigned' => 'Atanmamış',
         'ended_immediately' => 'Hemen sona erdi',
         'continues_until_period_end' => 'Dönem sonuna kadar devam eder',
+        'revoked' => 'İptal edildi',
+        'kept_until_period_end' => 'Korundu (önceki dönem iade edildi)',
     ],
     'fields' => [
         'performed_by' => 'İşlemi yapan', 'device' => 'Cihaz', 'ip' => 'IP',
@@ -75,6 +77,8 @@ return [
         'starts_at' => 'Başlangıç zamanı', 'ends_at' => 'Bitiş zamanı',
         'role' => 'Rol', 'permissions' => 'İzinler',
         'notification_type' => 'Bildirim türü',
+        'access_until' => 'Erişim bitişi',
+        'billing_recovered' => 'Ödeme kurtarıldı',
     ],
     'areas' => [
         'smtp' => 'SMTP', 'email_domain' => 'E-posta alan adı',
@@ -108,6 +112,8 @@ return [
             'subscription_cancelled' => 'Abonelik İptal Edildi', 'subscription_reactivated' => 'Abonelik Yeniden Etkinleştirildi',
             'subscription_trial_converted' => 'Deneme Sürümü Dönüştürüldü', 'subscription_entered_grace' => 'Ek Süreye Girildi',
             'subscription_expired' => 'Abonelik Süresi Doldu', 'device_blocked' => 'Cihaz Engellendi',
+            'subscription_renewed' => 'Abonelik Yenilendi', 'subscription_payment_failed' => 'Yenileme Ödemesi Başarısız',
+            'subscription_refunded' => 'Abonelik İade Edildi', 'subscription_extended' => 'Abonelik Uzatıldı',
             'device_unblocked' => 'Cihaz Engeli Kaldırıldı', 'device_revoked' => 'Cihaz Erişimi İptal Edildi',
             'blocked_ip_created' => 'IP Engeli Oluşturuldu', 'blocked_ip_updated' => 'IP Engeli Güncellendi',
             'blocked_ip_deleted' => 'IP Engeli Kaldırıldı',

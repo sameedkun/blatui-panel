@@ -20,7 +20,10 @@ use Illuminate\Support\Facades\DB;
  *
  * Revenue is `subscriptions.amount_paid`, attributed to `starts_at` — when the
  * period began, i.e. when it was paid for — so a backdated import lands on
- * the period it belongs to rather than the day it was entered. Amounts are
+ * the period it belongs to rather than the day it was entered. Store-billed
+ * (webhook) contracts accumulate renewals and refunds into `amount_paid`, so
+ * their totals are complete but a renewal is dated to the contract's start
+ * (see ProviderSubscriptionService). Amounts are
  * summed as-is: a deployment selling in several currencies should normalise
  * `amount_paid` upstream (config('dashboard.currency') is the display currency).
  *

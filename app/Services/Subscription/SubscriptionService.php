@@ -3,6 +3,7 @@
 namespace App\Services\Subscription;
 
 use App\Enum\ActivityAction;
+use App\Enum\ActivityContext;
 use App\Enum\ActivityModule;
 use App\Enum\CancelledBy;
 use App\Enum\PaymentProvider;
@@ -12,6 +13,7 @@ use App\Models\Subscription;
 use App\Models\User;
 use App\Support\ActivityLogger;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -143,12 +145,18 @@ class SubscriptionService
      * hold the exact row to cancel and can't rely on `$user->activeSubscription`
      * resolving to it (a user may end up owning more than one active-looking
      * row mid-merge).
+     *
+     * `$causer`/`$context` override the audit entry's auto-detected values —
+     * needed by provider webhook processing ({@see ProviderSubscriptionService}),
+     * which runs on a queue with no `auth()` session.
      */
     public function cancelSubscription(
         Subscription $sub,
         CancelledBy $cancelledBy = CancelledBy::User,
         ?string $reason = null,
-        bool $immediately = false
+        bool $immediately = false,
+        Model|null|false $causer = false,
+        ?ActivityContext $context = null,
     ): void {
         $reasonText = $reason ?: 'Cancelled';
 
@@ -173,7 +181,7 @@ class SubscriptionService
             'reason' => $reasonText,
             'immediately' => $immediately,
             'access_until' => $sub->ends_at?->toIso8601String(),
-        ]);
+        ], $causer, $context);
     }
 
     /**

@@ -91,6 +91,8 @@ return [
         'unassigned' => 'Unassigned',
         'ended_immediately' => 'Ended immediately',
         'continues_until_period_end' => 'Continues until period end',
+        'revoked' => 'Revoked',
+        'kept_until_period_end' => 'Kept (earlier period refunded)',
     ],
     'fields' => [
         'performed_by' => 'Performed by',
@@ -124,6 +126,8 @@ return [
         'role' => 'Role',
         'permissions' => 'Permissions',
         'notification_type' => 'Notification type',
+        'access_until' => 'Access until',
+        'billing_recovered' => 'Billing recovered',
     ],
     'areas' => [
         'smtp' => 'SMTP',
@@ -181,6 +185,10 @@ return [
             'subscription_trial_converted' => 'Trial Converted',
             'subscription_entered_grace' => 'Entered Grace Period',
             'subscription_expired' => 'Subscription Expired',
+            'subscription_renewed' => 'Subscription Renewed',
+            'subscription_payment_failed' => 'Renewal Payment Failed',
+            'subscription_refunded' => 'Subscription Refunded',
+            'subscription_extended' => 'Subscription Extended',
             'device_blocked' => 'Device Blocked',
             'device_unblocked' => 'Device Unblocked',
             'device_revoked' => 'Device Revoked',

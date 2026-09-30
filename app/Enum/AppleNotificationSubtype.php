@@ -33,6 +33,7 @@ enum AppleNotificationSubtype: string
     case ProductNotForSale = 'PRODUCT_NOT_FOR_SALE';
     case Unreported = 'UNREPORTED';
     case Failure = 'FAILURE';
+    case Summary = 'SUMMARY';
 
     public function label(): string
     {

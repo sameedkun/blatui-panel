@@ -81,6 +81,15 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Provider webhook deliveries that were rejected, ignored or left unprocessed.
+        'webhooks' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/webhooks.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_WEBHOOK_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

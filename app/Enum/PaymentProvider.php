@@ -23,4 +23,17 @@ enum PaymentProvider: string
     {
         return __("enums.payment_provider.{$this->name}");
     }
+
+    /**
+     * Where a customer fixes their payment method / manages the subscription,
+     * for stores that own billing. Null when there's no customer-facing page.
+     */
+    public function manageSubscriptionUrl(): ?string
+    {
+        return match ($this) {
+            self::AppStore => 'https://apps.apple.com/account/subscriptions',
+            self::PlayStore => 'https://play.google.com/store/account/subscriptions',
+            default => null,
+        };
+    }
 }

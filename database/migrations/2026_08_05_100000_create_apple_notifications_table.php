@@ -22,7 +22,7 @@ return new class extends Migration
             $table->json('transaction_info')->nullable(); // Decoded transaction info
             $table->json('renewal_info')->nullable(); // Decoded renewal info
             $table->string('app_account_token')->nullable(); // The app account token from the notification
-            $table->string('original_transaction_id');
+            $table->string('original_transaction_id')->nullable();
             $table->string('transaction_id')->nullable();
             $table->string('product_id')->nullable();
             $table->boolean('processed')->default(false); // Whether this notification has been processed
