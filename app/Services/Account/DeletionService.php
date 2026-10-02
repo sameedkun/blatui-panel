@@ -242,11 +242,14 @@ class DeletionService
      * Remove rows owned by the account. Each table is guarded so the pipeline
      * stays idempotent and tolerates data that is missing or already deleted.
      *
-     * `subscriptions` and `user_devices` aren't listed here — both have a
-     * `user_id` FK that's `cascadeOnDelete()` at the DB level, so the
-     * forceDelete() below already removes those rows; explicit cleanup would
-     * be redundant. (`subscription_receipts` cascades transitively off
-     * `subscriptions` the same way.)
+     * `user_devices` isn't listed here — its `user_id` FK is
+     * `cascadeOnDelete()`, so the forceDelete() below removes those rows.
+     *
+     * `subscriptions` are deliberately kept: their `user_id` FK is
+     * `nullOnDelete()`, so the forceDelete() detaches them (user_id → NULL)
+     * and they, with their `subscription_transactions`, survive as ownerless
+     * financial history. A store-billed contract may even keep renewing —
+     * ProviderSubscriptionService records those charges without an owner.
      *
      * `blocked_ips` IS listed here, unlike those two — its `user_id` FK is
      * `restrictOnDelete()`, not `cascadeOnDelete()` (InnoDB refuses a cascading

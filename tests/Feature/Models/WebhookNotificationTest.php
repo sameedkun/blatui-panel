@@ -5,7 +5,7 @@ namespace Tests\Feature\Models;
 use App\Enum\AppleNotificationSubtype;
 use App\Enum\AppleNotificationType;
 use App\Enum\PaymentProvider;
-use App\Models\SubscriptionReceipt;
+use App\Models\SubscriptionTransaction;
 use App\Models\Webhooks\AppleNotification;
 use App\Support\WebhookNotificationRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -82,28 +82,33 @@ class WebhookNotificationTest extends TestCase
         $this->assertNull(WebhookNotificationRegistry::resolve(PaymentProvider::AppStore, null));
     }
 
-    public function test_subscription_receipt_resolves_its_linked_notification(): void
+    public function test_subscription_transaction_resolves_its_linked_notification(): void
     {
         $notification = AppleNotification::factory()->create();
-        $receipt = SubscriptionReceipt::factory()->create([
+        $transaction = SubscriptionTransaction::factory()->create([
             'notification_provider' => PaymentProvider::AppStore->value,
             'notification_id' => $notification->id,
         ]);
 
-        $resolved = $receipt->notification();
+        $resolved = $transaction->notification();
 
         $this->assertInstanceOf(AppleNotification::class, $resolved);
         $this->assertSame($notification->id, $resolved->id);
     }
 
-    public function test_subscription_receipt_notification_is_null_when_unlinked(): void
+    public function test_subscription_transaction_notification_is_null_when_unlinked_or_unknown(): void
     {
-        $receipt = SubscriptionReceipt::factory()->create([
+        $unlinked = SubscriptionTransaction::factory()->create([
             'notification_provider' => null,
             'notification_id' => null,
         ]);
+        $unknown = SubscriptionTransaction::factory()->create([
+            'notification_provider' => PaymentProvider::AppStore->value,
+            'notification_id' => 999999,
+        ]);
 
-        $this->assertNull($receipt->notification());
+        $this->assertNull($unlinked->notification());
+        $this->assertNull($unknown->notification());
     }
 
     public function test_english_and_turkish_webhook_notification_translations_have_matching_keys(): void

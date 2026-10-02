@@ -21,7 +21,7 @@ class RevenueTrend extends OverviewWidget
         $current = $this->revenue->revenueSeries($range);
 
         return Chart::make(__('dashboard.trends.revenue'), Chart::AREA)
-            ->description(__('dashboard.trends.revenue_hint', ['currency' => config('dashboard.currency')]))
+            ->description(__('dashboard.trends.revenue_hint', ['currency' => $this->revenue->currency()]))
             ->icon('banknote')
             ->summary(array_sum($current), Format::CURRENCY)
             ->labels(array_values($range->buckets()))

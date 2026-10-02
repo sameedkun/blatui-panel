@@ -58,7 +58,7 @@ return [
     'show_stats' => [
         'total_subscriptions' => 'Toplam Abonelik',
         'cancelled_expired' => 'İptal Edilmiş / Süresi Dolmuş',
-        'total_revenue' => 'Toplam Gelir',
+        'total_revenue' => 'Net Satışlar',
     ],
 
     'tabs' => [

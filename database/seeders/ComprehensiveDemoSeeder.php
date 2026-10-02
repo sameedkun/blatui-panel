@@ -5,10 +5,10 @@ namespace Database\Seeders;
 use App\Enum\ActivityAction;
 use App\Enum\ActivityContext;
 use App\Enum\ActivityModule;
-use App\Enum\ReceiptType;
 use App\Enum\SubscriptionStatus;
 use App\Enum\TicketMessageAuthorType;
 use App\Enum\TicketStatus;
+use App\Enum\TransactionType;
 use App\Enum\UserType;
 use App\Models\Announcement;
 use App\Models\BlockedIp;
@@ -24,13 +24,14 @@ use App\Models\PolicyAcceptance;
 use App\Models\PolicyVersion;
 use App\Models\SmtpSetting;
 use App\Models\Subscription;
-use App\Models\SubscriptionReceipt;
+use App\Models\SubscriptionTransaction;
 use App\Models\Ticket;
 use App\Models\TicketCategory;
 use App\Models\TicketMessage;
 use App\Models\User;
 use App\Models\UserDevice;
 use App\Support\ActivityLogger;
+use App\Support\Money\Money;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
 
@@ -204,9 +205,12 @@ class ComprehensiveDemoSeeder extends Seeder
                     'is_recurring' => ! in_array($status, [SubscriptionStatus::Cancelled, SubscriptionStatus::Expired, SubscriptionStatus::Failed], true),
                 ]);
 
-                SubscriptionReceipt::factory()->create([
+                SubscriptionTransaction::factory()->create([
                     'subscription_id' => $subscription->id,
-                    'type' => $index % 2 === 0 ? ReceiptType::Renewal : ReceiptType::Initial,
+                    'provider' => $subscription->provider,
+                    'type' => $index % 2 === 0 ? TransactionType::Renewal : TransactionType::Initial,
+                    'amount_minor' => Money::ofMajor((string) $price->amount, $price->currency)->minor,
+                    'currency' => $price->currency,
                 ]);
             }
         }

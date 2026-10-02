@@ -4,8 +4,8 @@ namespace Tests\Feature\Webhooks;
 
 use App\Enum\ActivityContext;
 use App\Enum\PaymentProvider;
-use App\Enum\ReceiptType;
 use App\Enum\SubscriptionStatus;
+use App\Enum\TransactionType;
 use App\Events\Webhooks\AppStoreWebhookReceived;
 use App\Models\PlanPrice;
 use App\Models\PlanPriceProvider;
@@ -79,12 +79,13 @@ class AppStoreWebhookTest extends TestCase
         $this->assertSame($price->id, $subscription->plan_price_id);
         $this->assertSame(PaymentProvider::AppStore, $subscription->provider);
         $this->assertSame(SubscriptionStatus::Active, $subscription->status);
-        $this->assertSame('9.99', $subscription->amount_paid);
         $this->assertTrue($subscription->is_recurring);
 
-        $receipt = $subscription->receipts()->sole();
-        $this->assertSame(ReceiptType::Initial, $receipt->type);
-        $this->assertSame($notification->id, $receipt->notification()->id);
+        $transaction = $subscription->transactions()->sole();
+        $this->assertSame(TransactionType::Initial, $transaction->type);
+        $this->assertSame([999, 'USD'], [$transaction->amount_minor, $transaction->currency]);
+        $this->assertSame([PaymentProvider::AppStore, $notification->id], [$transaction->notification_provider, $transaction->notification_id]);
+        $this->assertSame($notification->id, $transaction->notification()->id);
 
         $activity = Activity::query()->where('properties->type', 'subscription_assigned')->sole();
         $this->assertSame(ActivityContext::Webhook->value, $activity->properties['context']);

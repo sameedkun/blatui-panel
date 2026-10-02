@@ -70,6 +70,7 @@ return [
         'sent_to' => 'Gönderilen adres', 'version' => 'Sürüm', 'plan' => 'Plan',
         'amount' => 'Tutar', 'from' => 'Önceki', 'to' => 'Yeni',
         'credit_applied' => 'Uygulanan kredi', 'amount_charged' => 'Tahsil edilen tutar',
+        'source' => 'Kaynak',
         'cancelled_by' => 'İptal eden', 'access' => 'Erişim',
         'ip_address' => 'IP Adresi', 'scope' => 'Kapsam',
         'name' => 'Ad', 'email' => 'E-posta', 'status' => 'Durum',

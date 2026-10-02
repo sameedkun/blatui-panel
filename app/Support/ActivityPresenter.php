@@ -8,6 +8,7 @@ use App\Enum\ActivityLogName;
 use App\Enum\ActivityModule;
 use App\Enum\PaymentProvider;
 use App\Enum\PolicyType;
+use App\Enum\SubscriptionSource;
 use App\Enum\TicketPriority;
 use App\Models\Announcement;
 use App\Models\Feedback;
@@ -18,6 +19,7 @@ use App\Models\TicketCategory;
 use App\Models\User;
 use App\Models\UserDevice;
 use App\Models\Webhooks\AppleNotification;
+use App\Support\Money\Currency;
 use Carbon\CarbonInterface;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
@@ -505,12 +507,16 @@ class ActivityPresenter
                 self::row(__('activity_logs.fields.plan'), $properties['plan'] ?? null),
                 self::row(__('activity_logs.fields.amount'), self::formatAmount($properties)),
                 self::row(__('activity_logs.fields.provider'), isset($properties['provider']) ? Str::headline((string) $properties['provider']) : null),
+                self::row(__('activity_logs.fields.source'), SubscriptionSource::tryFrom((string) ($properties['source'] ?? ''))?->label()),
+                self::row(__('activity_logs.fields.reason'), $properties['reason'] ?? null),
             ],
             'subscription_upgraded' => [
                 self::row(__('activity_logs.fields.from'), $properties['from_plan'] ?? null),
                 self::row(__('activity_logs.fields.to'), $properties['to_plan'] ?? null),
                 self::row(__('activity_logs.fields.credit_applied'), isset($properties['credit_applied']) && $properties['credit_applied'] > 0 ? self::formatAmount($properties, 'credit_applied') : null),
                 self::row(__('activity_logs.fields.amount_charged'), self::formatAmount($properties, 'amount_charged')),
+                self::row(__('activity_logs.fields.source'), SubscriptionSource::tryFrom((string) ($properties['source'] ?? ''))?->label()),
+                self::row(__('activity_logs.fields.reason'), $properties['reason'] ?? null),
             ],
             'subscription_cancelled' => [
                 self::row(__('activity_logs.fields.plan'), $properties['plan'] ?? null),
@@ -591,9 +597,10 @@ class ActivityPresenter
             return null;
         }
 
-        $currency = $properties['currency'] ?? '';
+        $currency = (string) ($properties['currency'] ?? '');
+        $decimals = Currency::isSupported($currency) ? Currency::exponent($currency) : 2;
 
-        return trim("{$currency} ".number_format((float) $properties[$key], 2));
+        return trim("{$currency} ".number_format((float) $properties[$key], $decimals));
     }
 
     /** @return array<int, string> */

@@ -167,6 +167,7 @@ return [
         'bulk_permanently_deleted' => ':count guests permanently deleted.',
         'no_active_subscription' => 'This guest has no active subscription.',
         'plan_assigned' => ':name is now on the :plan plan.',
+        'store_managed_subscription' => 'This plan is billed by :provider — plan changes have to be made there, not in the panel.',
         'subscription_cancelled_immediately' => ':plan subscription cancelled immediately.',
         'subscription_cancelled_period_end' => ':plan subscription will end on :date.',
         'subscription_reactivated' => ':plan subscription reactivated.',

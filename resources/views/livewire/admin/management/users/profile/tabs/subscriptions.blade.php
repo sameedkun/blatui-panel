@@ -193,7 +193,7 @@
                     <div class="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-1">
                         <dt class="text-xs font-medium text-muted-foreground">{{ __('subscriptions.total_paid') }}</dt>
                         <dd class="text-xs font-semibold text-foreground">
-                            {{ $active->amount_paid !== null ? $active->currency . ' ' . number_format((float) $active->amount_paid, 2) : '—' }}
+                            <x-admin.subscription-paid :subscription="$active" />
                         </dd>
                     </div>
 
@@ -318,7 +318,7 @@
                                 @endif
                             </td>
                             <td class="px-4 py-3.5 text-right font-mono text-xs font-semibold text-foreground">
-                                {{ $subscription->amount_paid !== null ? $subscription->currency . ' ' . number_format((float) $subscription->amount_paid, 2) : '—' }}
+                                <x-admin.subscription-paid :subscription="$subscription" />
                             </td>
                             <td class="px-4 py-3.5 text-right">
                                 @can('subscriptions.manage')

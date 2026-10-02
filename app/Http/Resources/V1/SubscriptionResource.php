@@ -30,9 +30,8 @@ class SubscriptionResource extends JsonResource
             'ends_at' => $this->ends_at?->toIso8601String(),
             'trial_ends_at' => $this->trial_ends_at?->toIso8601String(),
             'grace_ends_at' => $this->grace_ends_at?->toIso8601String(),
-            'amount_paid' => $this->amount_paid,
-            'currency' => $this->currency,
             'provider' => $this->provider->value,
+            'source' => $this->source->value,
             'cancelled_by' => $this->cancelled_by?->value,
             'cancelled_reason' => $this->cancelled_reason,
         ];

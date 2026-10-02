@@ -5,19 +5,22 @@ namespace App\Support\Dashboard\Reports\Definitions;
 use App\Enum\PaymentProvider;
 use App\Enum\SubscriptionStatus;
 use App\Models\Plan;
-use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Support\Dashboard\DateRange;
 use App\Support\Dashboard\Format;
 use App\Support\Dashboard\Metrics\RevenueMetrics;
 use App\Support\Dashboard\Reports\ReportDefinition;
 use App\Support\Dashboard\Reports\ReportFilter;
+use App\Support\Money\Money;
 use Illuminate\Database\Eloquent\Builder;
 
-/** Every subscription period sold in the window — the transaction ledger behind revenue. */
+/**
+ * Every money movement in the window — the transaction ledger behind
+ * revenue. One row per charge or refund, each in the currency the customer
+ * paid (refunds negative); the summary totals each currency separately.
+ */
 class RevenueReport extends ReportDefinition
 {
-    public function __construct(private readonly RevenueMetrics $revenue) {}
-
     public function key(): string
     {
         return 'revenue';
@@ -61,55 +64,95 @@ class RevenueReport extends ReportDefinition
             'plan' => __('dashboard.reports.columns.plan'),
             'billing' => __('dashboard.reports.columns.billing'),
             'provider' => __('dashboard.reports.columns.provider'),
-            'status' => __('dashboard.reports.columns.status'),
+            'type' => __('dashboard.reports.columns.transaction_type'),
             'amount' => __('dashboard.reports.columns.amount'),
             'currency' => __('dashboard.reports.columns.currency'),
+            'transaction_id' => __('dashboard.reports.columns.transaction_id'),
         ];
     }
 
     public function rows(DateRange $range, array $filters): iterable
     {
-        foreach ($this->query($range, $filters)->with(['user' => fn ($query) => $query->withTrashed(), 'plan', 'planPrice'])->lazyById(500) as $subscription) {
+        $transactions = $this->query($range, $filters)->with([
+            'subscription.user' => fn ($query) => $query->withTrashed(),
+            'subscription.plan',
+            'subscription.planPrice',
+        ]);
+
+        foreach ($transactions->lazyById(500) as $transaction) {
+            $subscription = $transaction->subscription;
+            $price = $subscription?->planPrice;
+
             yield [
-                'date' => $subscription->starts_at->format('Y-m-d H:i'),
-                'customer' => $subscription->user?->name,
-                'email' => $subscription->user?->email,
-                'plan' => $subscription->plan?->name,
-                'billing' => $subscription->planPrice
-                    ? RevenueMetrics::billingLabel($subscription->planPrice->billing_interval, (int) $subscription->planPrice->billing_period)
-                    : null,
-                'provider' => $subscription->provider->label(),
-                'status' => $subscription->status->label(),
-                'amount' => $subscription->amount_paid === null ? null : round((float) $subscription->amount_paid, 2),
-                'currency' => $subscription->currency,
+                'date' => $transaction->purchased_at?->format('Y-m-d H:i'),
+                'customer' => $subscription?->user?->name,
+                'email' => $subscription?->user?->email,
+                'plan' => $subscription?->plan?->name,
+                'billing' => $price ? RevenueMetrics::billingLabel($price->billing_interval, (int) $price->billing_period) : null,
+                'provider' => $transaction->provider->label(),
+                'type' => $transaction->type->label(),
+                'amount' => $transaction->signedMoney()?->toDecimal(),
+                'currency' => $transaction->currency,
+                'transaction_id' => $transaction->provider_transaction_id,
             ];
         }
     }
 
     public function summary(DateRange $range, array $filters): array
     {
-        $revenue = (float) $this->query($range, $filters)->sum('amount_paid');
-        $transactions = $this->query($range, $filters)->where('amount_paid', '>', 0)->count();
-        $refunds = $this->revenue->refunds($range);
+        $charges = $this->query($range, $filters)->charges()->where('subscription_transactions.amount_minor', '>', 0)->count();
+        $summary = [__('dashboard.reports.summary.transactions') => Format::value($charges)];
+
+        foreach ($this->currencies($range, $filters) as $currency) {
+            $totals = $this->totals($range, $filters, $currency);
+            $summary[__('dashboard.reports.summary.gross_sales_in', ['currency' => $currency])] = $totals['gross']->format();
+
+            if (! $totals['refunds']->isZero()) {
+                $summary[__('dashboard.reports.summary.refunds_in', ['currency' => $currency])] = $totals['refunds']->format();
+            }
+        }
+
+        return $summary;
+    }
+
+    /**
+     * @param  array<string, string>  $filters
+     * @return list<string>
+     */
+    private function currencies(DateRange $range, array $filters): array
+    {
+        return $this->query($range, $filters)->priced()->distinct()->orderBy('currency')->pluck('subscription_transactions.currency')->all();
+    }
+
+    /**
+     * Gross charges and net refunds in one currency, for the filtered rows.
+     *
+     * @param  array<string, string>  $filters
+     * @return array{gross: Money, refunds: Money}
+     */
+    private function totals(DateRange $range, array $filters, string $currency): array
+    {
+        $rows = $this->query($range, $filters)->priced()->where('subscription_transactions.currency', $currency);
+        $net = SubscriptionTransaction::netByCurrency(clone $rows)[$currency];
+        $gross = (int) (clone $rows)->charges()->sum('subscription_transactions.amount_minor');
 
         return [
-            __('dashboard.reports.summary.revenue') => Format::currency($revenue),
-            __('dashboard.reports.summary.transactions') => Format::value($transactions),
-            __('dashboard.reports.summary.average_order') => Format::currency($transactions > 0 ? $revenue / $transactions : 0),
-            __('dashboard.reports.summary.refunds') => Format::currency($refunds['amount']),
+            'gross' => Money::ofMinor($gross, $currency),
+            'refunds' => Money::ofMinor($gross - $net->minor, $currency),
         ];
     }
 
     /**
      * @param  array<string, string>  $filters
-     * @return Builder<Subscription>
+     * @return Builder<SubscriptionTransaction>
      */
     private function query(DateRange $range, array $filters): Builder
     {
-        return Subscription::query()
-            ->whereBetween('starts_at', [$range->start, $range->end])
-            ->when($filters['plan'] ?? null, fn (Builder $query, string $plan) => $query->where('plan_id', $plan))
-            ->when($filters['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
-            ->when($filters['provider'] ?? null, fn (Builder $query, string $provider) => $query->where('provider', $provider));
+        return SubscriptionTransaction::query()
+            ->whereBetween('subscription_transactions.purchased_at', [$range->start, $range->end])
+            ->when($filters['provider'] ?? null, fn (Builder $query, string $provider) => $query->where('subscription_transactions.provider', $provider))
+            ->when(($filters['plan'] ?? null) || ($filters['status'] ?? null), fn (Builder $query) => $query->whereHas('subscription', fn (Builder $subscription) => $subscription
+                ->when($filters['plan'] ?? null, fn (Builder $q, string $plan) => $q->where('plan_id', $plan))
+                ->when($filters['status'] ?? null, fn (Builder $q, string $status) => $q->where('status', $status))));
     }
 }

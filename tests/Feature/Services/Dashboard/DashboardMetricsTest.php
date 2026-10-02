@@ -11,18 +11,23 @@ use App\Models\BlockedIp;
 use App\Models\Plan;
 use App\Models\PlanPrice;
 use App\Models\Subscription;
-use App\Models\SubscriptionReceipt;
+use App\Models\SubscriptionTransaction;
 use App\Models\Ticket;
 use App\Models\TicketCategory;
 use App\Models\TicketMessage;
 use App\Models\User;
 use App\Support\ActivityLogger;
+use App\Support\Dashboard\Analytics\RevenueSection;
+use App\Support\Dashboard\Blocks\KeyFigures;
 use App\Support\Dashboard\DateRange;
+use App\Support\Dashboard\Format;
 use App\Support\Dashboard\Metrics\AudienceMetrics;
 use App\Support\Dashboard\Metrics\RevenueMetrics;
 use App\Support\Dashboard\Metrics\SecurityMetrics;
 use App\Support\Dashboard\Metrics\SubscriptionMetrics;
 use App\Support\Dashboard\Metrics\SupportMetrics;
+use App\Support\Dashboard\Overview\Kpis\MonthlyRecurringRevenue;
+use App\Support\Dashboard\Overview\Kpis\Revenue as RevenueKpi;
 use App\Support\Dashboard\TimeSeries;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Date;
@@ -115,27 +120,204 @@ class DashboardMetricsTest extends TestCase
         $monthly = PlanPrice::factory()->for($plan)->create(['amount' => 30, 'billing_interval' => 'month']);
         $yearly = PlanPrice::factory()->for($plan)->create(['amount' => 240, 'billing_interval' => 'year']);
 
-        $this->subscription($plan, $monthly, ['starts_at' => '2026-09-10', 'ends_at' => '2026-10-10', 'amount_paid' => 30]);
-        $this->subscription($plan, $yearly, ['starts_at' => '2026-09-15', 'ends_at' => '2027-09-15', 'amount_paid' => 240]);
-        $refunded = $this->subscription($plan, $monthly, ['starts_at' => '2026-09-20', 'ends_at' => '2026-10-20', 'amount_paid' => 30]);
-        $this->subscription($plan, $monthly, ['starts_at' => '2026-07-01', 'ends_at' => '2026-08-01', 'amount_paid' => 30, 'status' => 'expired']);
-        $this->subscription($plan, $monthly, ['starts_at' => '2026-09-25', 'ends_at' => '2026-10-25', 'amount_paid' => 0, 'status' => 'trialing', 'trial_ends_at' => '2026-10-02']);
+        $a = $this->subscription($plan, $monthly, ['starts_at' => '2026-09-10', 'ends_at' => '2026-10-10']);
+        $b = $this->subscription($plan, $yearly, ['starts_at' => '2026-09-15', 'ends_at' => '2027-09-15']);
+        $refunded = $this->subscription($plan, $monthly, ['starts_at' => '2026-09-20', 'ends_at' => '2026-10-20']);
+        $old = $this->subscription($plan, $monthly, ['starts_at' => '2026-07-01', 'ends_at' => '2026-08-01', 'status' => 'expired']);
+        $trial = $this->subscription($plan, $monthly, ['starts_at' => '2026-09-25', 'ends_at' => '2026-10-25', 'status' => 'trialing', 'trial_ends_at' => '2026-10-02']);
+        $euro = $this->subscription($plan, $monthly, ['starts_at' => '2026-09-12', 'ends_at' => '2026-10-12', 'provider' => 'appstore']);
+        // A free grant: live, but never revenue, never "paying", never MRR.
+        $this->subscription($plan, $monthly, ['starts_at' => '2026-09-01', 'ends_at' => '2026-12-01', 'source' => 'admin']);
 
-        SubscriptionReceipt::factory()->create(['subscription_id' => $refunded->id, 'type' => 'refund']);
+        $this->charge($a, 3000, 'USD', '2026-09-10');
+        $this->charge($b, 24000, 'USD', '2026-09-15');
+        $this->charge($refunded, 3000, 'USD', '2026-09-20');
+        $this->charge($refunded, 3000, 'USD', '2026-09-22', 'refund');
+        $this->charge($old, 3000, 'USD', '2026-07-01');
+        $this->charge($trial, 0, 'USD', '2026-09-25');
+        $this->charge($euro, 2799, 'EUR', '2026-09-12');
 
+        // Reporting currency (USD) only — the EUR sale is never added in.
         $this->assertSame(300.0, $revenue->revenue($this->range));
-        $this->assertSame(3, $revenue->transactions($this->range));
+        $this->assertSame(4, $revenue->transactions($this->range), 'paid charges in any currency');
+        $this->assertSame(1, $revenue->otherCurrencies($this->range));
         $this->assertSame(['count' => 1, 'amount' => 30.0], $revenue->refunds($this->range));
+        $this->assertSame(4, $revenue->payingCustomers($this->range));
+        $this->assertSame(100.0, $revenue->arpu($this->range), '300 USD over the 3 customers charged in USD');
 
-        // Two monthly subscriptions at 30 plus a yearly one at 240/12; the trial hasn't converted yet.
+        $sales = $revenue->salesByCurrency($this->range);
+        $this->assertSame(['USD', 'EUR'], array_keys($sales));
+        $this->assertSame([30000, 3000, 27000, 3], [$sales['USD']['gross']->minor, $sales['USD']['refunds']->minor, $sales['USD']['net']->minor, $sales['USD']['transactions']]);
+        $this->assertSame([2799, 1], [$sales['EUR']['gross']->minor, $sales['EUR']['transactions']]);
+
+        // Each paying USD subscription's latest charge, per month: 30 + 30 + 240/12. The trial,
+        // the EUR subscription and the grant add nothing.
         $this->assertSame(80.0, $revenue->mrr());
         $this->assertSame(960.0, $revenue->arr());
         $this->assertSame(0.0, $revenue->mrr(Date::parse('2026-08-15')));
 
         $this->assertSame(['Pro' => 300.0], $revenue->revenueByPlan($this->range));
+        $this->assertSame([$plan->id => 300.0], $revenue->revenueByPlanId($this->range));
         $this->assertSame([__('dashboard.billing.year') => 240.0, __('dashboard.billing.month') => 60.0], $revenue->revenueByBilling($this->range));
-        $this->assertSame(['paid' => 3, 'trials' => 1, 'failed' => 0, 'refunded' => 1], $revenue->transactionOutcomes($this->range));
+        $this->assertSame(['paid' => 4, 'trials' => 1, 'failed' => 0, 'refunded' => 1], $revenue->transactionOutcomes($this->range));
         $this->assertSame(240.0, $revenue->revenueSeries($this->range)['2026-09-15']);
+    }
+
+    public function test_churn_and_renewal_rates_ignore_admin_grants(): void
+    {
+        $subscriptions = new SubscriptionMetrics(new RevenueMetrics);
+        $plan = Plan::factory()->create();
+        $price = PlanPrice::factory()->for($plan)->create(['amount' => 10]);
+
+        // Five paid subscriptions live at the start of the window; one of them lapses during it.
+        foreach (range(1, 4) as $i) {
+            $this->subscription($plan, $price, ['starts_at' => '2026-08-01', 'ends_at' => '2026-11-01']);
+        }
+        $renewing = $this->subscription($plan, $price, ['starts_at' => '2026-08-01', 'ends_at' => '2026-11-01']);
+        $this->charge($renewing, 1000, 'USD', '2026-09-01', 'renewal');
+        $this->subscription($plan, $price, ['starts_at' => '2026-08-01', 'ends_at' => '2026-09-10', 'status' => 'expired']);
+
+        // Free grants ending or cancelled in the window are not paying churn.
+        $this->subscription($plan, $price, ['starts_at' => '2026-08-01', 'ends_at' => '2026-09-05', 'status' => 'expired', 'source' => 'admin']);
+        $this->subscription($plan, $price, ['starts_at' => '2026-08-01', 'ends_at' => '2026-09-06', 'status' => 'expired', 'source' => 'promotional']);
+        $this->subscription($plan, $price, ['starts_at' => '2026-08-01', 'ends_at' => '2026-10-01', 'status' => 'cancelled', 'cancelled_by' => 'user', 'source' => 'admin']);
+
+        $this->assertSame(Format::share(1, 6), $subscriptions->churnRate($this->range));
+        $this->assertSame(50.0, $subscriptions->renewalRate($this->range), 'one renewal against one lapsed paid subscription');
+        $this->assertSame(1, $subscriptions->cancelled($this->range), 'the cancellations count still shows every cancellation');
+        $this->assertSame(3, $subscriptions->expired($this->range));
+    }
+
+    public function test_mrr_uses_the_most_recently_dated_charge_not_the_last_inserted(): void
+    {
+        $revenue = new RevenueMetrics;
+        $plan = Plan::factory()->create();
+        $price = PlanPrice::factory()->for($plan)->create(['amount' => 15, 'billing_interval' => 'month']);
+        $subscription = $this->subscription($plan, $price, ['starts_at' => '2026-08-20', 'ends_at' => '2026-10-20']);
+
+        $this->charge($subscription, 1500, 'USD', '2026-09-20', 'renewal');
+        // An older renewal processed late (e.g. a reprocessed notification) gets the higher id.
+        $this->charge($subscription, 999, 'USD', '2026-08-20');
+
+        $this->assertSame(15.0, $revenue->mrr());
+    }
+
+    public function test_mrr_spreads_a_multi_period_charge_over_the_periods_it_covers(): void
+    {
+        $revenue = new RevenueMetrics;
+        $plan = Plan::factory()->create();
+        $monthly = PlanPrice::factory()->for($plan)->create(['amount' => 9.99, 'billing_interval' => 'month', 'billing_period' => 1]);
+        $yearly = PlanPrice::factory()->for($plan)->create(['amount' => 120, 'billing_interval' => 'year', 'billing_period' => 1]);
+
+        $upFront = $this->subscription($plan, $monthly, ['starts_at' => '2026-09-01', 'ends_at' => '2026-12-01']);
+        $this->charge($upFront, 2400, 'USD', '2026-09-01')->update(['periods_covered' => 3]);
+        $annual = $this->subscription($plan, $yearly, ['starts_at' => '2026-09-01', 'ends_at' => '2027-09-01']);
+        $this->charge($annual, 12000, 'USD', '2026-09-01');
+
+        $this->assertSame(18.0, $revenue->mrr(), '24.00 over three months + 120.00 over twelve');
+        $this->assertSame(216.0, $revenue->arr());
+    }
+
+    public function test_mrr_never_counts_grants_trials_or_other_currencies_and_says_what_it_left_out(): void
+    {
+        $revenue = new RevenueMetrics;
+        $plan = Plan::factory()->create();
+        $price = PlanPrice::factory()->for($plan)->create(['amount' => 10, 'billing_interval' => 'month']);
+
+        $this->charge($this->subscription($plan, $price, ['starts_at' => '2026-09-01', 'ends_at' => '2026-10-01']), 1000, 'USD', '2026-09-01');
+        $this->charge($this->subscription($plan, $price, ['starts_at' => '2026-09-01', 'ends_at' => '2026-10-01', 'provider' => 'appstore']), 899, 'EUR', '2026-09-01');
+        $this->subscription($plan, $price, ['starts_at' => '2026-09-01', 'ends_at' => '2026-12-01', 'source' => 'admin']);
+        $this->charge($this->subscription($plan, $price, ['starts_at' => '2026-09-25', 'ends_at' => '2026-10-25', 'status' => 'trialing', 'trial_ends_at' => '2026-10-02']), 0, 'USD', '2026-09-25');
+
+        $this->assertSame(10.0, $revenue->mrr());
+        $this->assertSame(1, $revenue->mrrOtherCurrencies(), 'the EUR subscription is reported as left out, not as zero');
+    }
+
+    public function test_counts_shown_beside_money_use_the_same_currency_scope(): void
+    {
+        $revenue = new RevenueMetrics;
+        $plan = Plan::factory()->create();
+        $price = PlanPrice::factory()->for($plan)->create();
+        $usd = $this->subscription($plan, $price, ['starts_at' => '2026-09-10', 'ends_at' => '2026-10-10']);
+        $eur = $this->subscription($plan, $price, ['starts_at' => '2026-09-10', 'ends_at' => '2026-10-10']);
+        $this->charge($usd, 1000, 'USD', '2026-09-10');
+        $this->charge($usd, 1000, 'USD', '2026-09-11', 'refund');
+        $this->charge($eur, 900, 'EUR', '2026-09-10');
+        $this->charge($eur, 900, 'EUR', '2026-09-11', 'refund');
+
+        $this->assertSame(2, $revenue->transactions($this->range), 'all currencies');
+        $this->assertSame(1, $revenue->transactions($this->range, 'USD'));
+        $this->assertSame(['count' => 1, 'amount' => 10.0], $revenue->refunds($this->range), 'count and amount are both USD');
+        $this->assertSame(2, $revenue->transactionOutcomes($this->range)['refunded'], 'outcome counts span every currency');
+    }
+
+    public function test_the_mrr_kpi_names_subscriptions_left_out_in_other_currencies(): void
+    {
+        $plan = Plan::factory()->create();
+        $price = PlanPrice::factory()->for($plan)->create(['amount' => 10, 'billing_interval' => 'month']);
+        $this->charge($this->subscription($plan, $price, ['starts_at' => '2026-09-01', 'ends_at' => '2026-10-01']), 1000, 'USD', '2026-09-01');
+        $this->charge($this->subscription($plan, $price, ['starts_at' => '2026-09-01', 'ends_at' => '2026-10-01']), 899, 'EUR', '2026-09-01');
+
+        $metric = app(MonthlyRecurringRevenue::class)->build($this->range);
+
+        $this->assertSame(10.0, $metric->value);
+        $this->assertSame(__('dashboard.kpis.arr_other_currencies', ['value' => Format::currency(120), 'currency' => 'USD', 'count' => 1]), $metric->description);
+    }
+
+    public function test_the_revenue_kpi_counts_only_reporting_currency_transactions_under_its_amount(): void
+    {
+        $plan = Plan::factory()->create();
+        $price = PlanPrice::factory()->for($plan)->create();
+        $this->charge($this->subscription($plan, $price, ['starts_at' => '2026-09-10']), 1000, 'USD', '2026-09-10');
+        $this->charge($this->subscription($plan, $price, ['starts_at' => '2026-09-10']), 900, 'EUR', '2026-09-10');
+        $this->charge($this->subscription($plan, $price, ['starts_at' => '2026-09-10']), 900, 'EUR', '2026-09-11');
+
+        $metric = app(RevenueKpi::class)->build($this->range);
+
+        $this->assertSame(__('dashboard.kpis.transactions_other_currencies', ['count' => '1', 'currency' => 'USD', 'currencies' => 1]), $metric->description);
+    }
+
+    public function test_unit_economics_scope_paying_customers_to_the_currency_of_arpu(): void
+    {
+        $plan = Plan::factory()->create();
+        $price = PlanPrice::factory()->for($plan)->create();
+        $this->charge($this->subscription($plan, $price, ['starts_at' => '2026-09-10']), 1000, 'USD', '2026-09-10');
+        $this->charge($this->subscription($plan, $price, ['starts_at' => '2026-09-10']), 900, 'EUR', '2026-09-10');
+
+        $figures = collect(app(RevenueSection::class)->build($this->range))
+            ->flatMap(fn ($row) => $row->blocks)
+            ->first(fn ($block) => $block instanceof KeyFigures)
+            ->figures;
+        $paying = collect($figures)->firstWhere('label', __('dashboard.figures.paying_customers'));
+
+        $this->assertSame(1, $paying['value']);
+        $this->assertSame(__('dashboard.figures.paying_customers_hint', ['currency' => 'USD']), $paying['hint']);
+    }
+
+    public function test_renewals_count_in_the_month_they_were_charged(): void
+    {
+        $revenue = new RevenueMetrics;
+        $plan = Plan::factory()->create();
+        $price = PlanPrice::factory()->for($plan)->create(['amount' => 10, 'billing_interval' => 'month']);
+        $subscription = $this->subscription($plan, $price, ['starts_at' => '2026-06-01', 'ends_at' => '2026-10-01']);
+
+        $this->charge($subscription, 1000, 'USD', '2026-06-01');
+        $this->charge($subscription, 1000, 'USD', '2026-09-01', 'renewal');
+
+        $this->assertSame(10.0, $revenue->revenue($this->range), 'only the September renewal falls in the window');
+        $this->assertSame(10.0, $revenue->mrr());
+    }
+
+    public function test_mrr_uses_the_latest_charge_not_the_current_list_price(): void
+    {
+        $revenue = new RevenueMetrics;
+        $plan = Plan::factory()->create();
+        $price = PlanPrice::factory()->for($plan)->create(['amount' => 15, 'billing_interval' => 'month']);
+        $subscription = $this->subscription($plan, $price, ['starts_at' => '2026-09-01', 'ends_at' => '2026-10-01']);
+
+        $this->charge($subscription, 999, 'USD', '2026-09-01');
+
+        $this->assertSame(9.99, $revenue->mrr());
     }
 
     public function test_subscription_lifecycle_rates_ignore_system_replacements(): void
@@ -269,6 +451,15 @@ class DashboardMetricsTest extends TestCase
             'plan_price_id' => $price->id,
             'status' => 'active',
             ...$attributes,
+        ]);
+    }
+
+    private function charge(Subscription $subscription, int $minor, string $currency, string $at, string $type = 'initial'): SubscriptionTransaction
+    {
+        return SubscriptionTransaction::factory()->for($subscription)->amount($minor, $currency)->create([
+            'provider' => $subscription->provider,
+            'type' => $type,
+            'purchased_at' => $at,
         ]);
     }
 

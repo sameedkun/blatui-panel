@@ -130,7 +130,7 @@
 
                         {{-- Paid --}}
                         <td class="px-4 py-3 text-right">
-                            {{ $subscription->amount_paid !== null ? $subscription->currency.' '.number_format((float) $subscription->amount_paid, 2) : '—' }}
+                            <x-admin.subscription-paid :subscription="$subscription" />
                         </td>
 
                         {{-- Row actions --}}

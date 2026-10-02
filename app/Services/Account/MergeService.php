@@ -98,8 +98,8 @@ class MergeService
 
     /**
      * Reassign every subscription the guest owns to the destination account
-     * before the guest row is force-deleted — `subscriptions.user_id`
-     * cascade-deletes on the guest's removal, and history must survive.
+     * before the guest row is force-deleted — otherwise its removal would
+     * leave them ownerless (`subscriptions.user_id` is nulled on delete).
      *
      * Conflict resolution only cares about each side's *active* subscription
      * (if any). The destination account is canonical, with one exception: a

@@ -357,20 +357,8 @@ parameters:
 		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:subscriptions\(\)\.$#'
 			identifier: method.notFound
-			count: 3
+			count: 2
 			path: app/Livewire/Admin/Management/Plans/Show.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amount_paid\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/Admin/Management/Subscriptions/Show.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$currency\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/Admin/Management/Subscriptions/Show.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
@@ -406,12 +394,6 @@ parameters:
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$user_id\.$#'
 			identifier: property.notFound
 			count: 1
-			path: app/Livewire/Admin/Management/Subscriptions/Show.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:receipts\(\)\.$#'
-			identifier: method.notFound
-			count: 2
 			path: app/Livewire/Admin/Management/Subscriptions/Show.php
 
 		-

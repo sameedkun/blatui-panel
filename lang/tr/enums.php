@@ -143,19 +143,20 @@ return [
         'System' => 'Sistem',
     ],
 
-    'receipt_type' => [
+    'transaction_type' => [
         'Initial' => 'İlk Ödeme',
         'Renewal' => 'Yenileme',
-        'Restore' => 'Geri Yükleme',
-        'Refund' => 'İade',
-        'Cancellation' => 'İptal',
         'PlanChange' => 'Plan Değişikliği',
-        'BillingFailure' => 'Ödeme Hatası',
-        'Expiration' => 'Sona Erme',
-        'Reactivation' => 'Yeniden Etkinleştirme',
+        'Refund' => 'İade',
         'RefundReversed' => 'İade Geri Alındı',
-        'Extension' => 'Uzatma',
-        'Revocation' => 'Erişim İptali',
+    ],
+
+    'subscription_source' => [
+        'Purchase' => 'Satın alma',
+        'Admin' => 'Yönetici tanımlaması',
+        'Promotional' => 'Promosyon',
+        'Migration' => 'Taşıma',
+        'System' => 'Sistem',
     ],
 
     'report_format' => [

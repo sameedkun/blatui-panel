@@ -45,6 +45,14 @@
             @enderror
         </x-ui.field>
 
+        <x-ui.field>
+            <x-ui.field-label>{{ __('users.dialogs.grant_reason') }}</x-ui.field-label>
+            <x-ui.textarea wire:model="assignReason" rows="2" maxlength="255" placeholder="{{ __('users.dialogs.grant_reason_placeholder') }}" />
+            @error('assignReason')
+                <x-ui.field-error>{{ $message }}</x-ui.field-error>
+            @enderror
+        </x-ui.field>
+
         <x-ui.dialog-footer>
             <x-ui.button variant="outline" @click="open = false">{{ __('common.cancel') }}</x-ui.button>
             <x-ui.button @click="open = false" wire:click="assignPlan">{{ __('common.save') }}</x-ui.button>

@@ -22,8 +22,11 @@ use App\Support\Dashboard\Reports\Definitions;
 return [
 
     /*
-    | Display currency for revenue figures. Amounts are summed as stored, so a
-    | multi-currency deployment should normalise `amount_paid` upstream.
+    | Reporting currency for money figures. Revenue, MRR, refunds and the
+    | breakdowns sum only the transactions charged in this currency — amounts
+    | in different currencies are never added together (no FX conversion yet).
+    | Every other currency is shown exactly in Analytics → Revenue → "Sales by
+    | currency".
     */
     'currency' => env('DASHBOARD_CURRENCY', 'USD'),
 

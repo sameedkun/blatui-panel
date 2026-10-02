@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Model;
  * {@see ActivityPresenter::subjectUrlResolvers()} — a class-keyed
  * registry instead of a per-provider if/elseif chain, so the admin panel
  * (index/show pages, the Subscription Show tab, {@see
- * \App\Models\SubscriptionReceipt::notification()}) never branches on
+ * \App\Models\SubscriptionTransaction::notification()}) never branches on
  * provider. Adding a new provider is one array line here plus its model —
  * zero changes anywhere else.
  */

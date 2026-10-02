@@ -28,14 +28,24 @@ class SubscriptionFactory extends Factory
             'ends_at' => now()->addMonth(),
             'trial_ends_at' => null,
             'grace_ends_at' => null,
-            'amount_paid' => fake()->randomFloat(2, 5, 100),
-            'currency' => 'USD',
             'status' => 'active',
             'cancelled_by' => null,
             'cancelled_reason' => null,
             'is_recurring' => true,
             'provider' => 'local',
+            'source' => 'purchase',
         ];
+    }
+
+    /** Free access granted by staff — no transactions. */
+    public function granted(?User $by = null, ?string $reason = null): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'provider' => 'local',
+            'source' => 'admin',
+            'granted_by' => $by?->id,
+            'grant_reason' => $reason,
+        ]);
     }
 
     /** A subscription currently in its trial period. */

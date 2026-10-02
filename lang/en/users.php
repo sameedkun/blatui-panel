@@ -173,7 +173,9 @@ return [
 
         // Subscription dialogs
         'assign_plan_title' => 'Assign / Change Plan',
-        'assign_plan_desc' => 'Manually assigns this user to a plan and price. Any existing active subscription is replaced (prorated if upgrading).',
+        'assign_plan_desc' => 'Grants this user a plan and price for free — no payment is recorded. Any existing active subscription is replaced.',
+        'grant_reason' => 'Reason',
+        'grant_reason_placeholder' => 'e.g. Customer support compensation (optional)',
         'select_plan' => 'Select a plan',
         'select_price' => 'Select a price',
         'cancel_immediately_title' => 'Cancel Subscription Immediately',
@@ -214,6 +216,7 @@ return [
         'device_revoked' => ':name has been revoked.',
         'devices_revoked' => ':count devices revoked.',
         'plan_assigned' => ':name is now on the :plan plan.',
+        'store_managed_subscription' => 'This plan is billed by :provider — plan changes have to be made there, not in the panel.',
         'no_active_subscription' => 'This user has no active subscription.',
         'subscription_cancelled_immediately' => ':plan subscription cancelled immediately.',
         'subscription_cancelled_period_end' => ':plan subscription will end on :date.',

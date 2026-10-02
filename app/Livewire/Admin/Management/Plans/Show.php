@@ -10,6 +10,7 @@ use App\Livewire\Admin\Concerns\HasShowTabs;
 use App\Livewire\Admin\Concerns\LogsAdminActivity;
 use App\Livewire\Admin\Management\Plans\Concerns\HandlesPlanRowActions;
 use App\Models\Plan;
+use App\Models\SubscriptionTransaction;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
@@ -103,7 +104,7 @@ class Show extends BaseShow
     protected function subscriptions(): LengthAwarePaginator
     {
         return $this->record->subscriptions()
-            ->with(['user', 'planPrice'])
+            ->with(['user', 'planPrice', 'transactions'])
             ->when($this->subsStatus !== '', fn ($q) => $q->where('status', $this->subsStatus))
             ->latest('starts_at')
             ->paginate(10);
@@ -138,9 +139,22 @@ class Show extends BaseShow
             ['label' => __('plans.show_stats.total_subscriptions'), 'icon' => 'users', 'value' => (string) $counts->sum()],
             ['label' => __('plans.status.active'), 'icon' => 'check-circle', 'value' => (string) $active],
             ['label' => __('plans.show_stats.cancelled_expired'), 'icon' => 'circle-slash', 'value' => (string) $inactive],
-            ['label' => __('plans.show_stats.total_revenue'), 'icon' => 'banknote', 'value' => number_format((float) $plan->subscriptions()->sum('amount_paid'), 2)],
+            ['label' => __('plans.show_stats.total_revenue'), 'icon' => 'banknote', 'value' => $this->netSalesLabel($plan->getKey())],
             ['label' => __('plans.tabs.prices'), 'icon' => 'tag', 'value' => (string) $plan->prices()->count()],
         ];
+    }
+
+    /**
+     * Net sales across every subscription on this plan, one figure per
+     * currency — never summed across currencies.
+     */
+    private function netSalesLabel(int $planId): string
+    {
+        $totals = SubscriptionTransaction::netByCurrency(
+            SubscriptionTransaction::query()->whereHas('subscription', fn ($query) => $query->where('plan_id', $planId)),
+        );
+
+        return $totals === [] ? '—' : collect($totals)->map->format()->implode(' · ');
     }
 
     /**

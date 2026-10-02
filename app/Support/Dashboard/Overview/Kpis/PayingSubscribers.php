@@ -22,8 +22,8 @@ class PayingSubscribers extends OverviewWidget
 
     public function build(DateRange $range): Metric
     {
-        return Metric::make(__('dashboard.kpis.paying_subscribers'), $this->revenue->liveAt(Date::now())->count())
-            ->compareTo($this->revenue->liveAt($range->start)->count())
+        return Metric::make(__('dashboard.kpis.paying_subscribers'), $this->revenue->liveCustomersAt(Date::now())->count())
+            ->compareTo($this->revenue->liveCustomersAt($range->start)->count())
             ->description(__('dashboard.kpis.trialing', ['count' => number_format($this->subscriptions->countByStatus(SubscriptionStatus::Trialing))]))
             ->icon('credit-card')
             ->link(route('admin.subscriptions.index'), 'subscriptions.view');

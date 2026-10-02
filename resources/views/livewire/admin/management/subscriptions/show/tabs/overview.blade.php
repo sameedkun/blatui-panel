@@ -11,7 +11,12 @@
         ['label' => __('subscriptions.overview.subscription_status'), 'value' => $record->status->label(), 'badge' => true, 'status' => $record->status],
         ['label' => __('subscriptions.overview.payment_gateway'), 'value' => $record->provider->label()],
         ['label' => __('subscriptions.overview.auto_renewal_state'), 'value' => $record->is_recurring ? __('subscriptions.status.enabled') : __('subscriptions.status.disabled')],
-        ['label' => __('subscriptions.overview.total_amount_paid'), 'value' => $record->amount_paid !== null ? $record->currency.' '.number_format((float) $record->amount_paid, 2) : '—'],
+        ['label' => __('subscriptions.overview.net_paid'), 'value' => collect($record->netPaid())->map->format()->implode(' · ') ?: '—'],
+        ['label' => __('subscriptions.fields.source'), 'value' => $record->source->label()],
+        ...($record->isGrant() ? [
+            ['label' => __('subscriptions.fields.granted_by'), 'value' => $record->grantedBy?->name ?? '—'],
+            ['label' => __('subscriptions.fields.grant_reason'), 'value' => $record->grant_reason ?? __('subscriptions.no_reason_provided')],
+        ] : []),
         ['label' => __('subscriptions.overview.subscription_started'), 'value' => $record->starts_at?->translatedFormat('M d, Y h:i A') ?? '—'],
         ['label' => __('subscriptions.overview.trial_expiration'), 'value' => $record->trial_ends_at?->translatedFormat('M d, Y h:i A') ?? '—'],
         ['label' => __('subscriptions.overview.access_renewal_date'), 'value' => $record->ends_at?->translatedFormat('M d, Y h:i A') ?? '—'],

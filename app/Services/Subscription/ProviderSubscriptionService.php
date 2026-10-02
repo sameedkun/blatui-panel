@@ -7,45 +7,60 @@ use App\Enum\ActivityContext;
 use App\Enum\ActivityModule;
 use App\Enum\CancelledBy;
 use App\Enum\PaymentProvider;
-use App\Enum\ReceiptType;
+use App\Enum\SubscriptionSource;
 use App\Enum\SubscriptionStatus;
+use App\Enum\TransactionType;
 use App\Models\PlanPrice;
 use App\Models\Subscription;
-use App\Models\SubscriptionReceipt;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use App\Notifications\Billing\PaymentFailedNotification;
 use App\Support\ActivityLogger;
+use App\Support\Money\Money;
 use App\Support\Subscription\ProviderTransaction;
 use Carbon\CarbonInterface;
+use Closure;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use LogicException;
 
 /**
  * Provider-driven subscription state changes — the third sibling next to
  * {@see SubscriptionService} (user/admin actions) and {@see LifecycleService}
  * (calendar sweep). Every payment-provider webhook integration translates its
  * own events into a {@see ProviderTransaction} and calls one of the methods
- * here, so the state machine, the receipt ledger and the audit trail are
+ * here, so the state machine, the financial ledger and the audit trail are
  * identical no matter which store the money came through.
  *
  * Shape of the data:
  *   - one `subscriptions` row per contract (a provider's original transaction),
  *     renewals extend it rather than creating new rows; a plan change starts a
- *     new row linked through `previous_subscription_id`;
- *   - every provider event that touched it is a `subscription_receipts` row
- *     (provider ids + raw transaction + link to the raw webhook notification),
- *     so `subscriptions` never grows provider-specific columns;
- *   - the contract is found again via its receipts' `provider_original_id`.
+ *     new row linked through `previous_subscription_id`. The row is the
+ *     entitlement and carries no money;
+ *   - every charge, renewal, refund and refund reversal is a
+ *     `subscription_transactions` row with its own amount + currency (already
+ *     normalised by the integration), provider ids, the raw transaction and a
+ *     link to the raw webhook notification. State-only events (auto-renew
+ *     toggled, billing failed, expired, ...) change the subscription and the
+ *     audit log, not the ledger;
+ *   - the contract is found again via its transactions' `provider_original_id`
+ *     — every contract opens with an Initial or PlanChange transaction.
  *
- * Every method is safe to replay (admin "Reprocess", provider retries):
- * money events are keyed on the provider transaction id, state events no-op
- * when the subscription is already in the target state.
+ * Every method is safe to replay (admin "Reprocess", provider retries) and to
+ * run concurrently. Each money movement carries an `idempotency_key` that is
+ * unique per provider in the database (see {@see SubscriptionTransaction}):
+ * the "already recorded?" check below is only the fast path — if two workers
+ * race past it, the second insert violates the unique index, its whole
+ * database transaction (subscription changes included) rolls back, and the
+ * call resolves to what the winner recorded. Keys come from the provider
+ * transaction id (never a notification id — one transaction can be named by
+ * several notifications). State-only events no-op when the subscription is
+ * already in the target state.
  */
 class ProviderSubscriptionService
 {
-    /** Receipt types that record a charge — at most one per provider transaction id. */
-    private const CHARGE_TYPES = [ReceiptType::Initial, ReceiptType::Renewal, ReceiptType::PlanChange];
-
     public function __construct(private SubscriptionService $subscriptions) {}
 
     /** The plan price mapped to a provider product id via `plan_price_providers`. */
@@ -72,7 +87,7 @@ class ProviderSubscriptionService
 
         return Subscription::query()
             ->where('provider', $provider)
-            ->whereHas('receipts', fn ($query) => $query
+            ->whereHas('transactions', fn ($query) => $query
                 ->where('provider', $provider)
                 ->where('provider_original_id', $originalTransactionId))
             ->latest('id')
@@ -85,7 +100,7 @@ class ProviderSubscriptionService
      */
     public function start(User $user, PlanPrice $price, ProviderTransaction $transaction): Subscription
     {
-        return DB::transaction(function () use ($user, $price, $transaction): Subscription {
+        return $this->idempotently(function () use ($user, $price, $transaction): Subscription {
             if ($recorded = $this->recordedCharge($transaction)) {
                 return $recorded->subscription;
             }
@@ -109,22 +124,21 @@ class ProviderSubscriptionService
                 'previous_subscription_id' => $previous?->id,
             ]);
 
-            $this->recordReceipt($subscription, ReceiptType::Initial, $transaction);
+            $this->recordTransaction($subscription, TransactionType::Initial, $transaction, $this->chargeKey($transaction));
 
             $this->log($subscription, ActivityAction::Assigned, 'subscription_assigned', [
-                'amount' => $subscription->amount_paid,
-                'currency' => $subscription->currency,
+                ...$this->moneyProperties($transaction->amount),
                 'trial' => $transaction->isTrial,
             ]);
 
             return $subscription;
-        });
+        }, fn (): Subscription => $this->winningCharge($transaction)->subscription);
     }
 
     /** A successful renewal charge — extends the contract's period. */
     public function renew(Subscription $subscription, ProviderTransaction $transaction, bool $recovered = false): Subscription
     {
-        return DB::transaction(function () use ($subscription, $transaction, $recovered): Subscription {
+        return $this->idempotently(function () use ($subscription, $transaction, $recovered): Subscription {
             if ($this->recordedCharge($transaction)) {
                 return $subscription;
             }
@@ -147,20 +161,20 @@ class ProviderSubscriptionService
                 ];
             }
 
-            $subscription->update($data + $this->adjustedAmountPaid($subscription, $transaction, 1));
-            $this->recordReceipt($subscription, ReceiptType::Renewal, $transaction);
+            $subscription->update($data);
+            $this->recordTransaction($subscription, TransactionType::Renewal, $transaction, $this->chargeKey($transaction));
+            $this->flagOwnerlessCharge($subscription, $transaction);
 
             $wasTrial
                 ? $this->log($subscription, ActivityAction::Updated, 'subscription_trial_converted')
                 : $this->log($subscription, ActivityAction::Updated, 'subscription_renewed', [
-                    'amount' => $transaction->amount,
-                    'currency' => $transaction->currency,
+                    ...$this->moneyProperties($transaction->amount),
                     'recovered' => $recovered,
                     'access_until' => $subscription->ends_at?->toIso8601String(),
                 ]);
 
             return $subscription;
-        });
+        }, fn (): Subscription => $subscription->refresh());
     }
 
     /**
@@ -170,14 +184,16 @@ class ProviderSubscriptionService
      */
     public function changePlan(Subscription $subscription, PlanPrice $price, ProviderTransaction $transaction): Subscription
     {
-        return DB::transaction(function () use ($subscription, $price, $transaction): Subscription {
+        return $this->idempotently(function () use ($subscription, $price, $transaction): Subscription {
             if ($recorded = $this->recordedCharge($transaction)) {
                 return $recorded->subscription;
             }
 
             $fromPlan = $subscription->plan->name;
 
-            $new = $subscription->user()->withTrashed()->firstOrFail()->subscriptions()->create([
+            // Same owner as the contract — or none, if its account was purged.
+            $new = Subscription::query()->create([
+                'user_id' => $subscription->user_id,
                 ...$this->periodAttributes($price, $transaction),
                 'starts_at' => $transaction->purchasedAt ?? now(),
                 'provider' => $transaction->provider,
@@ -194,18 +210,18 @@ class ProviderSubscriptionService
                 'cancelled_reason' => 'Plan changed to: '.$price->plan->slug,
             ]);
 
-            $this->recordReceipt($new, ReceiptType::PlanChange, $transaction);
+            $this->recordTransaction($new, TransactionType::PlanChange, $transaction, $this->chargeKey($transaction));
+            $this->flagOwnerlessCharge($new, $transaction);
 
             $this->log($new, ActivityAction::Assigned, 'subscription_upgraded', [
                 'from_plan' => $fromPlan,
                 'to_plan' => $price->plan->name,
-                'credit_applied' => 0,
-                'amount_charged' => $new->amount_paid,
-                'currency' => $new->currency,
+                'amount_charged' => $transaction->amount?->toDecimal(),
+                'currency' => $transaction->amount?->currency,
             ]);
 
             return $new;
-        });
+        }, fn (): Subscription => $this->winningCharge($transaction)->subscription);
     }
 
     /** The user turned auto-renew off — access continues until the paid period ends. */
@@ -217,15 +233,13 @@ class ProviderSubscriptionService
             return $subscription;
         }
 
-        return DB::transaction(function () use ($subscription, $transaction): Subscription {
+        return DB::transaction(function () use ($subscription): Subscription {
             $subscription->update([
                 'status' => SubscriptionStatus::Cancelled,
                 'is_recurring' => false,
                 'cancelled_by' => CancelledBy::User,
                 'cancelled_reason' => 'Auto-renewal turned off',
             ]);
-
-            $this->recordReceipt($subscription, ReceiptType::Cancellation, $transaction);
 
             $this->log($subscription, ActivityAction::Cancelled, 'subscription_cancelled', [
                 'cancelled_by' => CancelledBy::User->value,
@@ -247,15 +261,13 @@ class ProviderSubscriptionService
             return $subscription;
         }
 
-        return DB::transaction(function () use ($subscription, $transaction): Subscription {
+        return DB::transaction(function () use ($subscription): Subscription {
             $subscription->update([
                 'status' => $subscription->isOnTrial() ? SubscriptionStatus::Trialing : SubscriptionStatus::Active,
                 'is_recurring' => true,
                 'cancelled_by' => null,
                 'cancelled_reason' => null,
             ]);
-
-            $this->recordReceipt($subscription, ReceiptType::Reactivation, $transaction);
             $this->log($subscription, ActivityAction::Updated, 'subscription_reactivated');
 
             return $subscription;
@@ -276,15 +288,13 @@ class ProviderSubscriptionService
             return $subscription;
         }
 
-        return DB::transaction(function () use ($subscription, $graceEndsAt, $inGrace, $status, $transaction): Subscription {
+        return DB::transaction(function () use ($subscription, $graceEndsAt, $inGrace, $status): Subscription {
             $subscription->update([
                 'status' => $status,
                 'grace_ends_at' => $inGrace
                     ? $graceEndsAt
                     : ($subscription->grace_ends_at?->isFuture() ? now() : $subscription->grace_ends_at),
             ]);
-
-            $this->recordReceipt($subscription, ReceiptType::BillingFailure, $transaction);
 
             $inGrace
                 ? $this->log($subscription, ActivityAction::Updated, 'subscription_entered_grace')
@@ -339,8 +349,6 @@ class ProviderSubscriptionService
                 'cancelled_by' => $subscription->cancelled_by ?? $cancelledBy,
                 'cancelled_reason' => $subscription->cancelled_reason ?? Str::headline($reason),
             ]);
-
-            $this->recordReceipt($subscription, ReceiptType::Expiration, $transaction);
             $this->log($subscription, ActivityAction::Updated, 'subscription_expired', ['reason' => $reason]);
 
             return $subscription;
@@ -348,20 +356,51 @@ class ProviderSubscriptionService
     }
 
     /**
-     * The provider refunded a charge. Access is only cut when the refunded
-     * charge paid for the current period — refunding an older renewal just
-     * goes on the ledger.
+     * The provider refunded (part of) a charge. `$transaction->amount` is the
+     * **total** refunded on that provider transaction so far, as the provider
+     * reports it; `$transaction->eventKey` identifies this refund event. Only
+     * the part not already on the ledger is recorded, so:
+     *   - a redelivered/replayed refund event records nothing (same key);
+     *   - a second partial refund records just the additional amount;
+     *   - an older partial refund arriving after a newer one records nothing;
+     *   - a refund after a reversal is recorded in full again;
+     *   - the total refunded never exceeds the recorded charge.
+     *
+     * The refund goes on the ledger of the row that holds the original charge
+     * (in a plan-change chain that may be an earlier row) and points at that
+     * charge. Access is only cut when the refunded charge paid for the current
+     * period — refunding an older renewal just goes on the ledger.
      */
     public function refund(Subscription $subscription, ProviderTransaction $transaction, ?CarbonInterface $revokedAt = null, ?string $reason = null): Subscription
     {
-        return DB::transaction(function () use ($subscription, $transaction, $revokedAt, $reason): Subscription {
-            if ($this->recorded($transaction, [ReceiptType::Refund])) {
+        $key = $this->refundKey($transaction);
+
+        return $this->idempotently(function () use ($subscription, $transaction, $revokedAt, $reason, $key): Subscription {
+            if ($key && $this->findRecorded($transaction->provider, $key)) {
                 return $subscription;
             }
 
-            $revokesAccess = ! $transaction->expiresAt
-                || ! $subscription->ends_at
-                || $transaction->expiresAt->greaterThanOrEqualTo($subscription->ends_at);
+            // Locks the charge row so refunds/reversals of one transaction are applied one at a time.
+            $charge = $this->recordedCharge($transaction, lock: true);
+            $refunded = $this->unrecordedRefund($transaction, $charge);
+
+            if ($refunded !== null && $refunded->minor <= 0) {
+                if ($refunded->minor < 0) {
+                    $this->logLowerRefundTotal($transaction, $refunded);
+                }
+
+                return $subscription;
+            }
+
+            // Only a refund of the charge that pays for the *current* row's period can
+            // cut access. A charge owned by a superseded row (e.g. the plan before an
+            // upgrade) is refunded on the ledger alone — its period may well outlast the
+            // new row's, but the customer is paying for the new row now.
+            $owner = $charge->subscription ?? $subscription;
+            $revokesAccess = $owner->is($subscription)
+                && (! $transaction->expiresAt
+                    || ! $subscription->ends_at
+                    || $transaction->expiresAt->greaterThanOrEqualTo($subscription->ends_at));
 
             if ($revokesAccess) {
                 $subscription->update([
@@ -374,37 +413,113 @@ class ProviderSubscriptionService
                 ]);
             }
 
-            $this->netAgainstCharge($subscription, $transaction, -1);
-            $this->recordReceipt($subscription, ReceiptType::Refund, $transaction);
+            $this->recordTransaction(
+                $owner,
+                TransactionType::Refund,
+                $transaction->withAmount($refunded),
+                $key,
+                at: $revokedAt ?? now(),
+                related: $charge,
+            );
 
             $this->log($subscription, ActivityAction::Updated, 'subscription_refunded', [
-                'amount' => $transaction->amount,
-                'currency' => $transaction->currency,
+                ...$this->moneyProperties($refunded),
+                'refunded_total' => $transaction->amount?->toDecimal(),
                 'reason' => $reason,
                 'access_revoked' => $revokesAccess,
             ]);
 
             return $subscription;
-        });
+        }, fn (): Subscription => $subscription->refresh());
     }
 
-    /** The provider reversed a refund — restore access if that refund had cut it. */
-    public function reverseRefund(Subscription $subscription, ProviderTransaction $transaction): Subscription
+    /**
+     * Whether a refund recorded on this provider transaction is still standing
+     * (not reversed) — lets an integration flag provider events that
+     * contradict the ledger, such as a refund being declined after it was paid.
+     */
+    public function hasUnreversedRefund(PaymentProvider $provider, string $transactionId): bool
     {
-        return DB::transaction(function () use ($subscription, $transaction): Subscription {
-            if ($this->recorded($transaction, [ReceiptType::RefundReversed])) {
-                return $subscription;
+        return SubscriptionTransaction::query()
+            ->where('provider', $provider)
+            ->where('provider_transaction_id', $transactionId)
+            ->where('type', TransactionType::Refund)
+            ->whereDoesntHave('reversals')
+            ->exists();
+    }
+
+    /**
+     * The provider reported a cumulative refunded total *lower* than what the
+     * ledger already holds, with no reversal in between. Either an older event
+     * arrived late (harmless — nothing is recorded), or the provider lowered
+     * the refund some other way, which would leave the ledger overstating
+     * refunds. The two are indistinguishable here, so it is logged for review.
+     */
+    private function logLowerRefundTotal(ProviderTransaction $transaction, Money $difference): void
+    {
+        $reported = $transaction->amount;
+
+        Log::channel('webhooks')->warning('Refund total lower than already recorded — ledger left unchanged, review if this was not a late delivery', [
+            'provider' => $transaction->provider->value,
+            'transaction_id' => $transaction->transactionId,
+            'original_transaction_id' => $transaction->originalTransactionId,
+            'event_key' => $transaction->eventKey,
+            'reported_total' => $reported?->toDecimal(),
+            'recorded_total' => $reported?->minus($difference)->toDecimal(),
+            'currency' => $reported?->currency,
+            'notification_id' => $transaction->notification?->getKey(),
+        ]);
+    }
+
+    /**
+     * The provider reversed its refund(s) on a transaction — the money is ours
+     * again. Every refund on that transaction issued at or before
+     * `$reversedAt` and not yet reversed gets exactly one reversal of exactly
+     * its amount, pointing at it; a refund issued after the reversal is left
+     * alone. Restores access if the refund had cut it.
+     *
+     * Returns false when there is no recorded refund to reverse (the refund
+     * hasn't been processed yet, or predates the integration) so the caller
+     * can leave the event for a later retry; true once applied, including
+     * when replayed.
+     */
+    public function reverseRefund(Subscription $subscription, ProviderTransaction $transaction, ?CarbonInterface $reversedAt = null): bool
+    {
+        if (! $transaction->transactionId) {
+            return false;
+        }
+
+        return $this->idempotently(function () use ($subscription, $transaction, $reversedAt): bool {
+            $this->recordedCharge($transaction, lock: true);
+
+            $outstanding = SubscriptionTransaction::query()
+                ->where('provider', $transaction->provider)
+                ->where('provider_transaction_id', $transaction->transactionId)
+                ->where('type', TransactionType::Refund)
+                ->when($reversedAt, fn ($query) => $query->where('purchased_at', '<=', $reversedAt))
+                ->whereDoesntHave('reversals')
+                ->with('subscription')
+                ->orderBy('id')
+                ->get();
+
+            if ($outstanding->isEmpty()) {
+                return $this->hasLedgerEntry($transaction, TransactionType::RefundReversed);
             }
 
-            $wasRefunded = $this->recorded($transaction, [ReceiptType::Refund]) !== null;
-            $restores = $wasRefunded
-                && $subscription->status === SubscriptionStatus::Cancelled
+            foreach ($outstanding as $refund) {
+                $this->recordTransaction(
+                    $refund->subscription,
+                    TransactionType::RefundReversed,
+                    $transaction->withAmount($refund->money()),
+                    'reversal:'.$refund->idempotency_key,
+                    at: $reversedAt ?? now(),
+                    related: $refund,
+                );
+            }
+
+            $restores = $subscription->status === SubscriptionStatus::Cancelled
                 && $subscription->cancelled_by === CancelledBy::System
                 && $transaction->expiresAt?->isFuture();
-
-            if ($wasRefunded) {
-                $this->netAgainstCharge($subscription, $transaction, 1);
-            }
 
             if ($restores) {
                 $subscription->update([
@@ -418,10 +533,8 @@ class ProviderSubscriptionService
                 $this->log($subscription, ActivityAction::Updated, 'subscription_reactivated', ['reason' => 'refund_reversed']);
             }
 
-            $this->recordReceipt($subscription, ReceiptType::RefundReversed, $transaction);
-
-            return $subscription;
-        });
+            return true;
+        }, fn (): bool => true);
     }
 
     /** The provider pushed the renewal date out (e.g. a goodwill extension). */
@@ -435,8 +548,6 @@ class ProviderSubscriptionService
             $from = $subscription->ends_at;
 
             $subscription->update(['ends_at' => $transaction->expiresAt]);
-            $this->recordReceipt($subscription, ReceiptType::Extension, $transaction);
-
             $this->log($subscription, ActivityAction::Updated, 'subscription_extended', [
                 'from' => $from?->toIso8601String(),
                 'access_until' => $transaction->expiresAt->toIso8601String(),
@@ -453,7 +564,7 @@ class ProviderSubscriptionService
             return $subscription;
         }
 
-        return DB::transaction(function () use ($subscription, $transaction, $reason): Subscription {
+        return DB::transaction(function () use ($subscription, $reason): Subscription {
             $subscription->update([
                 'status' => SubscriptionStatus::Cancelled,
                 'ends_at' => now(),
@@ -462,8 +573,6 @@ class ProviderSubscriptionService
                 'cancelled_by' => CancelledBy::System,
                 'cancelled_reason' => $reason,
             ]);
-
-            $this->recordReceipt($subscription, ReceiptType::Revocation, $transaction);
 
             $this->log($subscription, ActivityAction::Cancelled, 'subscription_cancelled', [
                 'cancelled_by' => CancelledBy::System->value,
@@ -477,8 +586,8 @@ class ProviderSubscriptionService
     }
 
     /**
-     * Period/price columns for a new contract row, taken from the provider's
-     * own dates rather than computed from the plan price — the store owns the
+     * Period columns for a new contract row, taken from the provider's own
+     * dates rather than computed from the plan price — the store owns the
      * billing calendar.
      *
      * @return array<model-property<Subscription>, mixed>
@@ -498,39 +607,10 @@ class ProviderSubscriptionService
             'trial_ends_at' => $transaction->isTrial ? $transaction->expiresAt : null,
             'ends_at' => $transaction->expiresAt,
             'grace_ends_at' => null,
-            'amount_paid' => $transaction->amount ?? ($transaction->isTrial ? 0 : $price->amount),
-            'currency' => $transaction->currency ?? $price->currency,
             'status' => $status,
             'is_recurring' => $transaction->autoRenews ?? true,
+            'source' => SubscriptionSource::Purchase,
         ];
-    }
-
-    /**
-     * `amount_paid` is the running net total a contract row has collected —
-     * opening charge + renewals − refunds — which is what the panel's "Total
-     * amount paid" / "Revenue collected" / plan revenue figures read. `$sign`
-     * is +1 for a charge, −1 for a refund. A charge in a different currency
-     * than the row (e.g. the customer moved storefront) isn't summed into it;
-     * it stays on its receipt only.
-     *
-     * @return array<model-property<Subscription>, mixed>
-     */
-    private function adjustedAmountPaid(Subscription $subscription, ProviderTransaction $transaction, int $sign): array
-    {
-        if ($transaction->amount === null || ($transaction->currency && $transaction->currency !== $subscription->currency)) {
-            return [];
-        }
-
-        return ['amount_paid' => max(0, round((float) $subscription->amount_paid + $sign * (float) $transaction->amount, 2))];
-    }
-
-    /** Applies a refund (or its reversal) to the row whose receipt holds the original charge. */
-    private function netAgainstCharge(Subscription $subscription, ProviderTransaction $transaction, int $sign): void
-    {
-        $charged = $this->recordedCharge($transaction)?->subscription;
-        $target = $charged && ! $charged->is($subscription) ? $charged : $subscription;
-
-        $target->update($this->adjustedAmountPaid($target, $transaction, $sign));
     }
 
     private function isUserCancelled(Subscription $subscription): bool
@@ -539,36 +619,141 @@ class ProviderSubscriptionService
             && $subscription->cancelled_by === CancelledBy::User;
     }
 
-    private function recordedCharge(ProviderTransaction $transaction): ?SubscriptionReceipt
+    /**
+     * Runs a ledger-writing change in one database transaction. If another
+     * worker recorded the same money movement first, the unique index on
+     * `idempotency_key` rejects this insert, everything this attempt changed
+     * rolls back, and `$onDuplicate` resolves the result from what was
+     * recorded instead.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $work
+     * @param  Closure(): T  $onDuplicate
+     * @return T
+     */
+    private function idempotently(Closure $work, Closure $onDuplicate): mixed
     {
-        return $this->recorded($transaction, self::CHARGE_TYPES);
+        try {
+            return DB::transaction($work);
+        } catch (UniqueConstraintViolationException) {
+            return $onDuplicate();
+        }
     }
 
-    /** @param  list<ReceiptType>  $types */
-    private function recorded(ProviderTransaction $transaction, array $types): ?SubscriptionReceipt
+    /** The ledger row already recorded under this key, if any. */
+    protected function findRecorded(PaymentProvider $provider, string $idempotencyKey, bool $lock = false): ?SubscriptionTransaction
     {
-        if (! $transaction->transactionId) {
-            return null;
-        }
-
-        return SubscriptionReceipt::query()
-            ->where('provider', $transaction->provider)
-            ->where('provider_transaction_id', $transaction->transactionId)
-            ->whereIn('type', $types)
+        return SubscriptionTransaction::query()
+            ->where('provider', $provider)
+            ->where('idempotency_key', $idempotencyKey)
+            ->when($lock, fn ($query) => $query->lockForUpdate())
             ->with('subscription')
             ->first();
     }
 
-    private function recordReceipt(Subscription $subscription, ReceiptType $type, ProviderTransaction $transaction): SubscriptionReceipt
+    /** The charge already recorded for this provider transaction id — at most one can exist. */
+    private function recordedCharge(ProviderTransaction $transaction, bool $lock = false): ?SubscriptionTransaction
     {
-        return $subscription->receipts()->create([
+        $key = $this->chargeKey($transaction);
+
+        return $key ? $this->findRecorded($transaction->provider, $key, $lock) : null;
+    }
+
+    /** The charge another worker recorded first, after this attempt lost the race on its key. */
+    private function winningCharge(ProviderTransaction $transaction): SubscriptionTransaction
+    {
+        return $this->recordedCharge($transaction)
+            ?? throw new LogicException("Ledger key collision with no recorded charge for transaction [{$transaction->transactionId}].");
+    }
+
+    private function hasLedgerEntry(ProviderTransaction $transaction, TransactionType $type): bool
+    {
+        return SubscriptionTransaction::query()
+            ->where('provider', $transaction->provider)
+            ->where('provider_transaction_id', $transaction->transactionId)
+            ->where('type', $type)
+            ->exists();
+    }
+
+    /**
+     * One charge per provider transaction id, whatever its type — the same
+     * transaction can't be both an initial purchase and a renewal. Null (a
+     * unique `manual:` key is generated) when the provider gave no id.
+     */
+    private function chargeKey(ProviderTransaction $transaction): ?string
+    {
+        return $transaction->transactionId ? 'charge:'.$transaction->transactionId : null;
+    }
+
+    /** One key per refund event; a provider that refunds a transaction only once sends no event key. */
+    private function refundKey(ProviderTransaction $transaction): ?string
+    {
+        return $transaction->transactionId
+            ? 'refund:'.$transaction->transactionId.':'.($transaction->eventKey ?? 'full')
+            : null;
+    }
+
+    /**
+     * The part of the provider's cumulative refunded total not yet on the
+     * ledger: total (capped at the recorded charge) minus refunds already
+     * recorded and not reversed. Null when the provider sent no amount.
+     */
+    private function unrecordedRefund(ProviderTransaction $transaction, ?SubscriptionTransaction $charge): ?Money
+    {
+        $total = $transaction->amount;
+
+        if ($total === null) {
+            return null;
+        }
+
+        $charged = $charge?->money();
+
+        if ($charged && $charged->currency === $total->currency && $total->minor > $charged->minor) {
+            $total = $charged;
+        }
+
+        if (! $transaction->transactionId) {
+            return $total;
+        }
+
+        // Refunds count positive and reversals negative here — the opposite of signedAmountSql().
+        $alreadyRefunded = (int) SubscriptionTransaction::query()
+            ->where('provider', $transaction->provider)
+            ->where('provider_transaction_id', $transaction->transactionId)
+            ->where('currency', $total->currency)
+            ->whereIn('type', [TransactionType::Refund, TransactionType::RefundReversed])
+            ->sum(DB::raw('-('.SubscriptionTransaction::signedAmountSql().')'));
+
+        return $total->minus(Money::ofMinor($alreadyRefunded, $total->currency));
+    }
+
+    /**
+     * Writes one money movement to the ledger under `$key` (null = a generated
+     * `manual:` key). `$at` overrides when the money moved (a refund's
+     * revocation time); a charge defaults to the provider's purchase time.
+     * `$related` is the charge a refund refunds / the refund a reversal reverses.
+     */
+    private function recordTransaction(
+        Subscription $subscription,
+        TransactionType $type,
+        ProviderTransaction $transaction,
+        ?string $key,
+        ?CarbonInterface $at = null,
+        ?SubscriptionTransaction $related = null,
+    ): SubscriptionTransaction {
+        return $subscription->transactions()->create([
+            'periods_covered' => $type->isCharge() ? $this->periodsCovered($subscription, $transaction) : 1,
+            'idempotency_key' => $key,
+            'related_transaction_id' => $related?->id,
             'provider' => $transaction->provider,
             'type' => $type,
+            'amount_minor' => $transaction->amount?->minor,
+            'currency' => $transaction->amount?->currency,
+            'purchased_at' => $at ?? $transaction->purchasedAt ?? now(),
             'provider_transaction_id' => $transaction->transactionId,
             'provider_original_id' => $transaction->originalTransactionId,
             'payload' => [
-                'amount' => $transaction->amount,
-                'currency' => $transaction->currency,
                 'expires_at' => $transaction->expiresAt?->toIso8601String(),
                 'transaction' => $transaction->payload,
             ],
@@ -577,17 +762,67 @@ class ProviderSubscriptionService
         ]);
     }
 
+    /**
+     * Billing periods a charge pays for: the span the provider granted
+     * (purchase → expiry) in whole billing periods of the row's price, at
+     * least one. A normal charge covers one; a three-month pay-up-front offer
+     * on a monthly product covers three.
+     */
+    private function periodsCovered(Subscription $subscription, ProviderTransaction $transaction): int
+    {
+        $periodDays = $subscription->planPrice?->billingDurationInDays() ?? 0;
+
+        if (! $transaction->purchasedAt || ! $transaction->expiresAt || $periodDays <= 0) {
+            return 1;
+        }
+
+        $days = abs($transaction->purchasedAt->diffInSeconds($transaction->expiresAt)) / 86400;
+
+        return max(1, (int) round($days / $periodDays));
+    }
+
+    /** @return array{amount: string|null, currency: string|null} */
+    private function moneyProperties(?Money $money): array
+    {
+        return ['amount' => $money?->toDecimal(), 'currency' => $money?->currency];
+    }
+
+    /**
+     * A contract kept charging after its account was purged: the money is
+     * real and recorded (revenue), but no customer owns it any more — flag it
+     * so someone can follow up (the store still bills that customer).
+     */
+    private function flagOwnerlessCharge(Subscription $subscription, ProviderTransaction $transaction): void
+    {
+        if ($subscription->user_id !== null) {
+            return;
+        }
+
+        Log::channel('webhooks')->warning('Contract charged after its owner was purged — recorded without an owner, follow up with the provider', [
+            'provider' => $transaction->provider->value,
+            'subscription_id' => $subscription->id,
+            'transaction_id' => $transaction->transactionId,
+            'original_transaction_id' => $transaction->originalTransactionId,
+            'amount' => $transaction->amount?->toDecimal(),
+            'currency' => $transaction->amount?->currency,
+            'notification_id' => $transaction->notification?->getKey(),
+        ]);
+    }
+
     /** @param  array<string, mixed>  $properties */
     private function log(Subscription $subscription, ActivityAction $action, string $type, array $properties = []): void
     {
+        $owner = $subscription->user()->withTrashed()->first();
+
         ActivityLogger::log(
             ActivityModule::User,
             $action,
-            $subscription->user()->withTrashed()->first(),
+            $owner,
             [
                 'type' => $type,
                 'plan' => $subscription->plan->name,
                 'provider' => $subscription->provider->value,
+                ...($owner ? [] : ['subscription_id' => $subscription->id, 'ownerless' => true]),
                 ...$properties,
             ],
             causer: null,

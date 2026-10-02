@@ -6,6 +6,7 @@ use App\Enum\AppleNotificationSubtype as Subtype;
 use App\Enum\AppleNotificationType as Type;
 use App\Enum\CancelledBy;
 use App\Enum\PaymentProvider;
+use App\Exceptions\InvalidProviderMoneyException;
 use App\Listeners\Webhooks\ProcessAppStoreNotification;
 use App\Models\Subscription;
 use App\Models\User;
@@ -86,7 +87,26 @@ class NotificationProcessor
             return;
         }
 
-        $applied = match ($notification->notification_type) {
+        try {
+            $applied = $this->dispatch($notification);
+        } catch (InvalidProviderMoneyException $e) {
+            // Money is parsed before anything is written, so nothing was recorded.
+            $applied = $this->skip($notification, 'unusable price/currency — '.$e->getMessage());
+        }
+
+        if ($applied) {
+            $this->markProcessed($notification);
+        }
+    }
+
+    /**
+     * Routes a notification to its handler. Only handlers for events where
+     * money moved (purchase, renewal, plan change, refund) parse money; a
+     * state-only event never fails because of its money fields.
+     */
+    private function dispatch(AppleNotification $notification): bool
+    {
+        return match ($notification->notification_type) {
             Type::Subscribed => $this->subscribed($notification),
             Type::DidRenew => $this->renewed($notification),
             Type::DidChangeRenewalPref => $this->renewalPreferenceChanged($notification),
@@ -95,25 +115,22 @@ class NotificationProcessor
             Type::GracePeriodExpired => $this->withSubscription($notification, fn (Subscription $s, ProviderTransaction $t) => $this->subscriptions->paymentFailed($s, null, $t)),
             Type::Expired => $this->expired($notification),
             Type::Refund => $this->refunded($notification),
-            Type::RefundReversed => $this->withSubscription($notification, fn (Subscription $s, ProviderTransaction $t) => $this->subscriptions->reverseRefund($s, $t)),
+            Type::RefundReversed => $this->refundReversed($notification),
+            Type::RefundDeclined => $this->refundDeclined($notification),
             Type::RenewalExtended => $this->withSubscription($notification, fn (Subscription $s, ProviderTransaction $t) => $this->subscriptions->extend($s, $t)),
             Type::Revoke => $this->withSubscription($notification, fn (Subscription $s, ProviderTransaction $t) => $this->subscriptions->revoke($s, $t, 'Family Sharing access revoked')),
             Type::OfferRedeemed => $this->offerRedeemed($notification),
             // Informational — nothing to change: TEST, CONSUMPTION_REQUEST,
-            // REFUND_DECLINED, PRICE_INCREASE, RENEWAL_EXTENSION, ONE_TIME_CHARGE,
+            // PRICE_INCREASE, RENEWAL_EXTENSION, ONE_TIME_CHARGE,
             // EXTERNAL_PURCHASE_TOKEN.
             default => true,
         };
-
-        if ($applied) {
-            $this->markProcessed($notification);
-        }
     }
 
     /** SUBSCRIBED (INITIAL_BUY / RESUBSCRIBE) — a new contract. */
     private function subscribed(AppleNotification $notification): bool
     {
-        if (! $transaction = $this->transaction($notification)) {
+        if (! $transaction = $this->transaction($notification, withAmount: true)) {
             return $this->skip($notification, 'no transaction info');
         }
 
@@ -130,10 +147,15 @@ class NotificationProcessor
         return true;
     }
 
-    /** DID_RENEW — a renewal charge, possibly onto a new product (downgrade/crossgrade taking effect). */
+    /**
+     * DID_RENEW — a renewal charge, possibly onto a new product (downgrade/
+     * crossgrade taking effect). A product not mapped to a plan price is left
+     * unprocessed, exactly like a new purchase: renewing the old plan with
+     * another product's charge would misattribute the money and the period.
+     */
     private function renewed(AppleNotification $notification): bool
     {
-        $transaction = $this->transaction($notification);
+        $transaction = $this->transaction($notification, withAmount: true);
         $subscription = $this->subscriptions->findSubscription(PaymentProvider::AppStore, $transaction?->originalTransactionId);
 
         // The SUBSCRIBED delivery never reached us (or was never applied) — start from here.
@@ -143,7 +165,11 @@ class NotificationProcessor
 
         $price = $this->subscriptions->resolvePrice(PaymentProvider::AppStore, $transaction->productId);
 
-        if ($price && $price->id !== $subscription->plan_price_id) {
+        if (! $price) {
+            return $this->skip($notification, 'product id is not mapped to a plan price');
+        }
+
+        if ($price->id !== $subscription->plan_price_id) {
             $this->subscriptions->changePlan($subscription, $price, $transaction);
         } else {
             $this->subscriptions->renew($subscription, $transaction, recovered: $notification->subtype === Subtype::BillingRecovery);
@@ -160,7 +186,7 @@ class NotificationProcessor
 
     private function upgraded(AppleNotification $notification): bool
     {
-        return $this->withSubscription($notification, function (Subscription $subscription, ProviderTransaction $transaction) use ($notification): bool {
+        return $this->withSubscription($notification, withAmount: true, apply: function (Subscription $subscription, ProviderTransaction $transaction) use ($notification): bool {
             $price = $this->subscriptions->resolvePrice(PaymentProvider::AppStore, $transaction->productId);
 
             if (! $price) {
@@ -217,7 +243,11 @@ class NotificationProcessor
         return $this->withSubscription($notification, fn (Subscription $s, ProviderTransaction $t) => $this->subscriptions->expire($s, $t, $reason, $cancelledBy));
     }
 
-    /** REFUND — `revocationReason` 1 means an issue with the app, 0 anything else. */
+    /**
+     * REFUND — `revocationReason` 1 means an issue with the app, 0 anything
+     * else. The ledger gets the refunded share (`revocationPercentage`), not
+     * necessarily the whole charge.
+     */
     private function refunded(AppleNotification $notification): bool
     {
         return $this->withSubscription($notification, function (Subscription $subscription, ProviderTransaction $transaction): void {
@@ -227,8 +257,58 @@ class NotificationProcessor
                 default => null,
             };
 
-            $this->subscriptions->refund($subscription, $transaction, $this->date($transaction->payload['revocationDate'] ?? null), $reason);
+            $this->subscriptions->refund(
+                $subscription,
+                $transaction->asRefund(PriceNormalizer::refunded($transaction->payload), $this->refundEventKey($transaction->payload)),
+                $this->date($transaction->payload['revocationDate'] ?? null),
+                $reason,
+            );
         });
+    }
+
+    /**
+     * Identifies one refund event on a transaction. `revocationPercentage` is
+     * the share of the transaction refunded so far, so a later partial refund
+     * changes it (and `revocationDate`) while a redelivery of the same refund
+     * repeats both.
+     *
+     * @param  array<string, mixed>  $info
+     */
+    private function refundEventKey(array $info): string
+    {
+        return ($info['revocationDate'] ?? 'undated').':'.($info['revocationPercentage'] ?? 100000);
+    }
+
+    /**
+     * REFUND_DECLINED — informational and never changes the ledger. Apple
+     * doesn't document what a decline means once a REFUND was already granted
+     * for the same transaction (developers report it happening), so that case
+     * is logged for manual review rather than silently ignored.
+     */
+    private function refundDeclined(AppleNotification $notification): bool
+    {
+        $transactionId = $notification->transaction_info['transactionId'] ?? null;
+
+        if ($transactionId && $this->subscriptions->hasUnreversedRefund(PaymentProvider::AppStore, (string) $transactionId)) {
+            $this->logger()->warning('App Store: REFUND_DECLINED after a recorded refund — ledger left unchanged, review manually', [
+                ...$this->context($notification),
+                'transaction_id' => (string) $transactionId,
+            ]);
+        }
+
+        return true;
+    }
+
+    /**
+     * REFUND_REVERSED — Apple drops the revocation fields from the transaction,
+     * i.e. nothing on it counts as refunded any more. Reverses the refunds
+     * issued before this notification was signed; left unprocessed (for a
+     * Reprocess once it exists) when no refund has been recorded yet.
+     */
+    private function refundReversed(AppleNotification $notification): bool
+    {
+        return $this->withSubscription($notification, fn (Subscription $subscription, ProviderTransaction $transaction): bool => $this->subscriptions->reverseRefund($subscription, $transaction, $notification->signed_date)
+            || $this->skip($notification, 'no recorded refund to reverse for this transaction'));
     }
 
     /**
@@ -248,11 +328,14 @@ class NotificationProcessor
      * Runs `$apply` against the contract this notification belongs to. Returns
      * false (leave unprocessed) when there is no such contract yet.
      *
+     * `$withAmount` parses the transaction's money — only for events where
+     * money moved; state-only events leave it null.
+     *
      * @param  callable(Subscription, ProviderTransaction): mixed  $apply
      */
-    private function withSubscription(AppleNotification $notification, callable $apply): bool
+    private function withSubscription(AppleNotification $notification, callable $apply, bool $withAmount = false): bool
     {
-        $transaction = $this->transaction($notification);
+        $transaction = $this->transaction($notification, $withAmount);
         $subscription = $this->subscriptions->findSubscription(PaymentProvider::AppStore, $transaction?->originalTransactionId);
 
         if (! $subscription) {
@@ -262,7 +345,15 @@ class NotificationProcessor
         return $apply($subscription, $transaction) !== false;
     }
 
-    private function transaction(AppleNotification $notification): ?ProviderTransaction
+    /**
+     * The notification's transaction as a {@see ProviderTransaction}. Its
+     * amount is parsed only with `$withAmount` (events where money moved);
+     * otherwise it stays null, so malformed money fields can't block a
+     * state change.
+     *
+     * @throws InvalidProviderMoneyException when `$withAmount` and the money can't be trusted
+     */
+    private function transaction(AppleNotification $notification, bool $withAmount = false): ?ProviderTransaction
     {
         $info = $notification->transaction_info;
 
@@ -279,9 +370,7 @@ class NotificationProcessor
             productId: $info['productId'] ?? null,
             purchasedAt: $this->date($info['purchaseDate'] ?? null),
             expiresAt: $this->date($info['expiresDate'] ?? null),
-            // Apple sends `price` in milliunits: 9990 = 9.99.
-            amount: isset($info['price']) ? number_format($info['price'] / 1000, 2, '.', '') : null,
-            currency: $info['currency'] ?? null,
+            amount: $withAmount ? PriceNormalizer::charged($info) : null,
             isTrial: ($info['offerDiscountType'] ?? null) === 'FREE_TRIAL',
             autoRenews: $autoRenewStatus === null ? null : (int) $autoRenewStatus === 1,
             payload: $info,

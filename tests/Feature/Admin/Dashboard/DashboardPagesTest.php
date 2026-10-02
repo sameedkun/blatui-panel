@@ -11,7 +11,7 @@ use App\Models\BlockedIp;
 use App\Models\Plan;
 use App\Models\PlanPrice;
 use App\Models\Subscription;
-use App\Models\SubscriptionReceipt;
+use App\Models\SubscriptionTransaction;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
 use App\Models\User;
@@ -267,7 +267,8 @@ class DashboardPagesTest extends TestCase
         $subscription = Subscription::factory()->create(['user_id' => $users[0]->id, 'plan_id' => $plan->id, 'plan_price_id' => $price->id, 'starts_at' => now()->subDays(3)]);
         Subscription::factory()->trialing()->create(['user_id' => $users[1]->id, 'plan_id' => $plan->id, 'plan_price_id' => $price->id]);
         Subscription::factory()->cancelled()->create(['user_id' => $users[2]->id, 'plan_id' => $plan->id, 'plan_price_id' => $price->id, 'starts_at' => now()->subMonths(2)]);
-        SubscriptionReceipt::factory()->create(['subscription_id' => $subscription->id, 'type' => 'renewal']);
+        SubscriptionTransaction::factory()->for($subscription)->amount(999)->create(['purchased_at' => now()->subDays(3)]);
+        SubscriptionTransaction::factory()->for($subscription)->amount(899, 'EUR')->renewal()->create(['purchased_at' => now()->subDay()]);
 
         $ticket = Ticket::factory()->create(['user_id' => $users[3]->id, 'assigned_to' => $agent->id, 'status' => 'open', 'created_at' => now()->subDays(2)]);
         TicketMessage::factory()->fromStaff($agent)->create(['ticket_id' => $ticket->id]);

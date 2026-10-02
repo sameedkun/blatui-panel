@@ -173,7 +173,9 @@ return [
 
         // Subscription dialogs
         'assign_plan_title' => 'Plan Ata / Değiştir',
-        'assign_plan_desc' => 'Bu kullanıcıyı manuel olarak bir plana ve fiyata atar. Mevcut aktif abonelik varsa değiştirilir (yükseltme durumunda oranlanır).',
+        'assign_plan_desc' => 'Bu kullanıcıya bir planı ve fiyatı ücretsiz olarak tanımlar — ödeme kaydedilmez. Mevcut aktif abonelik varsa değiştirilir.',
+        'grant_reason' => 'Neden',
+        'grant_reason_placeholder' => 'ör. Müşteri desteği telafisi (isteğe bağlı)',
         'select_plan' => 'Bir plan seçin',
         'select_price' => 'Bir fiyat seçin',
         'cancel_immediately_title' => 'Aboneliği Hemen İptal Et',
@@ -214,6 +216,7 @@ return [
         'device_revoked' => ':name iptal edildi.',
         'devices_revoked' => ':count cihaz iptal edildi.',
         'plan_assigned' => ':name artık :plan planında.',
+        'store_managed_subscription' => 'Bu plan :provider üzerinden faturalandırılıyor — değişikliği orada yapın, panelden değil.',
         'no_active_subscription' => 'Bu kullanıcının aktif aboneliği yok.',
         'subscription_cancelled_immediately' => ':plan aboneliği hemen iptal edildi.',
         'subscription_cancelled_period_end' => ':plan aboneliği :date tarihinde sona erecektir.',

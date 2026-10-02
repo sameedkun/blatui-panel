@@ -6,6 +6,7 @@ use App\Livewire\Admin\Management\Plans\Show;
 use App\Models\Plan;
 use App\Models\PlanPrice;
 use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -40,9 +41,12 @@ class PlansShowTest extends TestCase
         $plan = Plan::factory()->create();
         $price = PlanPrice::factory()->for($plan)->create(['amount' => 10]);
 
-        Subscription::factory()->for($plan)->for($price, 'planPrice')->create(['status' => 'active', 'amount_paid' => 10]);
-        Subscription::factory()->for($plan)->for($price, 'planPrice')->create(['status' => 'trialing', 'amount_paid' => 0]);
-        Subscription::factory()->for($plan)->for($price, 'planPrice')->create(['status' => 'cancelled', 'amount_paid' => 10]);
+        $active = Subscription::factory()->for($plan)->for($price, 'planPrice')->create(['status' => 'active']);
+        Subscription::factory()->for($plan)->for($price, 'planPrice')->create(['status' => 'trialing']);
+        $cancelled = Subscription::factory()->for($plan)->for($price, 'planPrice')->create(['status' => 'cancelled']);
+        SubscriptionTransaction::factory()->for($active)->amount(1000)->create();
+        SubscriptionTransaction::factory()->for($cancelled)->amount(1000)->create();
+        SubscriptionTransaction::factory()->for($cancelled)->amount(500, 'EUR')->create();
 
         $component = Livewire::test(Show::class, ['plan' => $plan]);
 
@@ -50,7 +54,7 @@ class PlansShowTest extends TestCase
         $this->assertSame('3', $stats[0]['value']);
         $this->assertSame('2', $stats[1]['value']);
         $this->assertSame('1', $stats[2]['value']);
-        $this->assertSame('20.00', $stats[3]['value']);
+        $this->assertSame('$20.00 · €5.00', $stats[3]['value'], 'net sales per currency, never summed together');
         $this->assertSame('1', $stats[4]['value']);
     }
 

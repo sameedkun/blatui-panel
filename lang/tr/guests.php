@@ -167,6 +167,7 @@ return [
         'bulk_permanently_deleted' => ':count ziyaretçi kalıcı olarak silindi.',
         'no_active_subscription' => 'Bu ziyaretçinin aktif aboneliği yok.',
         'plan_assigned' => ':name artık :plan planında.',
+        'store_managed_subscription' => 'Bu plan :provider üzerinden faturalandırılıyor — değişikliği orada yapın, panelden değil.',
         'subscription_cancelled_immediately' => ':plan aboneliği hemen iptal edildi.',
         'subscription_cancelled_period_end' => ':plan aboneliği :date tarihinde sona erecek.',
         'subscription_reactivated' => ':plan aboneliği yeniden etkinleştirildi.',

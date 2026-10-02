@@ -191,7 +191,7 @@
                 <div>
                     <dt class="text-xs font-medium text-muted-foreground">{{ __('subscriptions.total_paid') }}</dt>
                     <dd class="mt-0.5 text-xs font-semibold text-foreground">
-                        {{ $subscription->amount_paid !== null ? $subscription->currency . ' ' . number_format((float) $subscription->amount_paid, 2) : '—' }}
+                        <x-admin.subscription-paid :subscription="$subscription" />
                     </dd>
                 </div>
             </div>

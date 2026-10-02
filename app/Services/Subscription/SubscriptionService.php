@@ -7,11 +7,17 @@ use App\Enum\ActivityContext;
 use App\Enum\ActivityModule;
 use App\Enum\CancelledBy;
 use App\Enum\PaymentProvider;
+use App\Enum\SubscriptionSource;
 use App\Enum\SubscriptionStatus;
+use App\Enum\TransactionType;
+use App\Exceptions\StoreManagedSubscriptionException;
 use App\Models\PlanPrice;
 use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use App\Support\ActivityLogger;
+use App\Support\Money\Currency;
+use App\Support\Money\Money;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -25,10 +31,24 @@ class SubscriptionService
      * `$isRecurring` defaults to false: admin-assigned (`local`) and one-time
      * payment (e.g. Oxapay) subscriptions don't renew, and they're the majority
      * case here. Recurring gateway integrations pass `true` explicitly.
+     *
+     * This only creates the entitlement — it never records money. An admin
+     * assignment is a grant (`$source`, `$grantedBy`, `$grantReason`) with no
+     * transaction; a real payment must be written to the transaction ledger
+     * by whatever took it.
      */
-    public function subscribe(User $user, PlanPrice $price, PaymentProvider $provider = PaymentProvider::Local, bool $isRecurring = false): Subscription
-    {
-        return DB::transaction(function () use ($user, $price, $provider, $isRecurring) {
+    public function subscribe(
+        User $user,
+        PlanPrice $price,
+        PaymentProvider $provider = PaymentProvider::Local,
+        bool $isRecurring = false,
+        SubscriptionSource $source = SubscriptionSource::Admin,
+        ?User $grantedBy = null,
+        ?string $grantReason = null,
+    ): Subscription {
+        $this->assertNotStoreManaged($user);
+
+        return DB::transaction(function () use ($user, $price, $provider, $isRecurring, $source, $grantedBy, $grantReason) {
             // close the previous active subscription
             $this->cancelActive($user, CancelledBy::System, 'Replaced by new subscription', true);
 
@@ -41,23 +61,46 @@ class SubscriptionService
                 'trial_ends_at' => $trialEndsAt,
                 'ends_at' => $endsAt,
                 'grace_ends_at' => $graceEndsAt,
-                'amount_paid' => $price->amount,
-                'currency' => $price->currency,
                 'status' => $trialEndsAt ? SubscriptionStatus::Trialing : SubscriptionStatus::Active,
                 'is_recurring' => $isRecurring,
                 'provider' => $provider,
+                ...$this->grantAttributes($source, $grantedBy, $grantReason),
             ]);
 
             ActivityLogger::log(ActivityModule::User, ActivityAction::Assigned, $user, [
                 'type' => 'subscription_assigned',
                 'plan' => $price->plan->name,
-                'amount' => (string) $price->amount,
-                'currency' => $price->currency,
                 'provider' => $provider->value,
+                'source' => $source->value,
+                'reason' => $subscription->grant_reason,
             ]);
 
             return $subscription;
         });
+    }
+
+    /**
+     * Refuse to replace a live subscription a store bills: the store would keep
+     * charging the customer and its next notification would revive the row.
+     * Plan changes for those happen in the store; cancelling one stays allowed.
+     *
+     * @throws StoreManagedSubscriptionException
+     */
+    public function assertNotStoreManaged(User $user): void
+    {
+        $this->assertReplaceable($user->activeSubscription()->first());
+    }
+
+    /**
+     * {@see assertNotStoreManaged()} for an already-loaded active subscription.
+     *
+     * @throws StoreManagedSubscriptionException
+     */
+    public function assertReplaceable(?Subscription $active): void
+    {
+        if ($active && $active->provider !== PaymentProvider::Local) {
+            throw new StoreManagedSubscriptionException($active->provider);
+        }
     }
 
     /**
@@ -66,14 +109,26 @@ class SubscriptionService
      *
      * `$isRecurring` defaults to false for the same reason as {@see subscribe()}:
      * admin-assigned and one-time-payment subscriptions don't renew. Recurring
-     * gateway integrations pass `true` explicitly.
+     * gateway integrations pass `true` explicitly. Grant metadata and the
+     * no-money rule are the same as {@see subscribe()}.
      */
-    public function upgrade(User $user, PlanPrice $newPrice, PaymentProvider $provider = PaymentProvider::Local, bool $isRecurring = false): Subscription
-    {
-        return DB::transaction(function () use ($user, $newPrice, $provider, $isRecurring) {
+    public function upgrade(
+        User $user,
+        PlanPrice $newPrice,
+        PaymentProvider $provider = PaymentProvider::Local,
+        bool $isRecurring = false,
+        SubscriptionSource $source = SubscriptionSource::Admin,
+        ?User $grantedBy = null,
+        ?string $grantReason = null,
+    ): Subscription {
+        $this->assertNotStoreManaged($user);
+
+        return DB::transaction(function () use ($user, $newPrice, $provider, $isRecurring, $source, $grantedBy, $grantReason) {
             $current = $user->activeSubscription;
-            $credit = $current ? $this->prorationCredit($current) : 0;
-            $amountDue = max(0, $newPrice->amount - $credit);
+            $proration = $current ? $this->prorationCredit($current, $newPrice->currency) : ['credit' => null, 'skipped' => null];
+            $credit = $proration['credit']?->toFloat() ?? 0;
+            $skipped = $proration['skipped'];
+            $paidCurrency = $current ? $this->currentCharge($current)?->currency : null;
 
             [$startsAt, $trialEndsAt, $endsAt, $graceEndsAt] = $this->computeDates($newPrice, $isRecurring);
             $startsAt = $current?->starts_at ?? $startsAt;
@@ -85,17 +140,18 @@ class SubscriptionService
                 'trial_ends_at' => $trialEndsAt,
                 'ends_at' => $endsAt,
                 'grace_ends_at' => $graceEndsAt,
-                'amount_paid' => $amountDue,
-                'currency' => $newPrice->currency,
                 'status' => $trialEndsAt ? SubscriptionStatus::Trialing : SubscriptionStatus::Active,
                 'is_recurring' => $isRecurring,
                 'provider' => $provider,
+                ...$this->grantAttributes($source, $grantedBy, $grantReason),
                 'previous_subscription_id' => $current?->id,
-                'proration_meta' => [
+                'proration_meta' => array_filter([
                     'credit' => $credit,
+                    'credit_skipped' => $skipped === 'currency_mismatch' ? $skipped : null,
+                    'paid_currency' => $skipped === 'currency_mismatch' ? $paidCurrency : null,
                     'from_plan' => $current?->plan->slug,
                     'new_amount' => $newPrice->amount,
-                ],
+                ], fn ($value): bool => $value !== null),
             ]);
 
             // Capture before the update below mutates $current away.
@@ -114,8 +170,10 @@ class SubscriptionService
                 'from_plan' => $fromPlanName,
                 'to_plan' => $newPrice->plan->name,
                 'credit_applied' => $credit,
-                'amount_charged' => $amountDue,
+                'credit_skipped' => $skipped,
                 'currency' => $newPrice->currency,
+                'source' => $source->value,
+                'reason' => $newSub->grant_reason,
             ]);
 
             return $newSub;
@@ -223,20 +281,91 @@ class SubscriptionService
         return $sub;
     }
 
-    public function prorationCredit(Subscription $sub): float
+    /**
+     * The unused share of the current billing period's payment on `$sub`, as
+     * credit towards a new price in `$currency`.
+     *
+     * Only the latest charge counts (earlier renewals paid for periods already
+     * used), net of any refunds/reversals recorded against that charge, scaled
+     * by the time left in the period and never more than was paid.
+     *
+     * No credit — with the reason — when nothing was paid (`no_payment`: a
+     * grant, or fully refunded), the period is over (`period_ended`), or the
+     * payment was in another currency (`currency_mismatch`): amounts in
+     * different currencies are never compared, and there is no FX conversion.
+     *
+     * @return array{credit: Money|null, skipped: 'no_payment'|'period_ended'|'currency_mismatch'|null}
+     */
+    public function prorationCredit(Subscription $sub, string $currency): array
     {
-        if (! $sub->ends_at || ! $sub->amount_paid) {
-            return 0;
+        $charge = $this->currentCharge($sub);
+        $paid = $charge?->money();
+
+        if ($paid === null) {
+            return ['credit' => null, 'skipped' => 'no_payment'];
         }
 
-        $remainingDays = now()->diffInDays($sub->ends_at, false);
-        $totalDays = $sub->planPrice->billingDurationInDays();
-
-        if ($remainingDays <= 0 || $totalDays <= 0) {
-            return 0;
+        if ($paid->currency !== Currency::normalize($currency)) {
+            return ['credit' => null, 'skipped' => 'currency_mismatch'];
         }
 
-        return round(($sub->amount_paid / $totalDays) * $remainingDays, 2);
+        $paid = $paid->minus($this->refundedAgainst($charge));
+        $periodSeconds = $sub->planPrice->billingDurationInDays() * 86400;
+        $remainingSeconds = $sub->ends_at ? (int) max(0, now()->diffInSeconds($sub->ends_at, false)) : 0;
+
+        if ($remainingSeconds === 0 || $periodSeconds <= 0) {
+            return ['credit' => null, 'skipped' => 'period_ended'];
+        }
+
+        if ($paid->minor <= 0) {
+            return ['credit' => null, 'skipped' => 'no_payment'];
+        }
+
+        return ['credit' => $paid->multipliedBy(min($remainingSeconds, $periodSeconds), $periodSeconds), 'skipped' => null];
+    }
+
+    /** The most recent priced charge on the row — what paid for the current period. */
+    private function currentCharge(Subscription $sub): ?SubscriptionTransaction
+    {
+        return $sub->transactions()
+            ->charges()
+            ->priced()
+            ->latest('purchased_at')
+            ->latest('id')
+            ->first();
+    }
+
+    /** Net refunded against one charge: its refunds minus the reversals of those refunds. */
+    private function refundedAgainst(SubscriptionTransaction $charge): Money
+    {
+        $refunds = SubscriptionTransaction::query()
+            ->where('related_transaction_id', $charge->id)
+            ->where('type', TransactionType::Refund)
+            ->get(['id', 'amount_minor']);
+
+        $reversed = (int) SubscriptionTransaction::query()
+            ->whereIn('related_transaction_id', $refunds->pluck('id'))
+            ->where('type', TransactionType::RefundReversed)
+            ->sum('amount_minor');
+
+        return Money::ofMinor((int) $refunds->sum('amount_minor') - $reversed, (string) $charge->currency);
+    }
+
+    /**
+     * Who/why columns for a new row. Only a grant carries grant metadata,
+     * even if a caller passes it for a purchase.
+     *
+     * @return array{source: SubscriptionSource, granted_by: int|null, grant_reason: string|null}
+     */
+    private function grantAttributes(SubscriptionSource $source, ?User $grantedBy, ?string $grantReason): array
+    {
+        $reason = trim((string) $grantReason);
+
+        return [
+            'source' => $source,
+            'granted_by' => $source->isGrant() ? $grantedBy?->getKey() : null,
+            'grant_reason' => $source->isGrant() && $reason !== '' ? $reason : null,
+        ];
     }
 
     /**

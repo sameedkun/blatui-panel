@@ -8,6 +8,8 @@ use App\Livewire\Admin\BaseIndex;
 use App\Livewire\Admin\Management\Subscriptions\Concerns\HandlesSubscriptionRowActions;
 use App\Models\Plan;
 use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
+use App\Support\Dashboard\Format;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
@@ -31,7 +33,7 @@ class Index extends BaseIndex
     {
         // user.activeSubscription is eager loaded too — isLive()/isReactivatable() check it per
         // row (for the actions dropdown), and without this every row would re-query it fresh.
-        return Subscription::query()->with(['user.activeSubscription', 'plan', 'planPrice']);
+        return Subscription::query()->with(['user.activeSubscription', 'plan', 'planPrice', 'transactions']);
     }
 
     /** Subscriptions have no direct name/email columns of their own — search reaches into the user and plan relations instead. */
@@ -127,11 +129,49 @@ class Index extends BaseIndex
             ],
             [
                 'label' => __('subscriptions.stats.revenue'),
-                'value' => fn () => '$'.number_format((float) Subscription::sum('amount_paid'), 2),
+                'value' => fn () => $this->netSales()['primary'],
                 'icon' => 'banknote',
-                'description' => __('subscriptions.stats.revenue_description'),
+                'description' => $this->netSales()['description'],
             ],
         ];
+    }
+
+    /**
+     * All-time net sales in the reporting currency, with any other currencies
+     * named in the description — amounts in different currencies are never
+     * added together.
+     *
+     * @return array{primary: string, description: string}
+     */
+    private function netSales(): array
+    {
+        return once(fn (): array => $this->computeNetSales());
+    }
+
+    /** @return array{primary: string, description: string} */
+    private function computeNetSales(): array
+    {
+        $totals = SubscriptionTransaction::netByCurrency(SubscriptionTransaction::query());
+        $reporting = strtoupper((string) config('dashboard.currency', 'USD'));
+        $others = collect($totals)->except($reporting);
+
+        $amounts = $others->take(3)->map->format()->implode(' · ').($others->count() > 3 ? ' …' : '');
+
+        // With sales only in other currencies, a "$0.00" headline would read as no revenue at all.
+        return match (true) {
+            $others->isEmpty() => [
+                'primary' => isset($totals[$reporting]) ? $totals[$reporting]->format() : Format::currency(0),
+                'description' => __('subscriptions.stats.revenue_description', ['currency' => $reporting]),
+            ],
+            ! isset($totals[$reporting]) => [
+                'primary' => '—',
+                'description' => __('subscriptions.stats.revenue_no_reporting', ['currency' => $reporting, 'amounts' => $amounts]),
+            ],
+            default => [
+                'primary' => $totals[$reporting]->format(),
+                'description' => __('subscriptions.stats.revenue_other_currencies', ['amounts' => $amounts]),
+            ],
+        };
     }
 
     public function render(): View

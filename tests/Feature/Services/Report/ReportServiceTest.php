@@ -11,6 +11,7 @@ use App\Mail\Report\ReportReadyMail;
 use App\Models\Report\GeneratedReport;
 use App\Models\Report\ScheduledReport;
 use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Report\ReportService;
@@ -259,7 +260,8 @@ class ReportServiceTest extends TestCase
     {
         $agent = User::factory()->create(['type' => 'staff']);
         User::factory()->count(3)->create(['type' => 'app', 'created_at' => now()->subDays(3)]);
-        Subscription::factory()->create(['starts_at' => now()->subDays(2), 'amount_paid' => 20]);
+        $subscription = Subscription::factory()->create(['starts_at' => now()->subDays(2)]);
+        SubscriptionTransaction::factory()->for($subscription)->amount(2000)->create(['purchased_at' => now()->subDays(2)]);
         Ticket::factory()->create(['assigned_to' => $agent->id, 'created_at' => now()->subDays(2)]);
     }
 

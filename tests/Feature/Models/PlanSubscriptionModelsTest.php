@@ -6,7 +6,7 @@ use App\Models\Plan;
 use App\Models\PlanPrice;
 use App\Models\PlanPriceProvider;
 use App\Models\Subscription;
-use App\Models\SubscriptionReceipt;
+use App\Models\SubscriptionTransaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -39,13 +39,13 @@ class PlanSubscriptionModelsTest extends TestCase
         $this->assertDatabaseMissing('plan_price_providers', ['id' => $provider->id]);
     }
 
-    public function test_deleting_a_subscription_cascades_to_receipts(): void
+    public function test_deleting_a_subscription_cascades_to_transactions(): void
     {
         $subscription = Subscription::factory()->create();
-        $receipt = SubscriptionReceipt::factory()->for($subscription)->create();
+        $transaction = SubscriptionTransaction::factory()->for($subscription)->create();
 
         $subscription->delete();
 
-        $this->assertDatabaseMissing('subscription_receipts', ['id' => $receipt->id]);
+        $this->assertDatabaseMissing('subscription_transactions', ['id' => $transaction->id]);
     }
 }

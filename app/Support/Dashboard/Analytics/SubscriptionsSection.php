@@ -126,7 +126,7 @@ class SubscriptionsSection extends AnalyticsSection
                     ->figure(__('dashboard.figures.average_duration'), $averageDuration === null ? null : __('dashboard.figures.days', ['count' => number_format($averageDuration, 1)]), Format::TEXT)
                     ->figure(__('dashboard.figures.new_mrr'), $movement['new'], Format::CURRENCY)
                     ->figure(__('dashboard.figures.churned_mrr'), $movement['churned'], Format::CURRENCY)
-                    ->figure(__('dashboard.figures.net_mrr'), $movement['net'], Format::CURRENCY, __('dashboard.figures.net_mrr_hint')),
+                    ->figure(__('dashboard.figures.net_mrr'), $movement['net'], Format::CURRENCY, __('dashboard.figures.net_mrr_hint', ['currency' => $this->revenue->currency()])),
             ),
         ];
     }

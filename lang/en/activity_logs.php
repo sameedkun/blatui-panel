@@ -112,6 +112,7 @@ return [
         'to' => 'To',
         'credit_applied' => 'Credit applied',
         'amount_charged' => 'Amount charged',
+        'source' => 'Source',
         'cancelled_by' => 'Cancelled by',
         'access' => 'Access',
         'ip_address' => 'IP Address',

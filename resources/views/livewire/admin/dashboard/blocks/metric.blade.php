@@ -52,7 +52,8 @@
     <p class="mt-3 text-sm font-medium text-muted-foreground">{{ $block->label }}</p>
 
     @if ($block->description)
-        <p class="mt-0.5 truncate text-xs text-muted-foreground/80">{{ $block->description }}</p>
+        {{-- Wraps rather than truncates: descriptions carry caveats (e.g. "other currencies not included") that must stay readable. --}}
+        <p class="mt-0.5 text-xs leading-snug text-pretty text-muted-foreground/80" title="{{ $block->description }}">{{ $block->description }}</p>
     @endif
 
     @if ($showLink)

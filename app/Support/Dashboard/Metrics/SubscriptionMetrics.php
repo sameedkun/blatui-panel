@@ -3,11 +3,12 @@
 namespace App\Support\Dashboard\Metrics;
 
 use App\Enum\CancelledBy;
-use App\Enum\ReceiptType;
+use App\Enum\SubscriptionSource;
 use App\Enum\SubscriptionStatus;
+use App\Enum\TransactionType;
 use App\Models\Plan;
 use App\Models\Subscription;
-use App\Models\SubscriptionReceipt;
+use App\Models\SubscriptionTransaction;
 use App\Support\Dashboard\DateRange;
 use App\Support\Dashboard\Format;
 use App\Support\Dashboard\TimeSeries;
@@ -25,6 +26,10 @@ use Illuminate\Support\Facades\DB;
  * cancelling write). System cancellations are excluded: those are
  * SubscriptionService::subscribe() retiring a plan the user is replacing,
  * not a customer leaving. Expiry is dated by `ends_at`, which is exact.
+ *
+ * Everything here counts customers, so ownerless subscriptions (the account
+ * was purged, the ledger kept — see DeletionService) are left out; their
+ * money still counts in {@see RevenueMetrics}.
  */
 class SubscriptionMetrics
 {
@@ -39,45 +44,52 @@ class SubscriptionMetrics
 
     public function countByStatus(SubscriptionStatus $status): int
     {
-        return Subscription::query()->where('status', $status->value)->count();
+        return $this->customers()->where('status', $status->value)->count();
     }
 
     public function live(): int
     {
-        return Subscription::query()->whereIn('status', self::LIVE_STATUSES)->count();
+        return $this->customers()->whereIn('status', self::LIVE_STATUSES)->count();
     }
 
     public function started(DateRange $range): int
     {
-        return Subscription::query()->whereBetween('starts_at', [$range->start, $range->end])->count();
+        return $this->customers()->whereBetween('starts_at', [$range->start, $range->end])->count();
     }
 
-    public function cancelled(DateRange $range): int
+    /** Cancellations in the window — every subscription, or only purchased ones (`$purchasedOnly`). */
+    public function cancelled(DateRange $range, bool $purchasedOnly = false): int
     {
-        return $this->cancellations()->whereBetween('updated_at', [$range->start, $range->end])->count();
+        return $this->cancellations()
+            ->whereBetween('updated_at', [$range->start, $range->end])
+            ->when($purchasedOnly, fn (Builder $query) => $query->where('source', SubscriptionSource::Purchase->value))
+            ->count();
     }
 
-    public function expired(DateRange $range): int
+    /** Subscriptions that lapsed in the window — every subscription, or only purchased ones (`$purchasedOnly`). */
+    public function expired(DateRange $range, bool $purchasedOnly = false): int
     {
-        return Subscription::query()
+        return $this->customers()
             ->where('status', SubscriptionStatus::Expired->value)
             ->whereBetween('ends_at', [$range->start, $range->end])
+            ->when($purchasedOnly, fn (Builder $query) => $query->where('source', SubscriptionSource::Purchase->value))
             ->count();
     }
 
     /** Paid subscriptions live at the start of the window — the churn denominator. */
     public function paidAt(CarbonInterface $at): int
     {
-        return $this->revenue->liveAt($at)->count();
+        return $this->revenue->liveCustomersAt($at)->count();
     }
 
     /**
-     * Share of the subscriptions live at the window's start that were
-     * cancelled or expired during it.
+     * Share of the paid subscriptions live at the window's start that were
+     * cancelled or expired during it. Free grants are excluded on both sides —
+     * a grant running out is not a paying customer leaving.
      */
     public function churnRate(DateRange $range): float
     {
-        return Format::share($this->cancelled($range) + $this->expired($range), $this->paidAt($range->start));
+        return Format::share($this->cancelled($range, true) + $this->expired($range, true), $this->paidAt($range->start));
     }
 
     /**
@@ -86,12 +98,10 @@ class SubscriptionMetrics
      */
     public function renewalRate(DateRange $range): float
     {
-        $renewals = SubscriptionReceipt::query()
-            ->where('type', ReceiptType::Renewal->value)
-            ->whereBetween('created_at', [$range->start, $range->end])
-            ->count();
+        $renewals = $this->renewals($range);
 
-        return Format::share($renewals, $renewals + $this->expired($range));
+        // Renewals are always paid, so the lapses they're measured against are too.
+        return Format::share($renewals, $renewals + $this->expired($range, true));
     }
 
     /**
@@ -101,7 +111,7 @@ class SubscriptionMetrics
      */
     public function trialConversionRate(DateRange $range): float
     {
-        $ended = Subscription::query()
+        $ended = $this->customers()
             ->whereNotNull('trial_ends_at')
             ->whereBetween('trial_ends_at', [$range->start, min($range->end, Date::now())]);
 
@@ -118,7 +128,7 @@ class SubscriptionMetrics
     /** Average length in days of the subscriptions that ended during the window. */
     public function averageDurationDays(DateRange $range): ?float
     {
-        $durations = Subscription::query()
+        $durations = $this->customers()
             ->whereIn('status', [SubscriptionStatus::Expired->value, SubscriptionStatus::Cancelled->value])
             ->whereBetween('ends_at', [$range->start, $range->end])
             ->toBase()
@@ -131,7 +141,7 @@ class SubscriptionMetrics
     /** Live subscriptions whose access ends within the next $days and won't renew on its own. */
     public function expiringSoon(int $days = 7): int
     {
-        return Subscription::query()
+        return $this->customers()
             ->whereIn('status', self::LIVE_STATUSES)
             ->whereBetween('ends_at', [Date::now(), Date::now()->addDays($days)])
             ->where(fn (Builder $query) => $query->where('is_recurring', false)->orWhereNotNull('cancelled_by'))
@@ -140,16 +150,17 @@ class SubscriptionMetrics
 
     public function renewals(DateRange $range): int
     {
-        return SubscriptionReceipt::query()
-            ->where('type', ReceiptType::Renewal->value)
-            ->whereBetween('created_at', [$range->start, $range->end])
+        return SubscriptionTransaction::query()
+            ->where('type', TransactionType::Renewal->value)
+            ->whereBetween('purchased_at', [$range->start, $range->end])
+            ->whereHas('subscription', fn (Builder $query) => $query->whereNotNull('user_id'))
             ->count();
     }
 
     /** @return array<string, int> status label => subscriptions, in lifecycle order */
     public function statusBreakdown(): array
     {
-        $counts = Subscription::query()
+        $counts = $this->customers()
             ->groupBy('status')
             ->toBase()
             ->select(['status', DB::raw('COUNT(*) as aggregate')])
@@ -168,7 +179,7 @@ class SubscriptionMetrics
     public function planDistribution(int $limit = 8): array
     {
         return Plan::query()
-            ->withCount(['subscriptions as live_count' => fn (Builder $query) => $query->whereIn('status', self::LIVE_STATUSES)])
+            ->withCount(['subscriptions as live_count' => fn (Builder $query) => $query->whereNotNull('user_id')->whereIn('status', self::LIVE_STATUSES)])
             ->orderByDesc('live_count')
             ->limit($limit)
             ->get()
@@ -180,7 +191,7 @@ class SubscriptionMetrics
     /** @return array<string, int> new subscriptions per bucket */
     public function startedSeries(DateRange $range): array
     {
-        return TimeSeries::count(Subscription::query(), $range, 'starts_at');
+        return TimeSeries::count($this->customers(), $range, 'starts_at');
     }
 
     /** @return array<string, int> cancellations per bucket */
@@ -192,12 +203,23 @@ class SubscriptionMetrics
     /** @return array<string, int> expiries per bucket */
     public function expiredSeries(DateRange $range): array
     {
-        return TimeSeries::count(Subscription::query()->where('status', SubscriptionStatus::Expired->value), $range, 'ends_at');
+        return TimeSeries::count($this->customers()->where('status', SubscriptionStatus::Expired->value), $range, 'ends_at');
     }
 
+    /**
+     * Subscriptions a customer still owns.
+     *
+     * @return Builder<Subscription>
+     */
+    private function customers(): Builder
+    {
+        return Subscription::query()->whereNotNull('subscriptions.user_id');
+    }
+
+    /** @return Builder<Subscription> */
     private function cancellations(): Builder
     {
-        return Subscription::query()
+        return $this->customers()
             ->whereNotNull('cancelled_by')
             ->where('cancelled_by', '!=', CancelledBy::System->value);
     }

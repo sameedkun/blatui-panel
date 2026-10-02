@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Enum\CancelledBy;
 use App\Enum\PaymentProvider;
+use App\Enum\SubscriptionSource;
 use App\Enum\SubscriptionStatus;
+use App\Support\Money\Money;
 use Carbon\CarbonInterface;
 use Database\Factories\SubscriptionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -13,6 +15,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * A user's entitlement to a plan for a period — the access/lifecycle record.
+ * It holds no money: what the customer actually paid (any number of charges,
+ * renewals and refunds, each in its own currency) lives in
+ * {@see SubscriptionTransaction}. `plan_price_id` is the configured price
+ * selected when the subscription was created, never a record of what was paid.
+ *
+ * `provider` is the billing integration (local, appstore, …); `source` is why
+ * the subscription exists (bought, granted by an admin, promotional, …).
+ */
 #[Fillable([
     'user_id',
     'plan_id',
@@ -21,13 +33,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'ends_at',
     'trial_ends_at',
     'grace_ends_at',
-    'amount_paid',
-    'currency',
     'status',
     'cancelled_by',
     'cancelled_reason',
     'is_recurring',
     'provider',
+    'source',
+    'granted_by',
+    'grant_reason',
     'previous_subscription_id',
     'proration_meta',
 ])]
@@ -43,11 +56,11 @@ class Subscription extends Model
             'ends_at' => 'datetime',
             'trial_ends_at' => 'datetime',
             'grace_ends_at' => 'datetime',
-            'amount_paid' => 'decimal:2',
             'status' => SubscriptionStatus::class,
             'cancelled_by' => CancelledBy::class,
             'is_recurring' => 'boolean',
             'provider' => PaymentProvider::class,
+            'source' => SubscriptionSource::class,
             'proration_meta' => 'array',
         ];
     }
@@ -93,13 +106,50 @@ class Subscription extends Model
     }
 
     /**
-     * Get the provider receipts recorded against this subscription.
+     * Get the staff member who granted this subscription, when it was granted.
      *
-     * @return HasMany<SubscriptionReceipt, $this>
+     * @return BelongsTo<User, $this>
      */
-    public function receipts(): HasMany
+    public function grantedBy(): BelongsTo
     {
-        return $this->hasMany(SubscriptionReceipt::class);
+        return $this->belongsTo(User::class, 'granted_by');
+    }
+
+    /**
+     * Get the financial transactions (charges, renewals, refunds) recorded
+     * against this subscription.
+     *
+     * @return HasMany<SubscriptionTransaction, $this>
+     */
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(SubscriptionTransaction::class);
+    }
+
+    /** Free access given by someone rather than bought. */
+    public function isGrant(): bool
+    {
+        return $this->source->isGrant();
+    }
+
+    /**
+     * Net amount collected on this row (charges − refunds + reversals), one
+     * entry per currency — currencies are never added together. Uses the
+     * loaded `transactions` relation when present.
+     *
+     * @return array<string, Money> currency => net amount
+     */
+    public function netPaid(): array
+    {
+        $totals = [];
+
+        foreach ($this->transactions as $transaction) {
+            if ($money = $transaction->signedMoney()) {
+                $totals[$money->currency] = isset($totals[$money->currency]) ? $totals[$money->currency]->plus($money) : $money;
+            }
+        }
+
+        return $totals;
     }
 
     /** Whether this subscription currently entitles the user to access. */

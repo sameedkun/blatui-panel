@@ -8,6 +8,7 @@ use App\Enum\ActivityLogName;
 use App\Enum\ActivityModule;
 use App\Enum\ReportFormat;
 use App\Enum\ReportFrequency;
+use App\Enum\SubscriptionSource;
 use App\Enum\TicketMessageAuthorType;
 use App\Enum\TicketStatus;
 use App\Models\BlockedIp;
@@ -25,6 +26,7 @@ use App\Services\Report\ReportService;
 use App\Support\Dashboard\DashboardCache;
 use App\Support\Dashboard\DashboardRegistry;
 use App\Support\Dashboard\DateRange;
+use App\Support\Money\Money;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
@@ -302,14 +304,22 @@ class DashboardDemoSeeder extends Seeder
     }
 
     /**
-     * One subscription "contract" per paying user (renewals are receipts, as
-     * in the app itself), spread across every lifecycle state.
+     * What a store charges for a USD list price in a few local storefronts —
+     * demo-only rates so "Sales by currency" has more than one row.
+     */
+    private const array DEMO_LOCAL_PRICE_RATES = ['EUR' => 0.92, 'GBP' => 0.79, 'PKR' => 280.0];
+
+    /**
+     * One subscription "contract" per user (renewals are transactions, as in
+     * the app itself), spread across every lifecycle state. Local ones are
+     * free admin grants with no transactions; store ones are sometimes
+     * charged in a local currency.
      *
      * @param  array<string, PlanPrice>  $prices
      */
     private function subscriptions(Collection $users, array $prices): void
     {
-        $receipts = [];
+        $transactions = [];
 
         foreach ($users as $user) {
             if (! $this->chance(0.48)) {
@@ -321,6 +331,9 @@ class DashboardDemoSeeder extends Seeder
             $provider = $this->pick(['local' => 20, 'stripe' => 40, 'appstore' => 25, 'playstore' => 15]);
             $startsAt = $this->between($user->created_at->addHour(), min($this->now, $user->created_at->addDays(45)));
             $state = $this->pick(['active' => 55, 'cancelled' => 14, 'expired' => 14, 'grace' => 4, 'failed' => 3, 'trialing' => 10]);
+            $currency = in_array($provider, ['appstore', 'playstore'], true)
+                ? $this->pick(['USD' => 70, 'EUR' => 12, 'GBP' => 10, 'PKR' => 8])
+                : 'USD';
 
             if ($state === 'trialing' && $startsAt->lessThan($this->now->subDays(6))) {
                 $state = 'active';
@@ -334,10 +347,10 @@ class DashboardDemoSeeder extends Seeder
             }
 
             $attributes = match ($state) {
-                'trialing' => ['amount_paid' => 0, 'trial_ends_at' => $startsAt->addDays(7), 'ends_at' => $startsAt->addDays(7)->addMonth()],
+                'trialing' => ['trial_ends_at' => $startsAt->addDays(7), 'ends_at' => $startsAt->addDays(7)->addMonth()],
                 'grace' => ['ends_at' => $this->now->subDays(mt_rand(1, 3)), 'grace_ends_at' => $this->now->addDays(mt_rand(1, 4))],
                 'expired' => ['ends_at' => min($endsAt, $this->now->subDays(mt_rand(1, 60))), 'is_recurring' => false],
-                'failed' => ['amount_paid' => 0, 'ends_at' => $startsAt],
+                'failed' => ['ends_at' => $startsAt],
                 'cancelled' => [
                     'cancelled_by' => $this->pick(['user' => 85, 'admin' => 15]),
                     'cancelled_reason' => $this->pick(['Too expensive' => 40, 'Not using it enough' => 35, 'Switching provider' => 25]),
@@ -355,48 +368,61 @@ class DashboardDemoSeeder extends Seeder
                 'starts_at' => $startsAt,
                 'trial_ends_at' => null,
                 'grace_ends_at' => null,
-                'amount_paid' => $price->amount,
-                'currency' => 'USD',
                 'status' => $state,
                 'cancelled_by' => null,
                 'cancelled_reason' => null,
                 'is_recurring' => true,
                 'provider' => $provider,
+                'source' => $provider === 'local' ? SubscriptionSource::Admin : SubscriptionSource::Purchase,
+                'grant_reason' => $provider === 'local' ? $this->pick(['Support compensation' => 50, 'Partner account' => 30, 'Beta tester' => 20]) : null,
                 'created_at' => $startsAt,
                 'updated_at' => $startsAt,
                 ...$attributes,
             ]);
 
-            if ($state === 'failed' || $state === 'trialing') {
+            if ($state === 'failed' || $state === 'trialing' || $provider === 'local') {
                 continue;
             }
 
-            $receipts[] = $this->receipt($subscription, 'initial', $startsAt);
+            $charge = $this->demoCharge($price, $currency);
+            $transactions[] = $this->transaction($subscription, 'initial', $charge, $startsAt);
 
             for ($p = 1; $p < $periods; $p++) {
-                $receipts[] = $this->receipt($subscription, 'renewal', $startsAt->addMonthsNoOverflow($months * $p));
+                $transactions[] = $this->transaction($subscription, 'renewal', $charge, $startsAt->addMonthsNoOverflow($months * $p));
             }
 
             if ($this->chance(0.04)) {
-                $receipts[] = $this->receipt($subscription, 'refund', $startsAt->addDays(mt_rand(1, 10)));
+                $transactions[] = $this->transaction($subscription, 'refund', $charge, $startsAt->addDays(mt_rand(1, 10)));
             }
         }
 
-        $receipts = array_filter($receipts, fn (array $row): bool => $row['created_at'] <= $this->now->toDateTimeString());
+        $transactions = array_filter($transactions, fn (array $row): bool => $row['purchased_at'] <= $this->now->toDateTimeString());
 
-        foreach (array_chunk($receipts, 500) as $chunk) {
-            DB::table('subscription_receipts')->insert($chunk);
+        foreach (array_chunk($transactions, 500) as $chunk) {
+            DB::table('subscription_transactions')->insert($chunk);
         }
     }
 
+    /** The demo price of `$price` in `$currency` (USD list prices, rough local storefront prices otherwise). */
+    private function demoCharge(PlanPrice $price, string $currency): Money
+    {
+        $amount = (float) $price->amount * (self::DEMO_LOCAL_PRICE_RATES[$currency] ?? 1.0);
+
+        return Money::ofMajor(number_format($currency === 'PKR' ? round($amount, -2) : $amount, 2, '.', ''), $currency);
+    }
+
     /** @return array<string, mixed> */
-    private function receipt(Subscription $subscription, string $type, CarbonInterface $at): array
+    private function transaction(Subscription $subscription, string $type, Money $amount, CarbonInterface $at): array
     {
         return [
             'subscription_id' => $subscription->id,
             'provider' => $subscription->provider->value,
             'type' => $type,
-            'provider_transaction_id' => 'demo_'.Str::lower(Str::random(16)),
+            'amount_minor' => $amount->minor,
+            'currency' => $amount->currency,
+            'purchased_at' => $at->toDateTimeString(),
+            'provider_transaction_id' => $transactionId = 'demo_'.Str::lower(Str::random(16)),
+            'idempotency_key' => "{$type}:{$transactionId}",
             'provider_original_id' => 'demo_orig_'.$subscription->id,
             'payload' => null,
             'created_at' => $at->toDateTimeString(),

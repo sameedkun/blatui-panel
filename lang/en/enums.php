@@ -143,19 +143,20 @@ return [
         'System' => 'System',
     ],
 
-    'receipt_type' => [
+    'transaction_type' => [
         'Initial' => 'Initial',
         'Renewal' => 'Renewal',
-        'Restore' => 'Restore',
-        'Refund' => 'Refund',
-        'Cancellation' => 'Cancellation',
         'PlanChange' => 'Plan Change',
-        'BillingFailure' => 'Billing Failure',
-        'Expiration' => 'Expiration',
-        'Reactivation' => 'Reactivation',
+        'Refund' => 'Refund',
         'RefundReversed' => 'Refund Reversed',
-        'Extension' => 'Extension',
-        'Revocation' => 'Revocation',
+    ],
+
+    'subscription_source' => [
+        'Purchase' => 'Purchase',
+        'Admin' => 'Admin grant',
+        'Promotional' => 'Promotional',
+        'Migration' => 'Migration',
+        'System' => 'System',
     ],
 
     'report_format' => [

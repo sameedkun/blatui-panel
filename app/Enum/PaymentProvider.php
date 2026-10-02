@@ -3,12 +3,14 @@
 namespace App\Enum;
 
 use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 
 /**
  * The payment rail a {@see PlanPrice}'s provider mapping, a {@see Subscription},
- * or a {@see SubscriptionReceipt} is tied to. `Local` means no external payment
- * provider is involved (manually granted/admin-managed subscription). Closed
- * vocabulary — adding a new provider is a code change.
+ * or a {@see SubscriptionTransaction} is tied to. `Local` means no external
+ * payment provider is involved. It says nothing about *why* a subscription
+ * exists — an admin grant is `Local` + {@see SubscriptionSource::Admin}.
+ * Closed vocabulary — adding a new provider is a code change.
  */
 enum PaymentProvider: string
 {

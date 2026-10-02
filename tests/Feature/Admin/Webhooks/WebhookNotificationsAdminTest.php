@@ -8,7 +8,7 @@ use App\Livewire\Admin\Management\Subscriptions\Show as SubscriptionShow;
 use App\Livewire\Admin\Management\WebhookNotifications\Index;
 use App\Livewire\Admin\Management\WebhookNotifications\Show;
 use App\Models\Subscription;
-use App\Models\SubscriptionReceipt;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use App\Models\Webhooks\AppleNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -115,32 +115,29 @@ class WebhookNotificationsAdminTest extends TestCase
         ]))->assertNotFound();
     }
 
-    public function test_subscription_show_tab_renders_its_linked_notification(): void
+    public function test_subscription_show_tab_lists_every_notification_for_its_contract(): void
     {
         $this->actingAsSuperAdmin();
 
-        $notification = AppleNotification::factory()->create(['transaction_id' => 'txn-linked']);
-        $subscription = Subscription::factory()->create();
-        SubscriptionReceipt::factory()->for($subscription)->create([
-            'notification_provider' => PaymentProvider::AppStore->value,
-            'notification_id' => $notification->id,
-        ]);
+        $subscription = Subscription::factory()->create(['provider' => PaymentProvider::AppStore]);
+        SubscriptionTransaction::factory()->for($subscription)->create(['provider' => PaymentProvider::AppStore, 'provider_original_id' => 'orig-1']);
+        // A state-only notification (no transaction of its own) for the same contract is listed too.
+        AppleNotification::factory()->create(['transaction_id' => 'txn-auto-renew-off', 'original_transaction_id' => 'orig-1']);
+        AppleNotification::factory()->create(['transaction_id' => 'txn-other-contract', 'original_transaction_id' => 'orig-2']);
 
         Livewire::test(SubscriptionShow::class, ['subscription' => $subscription])
             ->set('tab', 'webhook_notifications')
-            ->assertSee('txn-linked');
+            ->assertSee('txn-auto-renew-off')
+            ->assertDontSee('txn-other-contract');
     }
 
     public function test_subscription_show_tab_is_unavailable_without_webhook_notifications_permission(): void
     {
         $this->actingAsAdminWith(['panel.access-admin', 'subscriptions.manage']);
 
-        $notification = AppleNotification::factory()->create(['transaction_id' => 'txn-hidden']);
-        $subscription = Subscription::factory()->create();
-        SubscriptionReceipt::factory()->for($subscription)->create([
-            'notification_provider' => PaymentProvider::AppStore->value,
-            'notification_id' => $notification->id,
-        ]);
+        $subscription = Subscription::factory()->create(['provider' => PaymentProvider::AppStore]);
+        SubscriptionTransaction::factory()->for($subscription)->create(['provider' => PaymentProvider::AppStore, 'provider_original_id' => 'orig-1']);
+        AppleNotification::factory()->create(['transaction_id' => 'txn-hidden', 'original_transaction_id' => 'orig-1']);
 
         Livewire::test(SubscriptionShow::class, ['subscription' => $subscription])
             ->set('tab', 'webhook_notifications')

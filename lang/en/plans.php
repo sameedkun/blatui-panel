@@ -58,7 +58,7 @@ return [
     'show_stats' => [
         'total_subscriptions' => 'Total Subscriptions',
         'cancelled_expired' => 'Cancelled / Expired',
-        'total_revenue' => 'Total Revenue',
+        'total_revenue' => 'Net Sales',
     ],
 
     'tabs' => [

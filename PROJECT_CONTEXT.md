@@ -170,10 +170,11 @@ conversion, or merge logic inline in a Livewire component.**
   - `purge()` is transactional and idempotent (`if (! $user->exists) return;`), snapshots the
     account into the audit-log properties before `forceDelete()`, and cleans up related rows via
     `forceDeleteRecord()` (`deleteRelatedData()` — explicitly deletes `blocked_ips`/
-    `personal_access_tokens`/`sessions` rows and the avatar file off disk; `subscriptions` and
-    `user_devices` aren't listed there since both have a `user_id` FK that's `cascadeOnDelete()`,
-    so the subsequent `forceDelete()` already removes those rows without needing an explicit query
-    — `subscription_receipts` cascades transitively off `subscriptions` the same way).
+    `personal_access_tokens`/`sessions` rows and the avatar file off disk; `user_devices` cascade
+    off their `user_id` FK). **Financial history is kept**: `subscriptions.user_id` is
+    `nullOnDelete()`, so `forceDelete()` *detaches* the account's subscriptions (user_id → NULL) and
+    they and their `subscription_transactions` survive as **ownerless** rows — revenue for past
+    periods never changes when an account is purged. Raw provider notifications aren't touched either.
   - `forceDeleteRecord()` is the low-level primitive `purge()` builds on — the same transactional
     cleanup-then-forceDelete, but with no audit entry or type assertion of its own. It's what the
     admin panel's "force delete" row/bulk actions (already-trashed Users/Guests, both index and
@@ -322,8 +323,25 @@ product-agnostic; an app adds its own analytics by appending classes to config �
 - `Metrics\{Audience,Revenue,Subscription,Support,Security}Metrics` — every query, shared by widgets,
   sections and reports. Definitions worth knowing: "active user" = signed in during the window, read
   from the auth audit trail (not `last_login`, which only holds the latest login); revenue =
-  `amount_paid` attributed to `starts_at`; MRR = list prices of subscriptions in a paid period at a
-  moment, normalised to a month (time-based, so it answers historical moments); cancellations =
+  **gross sales** = charge transactions (Initial/Renewal/PlanChange) in `subscription_transactions`,
+  dated by `purchased_at` (when the money moved — a renewal counts in its own month), refunds
+  reported separately; **every money figure is in the reporting currency
+  (`config('dashboard.currency')`) only — currencies are never added together and there is no FX
+  yet**; other currencies are exact in Analytics → Revenue → "Sales by currency"
+  (`RevenueMetrics::salesByCurrency()`); every money figure is labelled with its currency and the
+  ones that drop other currencies say so (Revenue KPI/metric via `otherCurrencies()`, MRR/ARR via
+  `mrrOtherCurrencies()`) — never as zero; counts shown beside a money figure use the same currency
+  (`transactions($range, $currency)`, refund count, paying customers next to ARPU), standalone counts
+  say "all currencies". **Cash collected** (revenue, refunds, ARPU, AOV, series) and **recurring
+  value** (MRR/ARR) are kept apart: MRR = each *purchased* subscription in a paid period at a moment
+  (`liveAt()`: started, not ended, past trial, not failed — so grace is out, auto-renew-off counts
+  until its period ends) contributes its **latest charge by `purchased_at`** (not the last inserted;
+  not the list price — intro/discounted prices count as charged), divided by that charge's
+  `periods_covered` (a 3-month pay-up-front charge counts a third per month), normalised to a month
+  by its billing cycle; gross, reporting currency only. ARR = MRR × 12 (run rate, not trailing
+  revenue). Full definition in `RevenueMetrics`' class doc. Churn rate and renewal rate count paid
+  subscriptions only (grants excluded on both sides — `cancelled()`/`expired()` take
+  `$purchasedOnly`; the plain Cancellations count still shows everything); cancellations =
   `cancelled_by` set, **excluding `system`** (a plan replacement, not churn), dated by `updated_at`;
   first response = first *staff* ticket message (system notes excluded).
 - `DateRange` (presets end now; `previous()` is the equally long window before; day buckets ≤92 days,
@@ -365,7 +383,8 @@ Failed (never throw); a worker timeout is caught by the job's `failed()`. Audite
 **Demo data.** `Database\Seeders\DashboardDemoSeeder` (`php artisan db:seed --class=DashboardDemoSeeder`,
 also called by `DatabaseSeeder` locally) seeds a deterministic year of data for every page: ~450 app
 users with month-on-month growth, guests + conversions, sign-in/failed sign-in history with one spike,
-subscriptions in every state with renewal/refund receipts, support agents/categories/tickets with
+subscriptions in every state with renewal/refund transactions (store purchases partly in
+EUR/GBP/PKR, local ones as free admin grants), support agents/categories/tickets with
 staff replies, devices, blocked IPs, suspensions, 30 days of API request logs rolled up through
 `AggregationService`, two report schedules and sample reports. Refuses production; skips itself when
 `@dashboard-demo.test` accounts exist; re-enables model events (it runs under `WithoutModelEvents`
@@ -448,14 +467,40 @@ via `is_active = false`; `Subscription` rows themselves are permanent records, n
   UI enforces). `status` casts to `App\Enum\SubscriptionStatus`, `cancelled_by` to
   `App\Enum\CancelledBy` (`User`/`Admin`/`System`), `provider` to `PaymentProvider`.
   `isActive(): bool` checks status is one of Trialing/Active/Grace and `ends_at` hasn't passed.
-  Has many `receipts()`.
-- **`SubscriptionReceipt`** — belongs to `Subscription`; the provider-agnostic **ledger**: one row
-  per provider event that touched a subscription (`type` cast to `App\Enum\ReceiptType`:
-  Initial/Renewal/Restore/Refund/Cancellation/PlanChange/BillingFailure/Expiration/Reactivation/
-  RefundReversed/Extension/Revocation), carrying `provider_transaction_id`/`provider_original_id`,
-  the raw transaction in `payload` (`{amount, currency, expires_at, transaction}`) and a loose link
-  to the raw webhook row. Written only by `ProviderSubscriptionService` (see "Provider webhooks");
-  surfaced on the Subscriptions/Show Receipts tab.
+  **Entitlement only — no money columns** (`amount_paid`/`currency` were removed: one row can be
+  paid in several currencies). `plan_price_id` is the price *selected*, never what was paid.
+  `source` (`App\Enum\SubscriptionSource`: Purchase/Admin/Promotional/Migration/System) says *why*
+  it exists — orthogonal to `provider` (the billing integration); an admin grant is `provider=local,
+  source=admin` + `granted_by` (staff FK, `grantedBy()`) + `grant_reason`. Has many
+  `transactions()`; `netPaid()` = net per currency from the loaded transactions (`array<string, Money>`).
+- **`SubscriptionTransaction`** (`subscription_transactions`, which replaced `subscription_receipts`) —
+  belongs to `Subscription`; the provider-agnostic **financial ledger**: one row per real money
+  movement (`type` cast to `App\Enum\TransactionType`: Initial/Renewal/PlanChange/Refund/
+  RefundReversed — state-only events like auto-renew off/expiry/billing failure are *not* here, they
+  live on the subscription + audit log). Money is `amount_minor` (int, the currency's ISO 4217 minor
+  unit) + `currency`, always a non-negative magnitude — `TransactionType::direction()` (+1/−1) gives
+  the sign; `signedAmountSql()`/`netByCurrency()` aggregate it. It is the **gross** amount the
+  customer was charged (tax-inclusive, before store fees) — not proceeds. `purchased_at` = when the
+  money moved (refund rows: the refund time). `periods_covered` = billing periods a charge pays for
+  (1 normally; computed at write time from the provider's purchase→expiry span in whole periods of the
+  row's price, so a pay-up-front offer covers several). Also `provider_transaction_id`/`provider_original_id`,
+  the raw provider transaction in `payload` (`{expires_at, transaction}`) and a loose link to the raw
+  webhook row (`notification_provider` + `notification_id` = the **internal** id of that provider's
+  notification table, e.g. `apple_notifications.id` — Apple's own `notificationUUID` stays in
+  `apple_notifications.notification_uuid`). **`idempotency_key`** (unique per `provider` in the
+  DB) names each money movement: `charge:{transactionId}` (one charge per provider transaction,
+  any charge type), `refund:{transactionId}:{event}` (each distinct refund event), `reversal:{refund
+  key}` (at most one per refund); rows written without one get `manual:{ulid}` (model `creating`
+  hook). `related_transaction_id` points a refund at its charge and a reversal at its refund
+  (`reversals()` relation). A grant has no transactions. Written by
+  `ProviderSubscriptionService`; surfaced on the Subscriptions/Show Transactions tab.
+- **`App\Support\Money\{Money,Currency}`** — the only money abstraction: `Currency::exponent()` (ISO
+  4217 list: JPY/KRW 0, KWD/BHD 3, CLF/UYW 4, every other active code 2; an **unknown code throws** —
+  never a guessed exponent; `Currency::isSupported()` checks first, and a `Money` can't be built in an
+  unsupported currency), `Money::ofScaled($value, $decimals, $currency)` (exact
+  integer rescale from any provider unit — Apple milliunits = 3, Google micros = 6), `ofMajor("9.99")`,
+  `toDecimal()`, `format()`, same-currency `plus`/`minus`, `multipliedBy()`. Admin views render a
+  row's money through `<x-admin.subscription-paid>` (per-currency net, or the grant source).
 
 Per this codebase's hard convention, none of the "enum-like" columns above are native DB `enum()`
 columns — they're all `string` + a PHP backed-enum cast.
@@ -479,12 +524,14 @@ actions `view`/`manage` only — no create/edit/delete, since `Subscription` row
 records created only via `SubscriptionService`). This is the cross-cutting view over every
 subscription ever sold, independent of which plan or user it's for:
 - `Index` — every subscription across every user/plan, with stats (Total, Active, Cancelled,
-  Revenue Collected), status/plan/provider filters, and search across the `user`/`plan` relations
+  Net Sales — all-time, reporting currency, other currencies listed in the description, never
+  summed), status/plan/provider filters, and search across the `user`/`plan` relations
   (`whereHas`, since `Subscription` has no name/email column of its own — plain `searchableColumns`
   doesn't reach relations). No bulk actions (deliberate — these are audit records, not bulk-editable
   rows).
-- `Show` — full detail for one subscription row: plan/price/provider info, the owning user, a
-  Receipts tab (`SubscriptionReceipt` rows — first real surface for that model), and an Activity
+- `Show` — full detail for one subscription row: plan/price/provider info, source/grant info, the
+  owning user, a Transactions tab (`SubscriptionTransaction` rows, signed, each in its own currency,
+  linking to the source notification), a Webhook Notifications tab, and an Activity
   tab (see caveat below). Tabs and hero header link out to `admin.users.show`/`admin.plans.show`
   when the viewer holds `users.manage`/`plans.manage`.
 - Cancel/reactivate actions live in `Concerns/HandlesSubscriptionRowActions`, shared by Index and
@@ -506,8 +553,8 @@ subscription ever sold, independent of which plan or user it's for:
 ### Webhook Notifications (`app/Livewire/Admin/Management/WebhookNotifications/`)
 
 Raw inbound provider webhook logs (`apple_notifications` today; RevenueCat/Google/Stripe are
-placeholders in the same pattern, not yet built) are a separate concern from `SubscriptionReceipt`
-— a receipt is the normalized "this happened to this subscription" record, a notification row is
+placeholders in the same pattern, not yet built) are a separate concern from `SubscriptionTransaction`
+— a transaction is the normalized "money moved on this subscription" record, a notification row is
 the unprocessed payload as the provider sent it, deduplicated by its own UUID/notification id.
 Since which providers a given deployment integrates with is a per-project decision, nothing here
 branches on provider name:
@@ -527,19 +574,23 @@ branches on provider name:
   Index's search/filters generic across providers without per-provider query branching.
 - **`App\Support\WebhookNotificationRegistry`** — same shape as
   `ActivityPresenter::subjectUrlResolvers()`: a `PaymentProvider::value → model class` array plus a
-  `resolve(?PaymentProvider, ?int): ?ProviderNotification` helper. Adding RevenueCat/Google/Stripe
+  `resolve(?PaymentProvider, ?int): ?ProviderNotification` helper (by our internal row id). Adding RevenueCat/Google/Stripe
   later is one array line plus its model — no admin code changes.
-- **`SubscriptionReceipt::notification_provider`/`notification_id`** — a deliberately loose link
-  (no FK; the target table varies by provider) to the raw notification a receipt came from, resolved
-  at read time via the registry through `SubscriptionReceipt::notification()`. `subscription_receipts`
-  itself stays provider-agnostic — no provider-specific columns were added to it.
+- **`SubscriptionTransaction::notification_provider`/`notification_id`** — a deliberately loose
+  link (no FK; the target table varies by provider) to the raw notification row a transaction came
+  from: `notification_id` is the **internal id** of the provider-specific table
+  (`apple_notifications.id`), never the provider's own notification UUID (that lives in
+  `apple_notifications.notification_uuid`, the dedup key). Resolved at read time via
+  `SubscriptionTransaction::notification()` → `WebhookNotificationRegistry::resolve()`.
+  `subscription_transactions` itself stays provider-agnostic — no provider-specific columns.
 - **Admin UI**: `admin.webhook-notifications.*` (module `webhook_notifications`, actions `view`/
   `manage`, group `infrastructure`) is provider-filtered rather than a UNION across differently-shaped
   tables — `Index::baseQuery()` resolves to the selected provider's model via the registry, so each
   provider keeps its own native columns. `Show` takes `{provider}/{id}` route params (not
   route-model binding, since the model class varies) and 404s if the registry can't resolve it. Both
-  pages, and the `webhook_notifications` tab on `Subscriptions/Show` (gated on `webhook_notifications.view`,
-  separate from the existing Receipts tab), render through one generic Blade partial
+  pages, and the `webhook_notifications` tab on `Subscriptions/Show` (gated on `webhook_notifications.view`;
+  lists every notification whose `original_transaction_id` matches the row's transactions — so
+  state-only and not-yet-applied deliveries show too, latest 50), render through one generic Blade partial
   (`.../webhook-notifications/partials/detail.blade.php`) built purely off the contract — a new
   provider needs zero new Blade. Listed in the sidebar's Management section (not Application — this
   is billing/account operational tooling, same bucket as Blocked IPs, not product-content config).
@@ -601,7 +652,16 @@ Three layers, and only the first two are provider-specific:
      `appAccountToken` purchase option). Falls back to whoever owns the contract already (covers a
      missing token and guests merged into another account). Includes soft-deleted users.
    - **Plan**: `transactionInfo.productId` → `plan_price_providers.external_id` (provider `appstore`).
-   - **Money**: Apple's `price` is in **milliunits** (9990 = 9.99) — `/1000`, not `/1_000_000`.
+   - **Money**: Apple's `price` is an int64 in **milliunits** of `currency` regardless of the
+     currency's precision (USD 1.99 → 1990, JPY 300 → 300000, PKR 4,900 → 4900000).
+     `App\Services\Webhooks\AppStore\PriceNormalizer` is the only code that knows this:
+     `charged()` → `Money::ofScaled($price, 3, $currency)` (exact, into the ISO minor unit — PKR
+     4900000 → 490000), `refunded()` applies `revocationPercentage` (milliunits of a percent,
+     100000 = full) for partial refunds — treated as the **cumulative** share of the transaction
+     refunded so far (Apple: "the percentage of the transaction that the App Store has refunded";
+     it disappears once the refund is reversed). Each REFUND's event key is
+     `{revocationDate}:{revocationPercentage}`. Raw values stay in the transaction's `payload`. Apple says
+     not to use these for revenue reconciliation — they're gross customer prices.
    - **Environments**: only `services.app_store.environments` are applied (default `Production` when
      `APP_ENV=production`, otherwise also Sandbox/Xcode/LocalTesting); others are stored and marked
      processed without touching subscriptions — keeps free Sandbox/TestFlight purchases off production.
@@ -611,8 +671,13 @@ Three layers, and only the first two are provider-specific:
    - **`processed` semantics**: true = applied, or informational (TEST, CONSUMPTION_REQUEST,
      REFUND_DECLINED, PRICE_INCREASE, ONE_TIME_CHARGE, …), or ignored environment. **Left false** —
      logged to the `webhooks` channel (`storage/logs/webhooks-*.log`) — when it can't be applied yet:
-     no matching account, product not mapped to a price, or no contract seen for that original
-     transaction. Fix the cause (e.g. add the `PlanPriceProvider` mapping) and hit **Reprocess**.
+     no matching account, product not mapped to a price (including a DID_RENEW for an unmapped
+     product — never applied as a same-plan renewal), no contract seen for that original
+     transaction, or **unusable money** on a charge (price without currency or vice versa, a
+     negative/fractional price, an unsupported currency, a refund percentage outside 0–100000 —
+     `App\Exceptions\InvalidProviderMoneyException`, thrown by `PriceNormalizer`). State-only
+     notifications (renewal status, billing failure, expiry, refund reversal, …) never parse money,
+     so malformed price fields can't block them. Fix the cause (e.g. add the `PlanPriceProvider` mapping) and hit **Reprocess**.
    - Mapping: SUBSCRIBED/OFFER_REDEEMED(INITIAL_BUY|RESUBSCRIBE) → `start`; DID_RENEW → `renew`
      (BILLING_RECOVERY flagged; a different product = downgrade/crossgrade taking effect → `changePlan`;
      no known contract → treated as a start); DID_CHANGE_RENEWAL_PREF UPGRADE / OFFER_REDEEMED UPGRADE →
@@ -631,16 +696,30 @@ Three layers, and only the first two are provider-specific:
    - **Data shape**: one `subscriptions` row per contract (provider dates, not computed from the plan
      price — the store owns the billing calendar); renewals extend it; a plan change closes it and
      chains a new row via `previous_subscription_id` (same as `SubscriptionService::upgrade()`).
-     Every event is a `SubscriptionReceipt`, and the contract is found again through its receipts'
-     `provider_original_id` — so **`subscriptions` never gets provider-specific columns**.
-     **`amount_paid` is the row's running net total** — opening charge + each renewal − refunds
-     (+ reversed refunds), which is what "Total amount paid" (Subscriptions/Show), "Revenue
-     Collected" (Subscriptions/Index) and plan "Total revenue" (Plans/Show) already read. A refund
-     nets against the row whose receipt holds that charge (it may be an earlier row in a plan-change
-     chain). A charge in a different currency than the row isn't summed (stays on its receipt only).
-     Each individual charge is also on its receipt (`payload.amount`/`currency`).
-   - **Idempotent**: charges (Initial/Renewal/PlanChange, Refund, RefundReversed) are keyed on the
-     provider transaction id; state changes no-op when already in the target state. A renewal never
+     Every **money** event (Initial/Renewal/PlanChange/Refund/RefundReversed) is a
+     `SubscriptionTransaction` with its own amount + currency (the `ProviderTransaction` DTO carries
+     a normalised `?Money $amount`); state-only events write no ledger row. The contract is found
+     again through its transactions' `provider_original_id` (every contract opens with an Initial or
+     PlanChange row) — so **`subscriptions` never gets provider-specific columns**.
+   - **Refunds**: the DTO's `amount` is the provider's **cumulative** refunded total and `eventKey`
+     identifies the event; `refund()` records only the part not yet on the ledger (total capped at
+     the charge, minus refunds not reversed), so a second partial refund adds just the difference,
+     an older partial arriving late adds nothing, and a refund after a reversal is recorded again
+     (and re-revokes access). Recorded on the row holding the charge (may be an earlier row in a
+     plan-change chain), pointing at it, dated by `revocationDate`. A refund only cuts access when
+     that charge belongs to the **current** subscription row and paid for its current period —
+     refunding a charge from a superseded row never cancels the current plan. `reverseRefund(..., $reversedAt)`
+     gives every unreversed refund issued at/before the reversal exactly one reversal of exactly its
+     amount, pointing at it; it returns false when there's nothing to reverse yet, and the Apple
+     processor then leaves REFUND_REVERSED unprocessed (Reprocess once the refund exists).
+   - **Idempotent at the database level**: every ledger write runs in
+     `ProviderSubscriptionService::idempotently()` — the `findRecorded()` check is only the fast
+     path; if two workers race past it, the unique `(provider, idempotency_key)` index rejects the
+     second insert, its whole DB transaction (subscription changes, audit) rolls back, and the call
+     resolves to what the winner recorded. Refunds/reversals also `lockForUpdate()` the charge row so
+     cumulative-delta maths can't interleave. Keys come from the provider **transaction** id (never
+     the notification id — several notifications can name one transaction); state changes no-op
+     when already in the target state. The Apple `Cache::lock` per contract stays as a first line. A renewal never
      un-cancels a *user*-cancelled contract (out-of-order delivery), and `ends_at` only moves forward.
    - State rules: auto-renew off = `cancelled` + `cancelled_by: user`, access continues to period
      end (same as `cancelActive(immediately: false)`); failed payment without grace = `failed` (no
@@ -655,6 +734,15 @@ Three layers, and only the first two are provider-specific:
      are skipped); queued `afterCommit()`.
    - `start()` cancels any other live subscription first via `SubscriptionService::cancelSubscription()`
      (which now takes optional `$causer`/`$context`, like `DeletionService::purge()`).
+   - **Ownerless contracts**: a store keeps billing after we purge the account, so a renewal (or a
+     plan change at renewal) on a subscription whose `user_id` is NULL is still applied and recorded —
+     the new rows carry `user_id = NULL` too — and a warning goes to the `webhooks` channel
+     ("charged after its owner was purged") for follow-up. Audit rows for those have no subject and
+     carry `subscription_id` + `ownerless: true`. Ownerless money counts in **financial** metrics
+     (revenue, MRR/ARR, AOV, refunds — `RevenueMetrics::liveAt()`), never in **customer** metrics:
+     paying customers/ARPU (customers' money only), paying subscribers, churn/renewal rate and
+     every `SubscriptionMetrics` count use owned rows (`RevenueMetrics::liveCustomersAt()`,
+     `SubscriptionMetrics::customers()`), as do the Subscription Summary report's counts.
    - Audit: module `User`, subject the user, `causer: null`, `context: Webhook`; reuses
      `subscription_assigned/upgraded/cancelled/reactivated/trial_converted/entered_grace/expired` and
      adds `subscription_renewed/payment_failed/refunded/extended` (all rendered by `ActivityPresenter`).
@@ -662,7 +750,7 @@ Three layers, and only the first two are provider-specific:
      exclusively by Apple's notifications.
 
 **Adding another provider (Play Store, Stripe, RevenueCat, …)** — nothing in layer 3, the admin UI,
-or `subscriptions`/`subscription_receipts` changes:
+or `subscriptions`/`subscription_transactions` changes:
 1. Raw table + model under `App\Models\Webhooks\` implementing `ProviderNotification` (and
    `RedispatchableNotification`), with a unique provider event id column, `processed`/`processed_at`,
    and the soft-convention columns `transaction_id`/`original_transaction_id`/`product_id`; factory.
@@ -675,7 +763,11 @@ or `subscriptions`/`subscription_receipts` changes:
    Same contract: verify the provider signature fail-closed, dedupe on the provider's event id,
    store, `redispatch()`, answer fast.
 5. A queued listener in `app/Listeners/Webhooks/` + a processor that builds `ProviderTransaction`s
-   and calls `ProviderSubscriptionService` — map product ids through `plan_price_providers`
+   and calls `ProviderSubscriptionService` — with a `{Provider}\PriceNormalizer`-style boundary
+   converting the provider's money unit once via `Money::ofScaled()` (Google Play v1
+   `priceAmountMicros` → decimals 6; v2 `Money{units, nanos}` → units·10⁹+nanos with decimals 9;
+   Stripe `amount` is already in Stripe's minor unit but Stripe's zero-decimal list differs from ISO
+   for a few currencies — e.g. ISK/HUF/UGX/TWD — so map through Stripe's own rules first) — map product ids through `plan_price_providers`
    (admins add those per price), and resolve the account from whatever the provider echoes back
    (Google `obfuscatedExternalAccountId` / Stripe `client_reference_id`/metadata → pass
    `User::external_id` or `appAccountToken()`), falling back to `findSubscription()`'s owner.
@@ -694,12 +786,21 @@ key against `config('panel.features')`'s type/default.
 **`App\Services\Subscription\SubscriptionService`** is the only place subscription state changes — mirroring
 `DeletionService`, it logs its own audit rows (module `User`, subject the affected user) so
 every caller (admin panel, future API) gets the trail for free:
-- `subscribe(User, PlanPrice, provider='local')` — brand-new subscription; cancels any existing
-  active one first (immediate, `cancelled_by: system`). Logs `Assigned` /
-  `subscription_assigned`.
-- `upgrade(User, PlanPrice, provider='local')` — replaces the current subscription, computing a
-  proration credit off the remaining days and linking `previous_subscription_id` (preserves the
-  chain, unlike `subscribe()`). Logs `Assigned` / `subscription_upgraded`.
+- `subscribe(User, PlanPrice, provider='local', ..., source=Admin, grantedBy, grantReason)` —
+  brand-new subscription; cancels any existing active one first (immediate, `cancelled_by:
+  system`). **Creates the entitlement only — never money**: an admin assignment is a grant with no
+  transaction (Users/Show + Guests/Show pass `grantedBy: auth()->user()` and the dialog's optional
+  reason). Grant metadata is dropped for `source=purchase`. Logs `Assigned` / `subscription_assigned`
+  (with `source`/`reason`).
+- `upgrade(...)` — same params; replaces the current subscription and links
+  `previous_subscription_id` (preserves the chain, unlike `subscribe()`). Its proration credit
+  (`prorationCredit()` → `{credit: ?Money, skipped: ?string}`) comes from the **latest charge only**
+  (earlier renewals paid for used periods), net of refunds/reversals against that charge, scaled by
+  the time left in the period and capped at what was paid. No credit, with a reason, for
+  `no_payment` (grant/fully refunded), `period_ended`, or `currency_mismatch` — amounts in different
+  currencies are never compared (no FX); a mismatch is recorded in `proration_meta`
+  (`credit_skipped`, `paid_currency`) and the audit entry. The credit is informational only — it
+  writes no transaction. Logs `Assigned` / `subscription_upgraded`.
 - `cancelActive(User, cancelledBy, reason, immediately)` — `immediately=true` sets `ends_at =
   now()` (access cut off right away); `immediately=false` just flips `status` to `cancelled` and
   turns off `is_recurring`, leaving `ends_at` in the future so `activeSubscription()` still
@@ -747,7 +848,12 @@ constructor takes `array $providers = [PaymentProvider::Local]`, `handle()` just
 Admin panel surface: `Users/Show.php` (`app/Livewire/Admin/Management/Users/`) — an "Assign /
 Change Plan" dialog (cascading Plan → active-prices-for-that-plan selects), "Cancel Immediately"
 and "Cancel at Period End" reason-dialogs, and a one-click "Reactivate" — all gated by
-`users.manage` (no new permission needed). The Overview tab shows a compact active-subscription
+`users.manage` (no new permission needed). **Store-billed plans can't be changed here**:
+`SubscriptionService::subscribe()`/`upgrade()` throw `App\Exceptions\StoreManagedSubscriptionException`
+when the live subscription's provider isn't `local` (`assertNotStoreManaged()`/`assertReplaceable()`)
+— the store would keep billing and its next notification would revive the row; the dialog refuses to
+open with a "billed by {provider}" error toast (`{users,guests}.toasts.store_managed_subscription`).
+Cancel/reactivate stay available. The Overview tab shows a compact active-subscription
 glance; the Subscriptions tab (replacing the old "coming soon" placeholder) has full management
 plus the subscription history table. The Users index has a "Plan" column (plan name or "Free").
 `ActivityPresenter` is module/type-aware for these (`properties.module === 'user'` +
@@ -1725,7 +1831,7 @@ time, leaving `routes/console.php` responsible only for cadence and overlap prot
 app/
   Contracts/       ProviderNotification (webhook-notification presentation contract)
   Enum/            UserType, Activity{LogName,Module,Action,Context}, MailPurpose,
-                   BillingInterval, PaymentProvider, SubscriptionStatus, CancelledBy, ReceiptType,
+                   BillingInterval, PaymentProvider, SubscriptionStatus, SubscriptionSource, CancelledBy, TransactionType,
                    TicketStatus, TicketPriority, TicketMessageAuthorType, DeviceType,
                    AppleNotificationType, AppleNotificationSubtype,
                    FeedbackType, FeedbackStatus, AnnouncementType, AnnouncementPushStatus,
@@ -1739,7 +1845,9 @@ app/
                    ProviderTokenInvalidException (thrown by Http/Controllers/Api/V1/Concerns/ResolvesSocialiteUser),
                    ProviderEmailUnverifiedException (thrown by GuestConversionService::convertWithProvider()
                    when an unverified provider email would otherwise auto-link/merge into an existing account),
-                   InvalidWebhookPayloadException (unverifiable provider webhook body → 400)
+                   InvalidWebhookPayloadException (unverifiable provider webhook body → 400),
+                   InvalidProviderMoneyException (unusable provider price/currency — notification left unprocessed),
+                   StoreManagedSubscriptionException (admin plan change refused over a store-billed subscription)
                    Api/ApiExceptionRenderer (unifies framework exceptions into ApiController's envelope)
   Http/Controllers/Auth/{PasskeyAuthenticationOptionsController,AuthenticateUsingPasskeyController}.php
                    replace spatie/laravel-passkeys' own routes — see "Passkey (WebAuthn) login"
@@ -1812,7 +1920,7 @@ app/
                    Report/ReportReadyMail.php (scheduled report delivery),
                    Billing/PaymentFailedMail.php (renewal charge failed — grace or paused)
   Models/          User.php (canAccessModule helper; implements passkeys' HasPasskeys), EmailDomain.php, EmailSender.php, SmtpSetting.php, Policy.php, PolicyVersion.php, PolicyAcceptance.php,
-                   Plan.php, PlanPrice.php, PlanPriceProvider.php, Subscription.php, SubscriptionReceipt.php,
+                   Plan.php, PlanPrice.php, PlanPriceProvider.php, Subscription.php, SubscriptionTransaction.php,
                    Ticket.php, TicketCategory.php, TicketMessage.php, UserDevice.php, BlockedIp.php,
                    Language.php, Feedback.php, Announcement.php
     Webhooks/      AppleNotification.php (implements ProviderNotification; RevenueCat/Google/Stripe
@@ -1832,7 +1940,7 @@ app/
                    Auth/{UrlResolver, FindPasskeyToAuthenticateAction},
                    Device/{DeviceService, BrowserDeviceResolver, LocationService}, Mail/Configurator, Announcement/OneSignalService,
                    Subscription/{LifecycleService, SubscriptionService, ProviderSubscriptionService},
-                   Webhooks/AppStore/{NotificationDecoder, NotificationProcessor, RootCertificate},
+                   Webhooks/AppStore/{NotificationDecoder, NotificationProcessor, PriceNormalizer, RootCertificate},
                    Ticket/{AssignmentService, LifecycleService, TicketService},
                    ApiLog/{AggregationService, RetentionService},
                    Report/ReportService
@@ -1841,6 +1949,7 @@ app/
                    Analytics/*Section, Reports/{ReportDefinition,ReportFilter,ReportDocument,
                    Definitions/*, Writers/*} — see "Dashboard"
   Support/Subscription/ProviderTransaction.php  normalised provider transaction DTO (webhooks → ProviderSubscriptionService)
+  Support/Money/   Money (exact minor-unit amount + currency), Currency (ISO 4217 exponents)
   Support/ApiLogs/ RequestIds, RequestRecorder, RecordBuilder, Sanitizer, SamplingPolicy,
                    ApiLogBuffer (+ RedisBuffer, SyncBuffer), ApiLogWriter
   Support/         ActivityLogger, ActivityLogQuery, ActivityPresenter, DeviceData,
@@ -1862,12 +1971,13 @@ database/
   migrations/       users, permission_tables (Spatie), activity_log (+ 3 hand-added indexes),
                      cache, jobs, email_domains, email_senders, smtp_settings, policies_tables,
                      plans_tables (plans/plan_prices/plan_price_providers),
-                     subscriptions_tables (subscriptions/subscription_receipts),
+                     subscriptions_tables (subscriptions — entitlement + source/granted_by/
+                     grant_reason, no money; subscription_transactions — the financial ledger),
                      tickets_table (categories/tickets/ticket_messages/category_agent),
                      user_devices_table, blocked_ips_table (generated `user_scope` column backing
                      its unique constraint), apple_notifications_table (subscriptions_tables' own
-                     `subscription_receipts` block carries the loose `notification_provider`/
-                     `notification_id` link columns directly, no separate migration),
+                     `subscription_transactions` block carries the loose `notification_provider`/
+                     `notification_id` link to it directly, no separate migration),
                      create_passkeys_table (vendor-published, unmodified),
                      languages_table, feedback_table, notifications_table (renamed to `announcements`
                      by a later migration — the `App\Models\Announcement` push-broadcast table,
@@ -1875,7 +1985,7 @@ database/
                      create_api_request_logs_tables (api_request_logs/_payloads/_exceptions/_stats)
   seeders/          DatabaseSeeder, RolesAndPermissionsSeeder (idempotent), UserSeeder,
                      EmailSendersSeeder (idempotent), DashboardDemoSeeder (local demo data — see "Dashboard")
-  factories/         one per model, incl. Plan/PlanPrice/PlanPriceProvider/Subscription/SubscriptionReceipt,
+  factories/         one per model, incl. Plan/PlanPrice/PlanPriceProvider/Subscription/SubscriptionTransaction,
                      TicketCategory/Ticket/TicketMessage, UserDevice, BlockedIp, Webhooks/AppleNotification,
                      Language, Feedback, Announcement, ApiLog/{ApiRequestLog,ApiRequestException,ApiRequestStat}
 resources/
@@ -1884,7 +1994,8 @@ resources/
   views/components/admin/    panel-specific composites: filter-bar (now also a `text` filter type),
                               page-header, pagination, confirm-dialog, reason-dialog, confirm-drawer,
                               reason-drawer, device-status-badge, show-tabs, stat-card, dropdown, tooltip,
-                              sidebar-collapsible, dashboard/{header,card,row}
+                              sidebar-collapsible, subscription-paid (per-currency net paid, or grant source),
+                              dashboard/{header,card,row}
   views/layouts/admin/       app.blade.php (sidebar shell), guest.blade.php (login)
   views/livewire/admin/      one folder per Livewire component, mirroring app/Livewire/Admin
   css/blatui.css             design tokens (CSS vars on :root/.dark/[data-*])
@@ -1915,12 +2026,22 @@ tests/
 - App Store webhooks (see "Provider webhooks"): CONSUMPTION_REQUEST is only acknowledged — no
   consumption data is sent back through the App Store Server API (deliberately, not used); and
   RENEWAL_EXTENSION/SUMMARY bodies (sent only if you use Apple's mass-extension API) carry `summary`
-  instead of `data`, which `readdle/app-store-server-api` can't decode, so they 400. Dashboard
-  **period** revenue (charts/"revenue this month") reads `amount_paid` at `starts_at`; since
-  provider rows accumulate renewals into `amount_paid`, all-time totals are right but a renewal's
-  money is dated to the contract's start, not the renewal. Dating each charge correctly would need
-  revenue to read a charges ledger (receipt amounts, with `SubscriptionService` also writing
-  receipts for local subscriptions) — not done.
+  instead of `data`, which `readdle/app-store-server-api` can't decode, so they 400.
+- **No FX / reporting-currency layer yet.** Dashboard money figures cover only transactions in
+  `config('dashboard.currency')`; other currencies are shown exactly but separately. The planned
+  next step is a historical FX snapshot per transaction (`reporting_amount_minor`,
+  `reporting_currency`, `fx_rate`, `fx_rate_at`, written when the transaction is recorded) that
+  `RevenueMetrics::sales()`/`monthlyValue()` would sum instead — undecided: FX source, daily vs
+  transaction-time rates, refunds' rate, missing-rate fallback. Amounts are gross; real proceeds
+  (after store commission/tax) would need provider settlement reports — not modelled.
+- Apple's `revocationPercentage` is handled as cumulative (see "Provider webhooks"); Apple doesn't
+  state it explicitly, so confirm against a real second partial refund (sandbox / Get Transaction
+  History). Two cases are logged as warnings to the `webhooks` channel for review, ledger unchanged:
+  a refund total *lower* than already recorded (late delivery, or a non-cumulative/lowered refund),
+  and a REFUND_DECLINED for a transaction with an unreversed recorded refund (undocumented by Apple). A REFUND_REVERSED processed before its REFUND is left unprocessed until reprocessed; a
+  REFUND delivered *after* its own reversal would be recorded as outstanding.
+- There is no admin UI to record a real offline payment for a local subscription
+  (`provider=local, source=purchase` + a transaction) — the model supports it, nothing writes it.
 - `UserSeeder` assigns `config('panel.app_user_role')` to the local test user, but `panel.php`
   only defines `super_admin_role` — app users/guests are distinguished by `type`, not roles, so
   this key doesn't exist. Local-only seeding path; harmless but dead config lookup.

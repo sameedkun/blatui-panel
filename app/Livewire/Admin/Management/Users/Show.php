@@ -5,6 +5,8 @@ namespace App\Livewire\Admin\Management\Users;
 use App\Enum\ActivityAction;
 use App\Enum\ActivityModule;
 use App\Enum\CancelledBy;
+use App\Enum\SubscriptionSource;
+use App\Exceptions\StoreManagedSubscriptionException;
 use App\Livewire\Admin\BaseShow;
 use App\Livewire\Admin\Concerns\HasActivityDetailModal;
 use App\Livewire\Admin\Concerns\HasShowTabs;
@@ -51,6 +53,9 @@ class Show extends BaseShow
     public ?int $assignPlanId = null;
 
     public ?int $assignPriceId = null;
+
+    /** Optional "why" for the grant, stored on the subscription as `grant_reason`. */
+    public string $assignReason = '';
 
     /** Shared reason field for the two cancel dialogs (only one is open at a time). */
     public string $cancelReason = '';
@@ -152,7 +157,7 @@ class Show extends BaseShow
     protected function subscriptionHistory(): LengthAwarePaginator
     {
         return $this->record->subscriptions()
-            ->with(['plan', 'planPrice'])
+            ->with(['plan', 'planPrice', 'transactions'])
             ->latest('starts_at')
             ->paginate(10, pageName: 'subs_page');
     }
@@ -308,13 +313,23 @@ class Show extends BaseShow
             ->all();
     }
 
-    public function openAssignPlanDialog(): void
+    public function openAssignPlanDialog(SubscriptionService $service): void
     {
         $this->authorize('users.manage');
 
         $current = $this->record->activeSubscription;
+
+        try {
+            $service->assertReplaceable($current);
+        } catch (StoreManagedSubscriptionException $e) {
+            $this->toastError(__('users.toasts.store_managed_subscription', ['provider' => $e->provider->label()]));
+
+            return;
+        }
+
         $this->assignPlanId = $current?->plan_id;
         $this->assignPriceId = $current?->plan_price_id;
+        $this->assignReason = '';
 
         $this->dispatch('open-dialog-assign-plan');
     }
@@ -336,17 +351,28 @@ class Show extends BaseShow
         $this->validate([
             'assignPlanId' => ['required', 'integer'],
             'assignPriceId' => ['required', 'integer'],
+            'assignReason' => ['nullable', 'string', 'max:255'],
         ]);
 
         $price = PlanPrice::findOrFail($this->assignPriceId);
         $user = $this->record;
 
-        $subscription = $user->activeSubscription
-            ? $service->upgrade($user, $price)
-            : $service->subscribe($user, $price);
+        // An admin assignment is a free grant — recorded with who gave it and why, never as a payment.
+        $grant = ['source' => SubscriptionSource::Admin, 'grantedBy' => auth()->user(), 'grantReason' => $this->assignReason];
+
+        try {
+            $subscription = $user->activeSubscription
+                ? $service->upgrade($user, $price, ...$grant)
+                : $service->subscribe($user, $price, ...$grant);
+        } catch (StoreManagedSubscriptionException $e) {
+            $this->toastError(__('users.toasts.store_managed_subscription', ['provider' => $e->provider->label()]));
+
+            return;
+        }
 
         $this->assignPlanId = null;
         $this->assignPriceId = null;
+        $this->assignReason = '';
 
         $this->toastSuccess(__('users.toasts.plan_assigned', ['name' => $user->name, 'plan' => $subscription->plan->name]));
     }

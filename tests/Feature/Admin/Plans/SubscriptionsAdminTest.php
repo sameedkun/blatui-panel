@@ -2,12 +2,13 @@
 
 namespace Tests\Feature\Admin\Plans;
 
-use App\Enum\ReceiptType;
+use App\Enum\TransactionType;
 use App\Livewire\Admin\Management\Subscriptions\Index;
 use App\Livewire\Admin\Management\Subscriptions\Show;
 use App\Models\Plan;
 use App\Models\PlanPrice;
 use App\Models\Subscription;
+use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Arr;
@@ -83,13 +84,13 @@ class SubscriptionsAdminTest extends TestCase
         $showResponse->assertSee(__('subscriptions.overview.lifecycle_billing'));
 
         Livewire::test(Show::class, ['subscription' => $subscription])
-            ->set('tab', 'receipts')
-            ->assertSee(__('subscriptions.receipts.title'))
+            ->set('tab', 'transactions')
+            ->assertSee(__('subscriptions.transactions.title'))
             ->set('tab', 'activity')
             ->assertSee(__('subscriptions.activity.title'));
     }
 
-    public function test_subscription_action_toast_and_receipt_type_use_the_active_locale(): void
+    public function test_subscription_action_toast_and_transaction_type_use_the_active_locale(): void
     {
         App::setLocale('tr');
         $this->actingAsSuperAdmin();
@@ -109,7 +110,7 @@ class SubscriptionsAdminTest extends TestCase
                 title: __('subscriptions.toasts.no_longer_active'),
             );
 
-        $this->assertSame(__('enums.receipt_type.Refund'), ReceiptType::Refund->label());
+        $this->assertSame(__('enums.transaction_type.Refund'), TransactionType::Refund->label());
     }
 
     // ── Index ──────────────────────────────────────────────────────────────
@@ -132,6 +133,18 @@ class SubscriptionsAdminTest extends TestCase
             ->set('search', 'Ada Lovelace')
             ->assertSee('Ada Lovelace')
             ->assertDontSee($other->user->name);
+    }
+
+    public function test_net_sales_stat_never_shows_zero_when_sales_exist_only_in_other_currencies(): void
+    {
+        $this->actingAsSuperAdmin();
+        $subscription = Subscription::factory()->create();
+        SubscriptionTransaction::factory()->for($subscription)->amount(899, 'EUR')->create();
+
+        $stat = collect(Livewire::test(Index::class)->viewData('stats'))->firstWhere('label', __('subscriptions.stats.revenue'));
+
+        $this->assertSame('—', $stat['value']);
+        $this->assertSame(__('subscriptions.stats.revenue_no_reporting', ['currency' => 'USD', 'amounts' => '€8.99']), $stat['description']);
     }
 
     public function test_index_filters_by_status(): void
